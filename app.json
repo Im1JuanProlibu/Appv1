@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "Fanalca Propuestas",
+    "slug": "fanalca-propuestas",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#07070f"
+      },
+      "package": "com.fanalca.propuestas"
+    },
+    "ios": {
+      "bundleIdentifier": "com.fanalca.propuestas"
+    },
+    "plugins": [
+      "expo-asset"
+    ]
+  }
+}
