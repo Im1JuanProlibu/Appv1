@@ -1,6 +1,6 @@
-# Fanalca App
+# Prolibu App
 
-Aplicación móvil Android para que los agentes de Fanalca gestionen propuestas comerciales a través de la plataforma **Prolibu**.
+Aplicación móvil Android/iOS para que los agentes gestionen propuestas comerciales a través de la plataforma **Prolibu**. Construida con React Native + Expo SDK 54.
 
 ---
 
@@ -15,11 +15,11 @@ Aplicación móvil Android para que los agentes de Fanalca gestionen propuestas 
 ## Instalación y ejecución
 
 ```bash
-cd fanalca-app
+cd Appv1
 npm install
 npm run android      # abre en emulador Android
 # o
-npm start            # abre el Metro Bundler (escanear QR con Expo Go)
+npm start            # Metro Bundler (escanear QR con Expo Go)
 ```
 
 ---
@@ -27,76 +27,114 @@ npm start            # abre el Metro Bundler (escanear QR con Expo Go)
 ## Estructura del proyecto
 
 ```
-fanalca-app/
-├── App.js                        # Punto de entrada — navegación (Stack)
+Appv1/
+├── App.js                          # Punto de entrada — navegación (Stack) + bootstrap de dominio/sesión
 ├── src/
-│   ├── api.js                    # Todas las llamadas a la API de Prolibu
-│   ├── theme.js                  # Paleta de colores global
+│   ├── api.js                      # Llamadas a la API de Prolibu (dominio dinámico)
+│   ├── theme.js                    # Paleta de colores (Prolibu Brand Book v7)
 │   └── screens/
-│       ├── LoginScreen.js        # Autenticación del agente
-│       ├── AgentsScreen.js       # Selección de agente (admin)
-│       ├── ProposalsScreen.js    # Lista de propuestas del agente
-│       ├── EditorScreen.js       # Editor de propuesta (productos + estado)
-│       └── CreateProposalScreen.js  # Crear nueva propuesta
+│       ├── DomainScreen.js         # Configuración inicial del dominio/cuenta
+│       ├── LoginScreen.js          # Autenticación del agente
+│       ├── AgentsScreen.js         # Selección de agente (solo si el login es admin)
+│       ├── ProposalsScreen.js      # Lista de propuestas del agente
+│       ├── EditorScreen.js         # Editor de propuesta (productos + estado)
+│       └── CreateProposalScreen.js # Crear nueva propuesta
 └── package.json
+```
+
+---
+
+## Flujo de arranque
+
+```
+Abrir app
+   │
+   ├─ ¿Hay dominio guardado?
+   │       NO → DomainScreen  (configura subdominio + plataforma)
+   │       SÍ → setApiDomain() → ¿Hay sesión guardada?
+   │                                   NO → LoginScreen
+   │                                   SÍ → ProposalsScreen
 ```
 
 ---
 
 ## Pantallas
 
+### DomainScreen
+- Se muestra **solo la primera vez** (o al hacer "Cambiar cuenta").
+- El usuario ingresa el subdominio de su cuenta (ej. `mi-empresa`) y selecciona la plataforma (`.prolibu.com` / `.nodriza.io`).
+- También acepta un dominio completo con punto (ej. `mi-empresa.prolibu.com`).
+- Vista previa en tiempo real de la URL resultante.
+- Guarda el dominio en AsyncStorage y llama a `setApiDomain()` para configurar todos los endpoints dinámicamente.
+
 ### LoginScreen
 - Formulario de usuario y contraseña.
-- Llama a `POST /v1/user/login` con `accessToken` fijo de plataforma.
-- Guarda el token JWT en AsyncStorage para persistir sesión.
+- Muestra el dominio activo en el footer.
+- Botón **"Cambiar cuenta"** que limpia dominio + sesión y vuelve a `DomainScreen`.
+- Llama a `POST /v1/user/login` con el `accessToken` fijo de plataforma.
+- Guarda el token JWT en AsyncStorage para persistir la sesión.
 
 ### AgentsScreen
 - Lista los agentes activos (`GET /v1/publicservices/getAgents?status=active&roles[]=agent`).
-- Al seleccionar un agente se navega a sus propuestas.
+- Al seleccionar un agente, navega a sus propuestas.
 
 ### ProposalsScreen
-- Lista las propuestas del agente (`GET /v1/proposal?createdBy={agentId}&limit=200`).
-- Agrupa por estado: **Borrador · Lista · Aprobada · Negada**.
-- Se recarga automáticamente al volver desde el editor (listener `focus`).
-- Pull-to-refresh disponible.
-- Botón **FAB (+)** en esquina inferior derecha para crear nueva propuesta.
+- Lista las propuestas del agente (`GET /v1/proposal?inCharge={agentId}&limit=200&populate=all`).
+- **Filtro por estado**: chips Todas / Borrador / Lista / Aprobada / Negada.
+- **Filtro por lead**: chip ◈ Lead que abre un picker con buscador y lista de leads únicos con conteo de propuestas.
+- **Ordenamiento**: por fecha o por valor de propuesta.
+- Pull-to-refresh y recarga automática al volver desde el editor.
+- FAB **(+)** para crear nueva propuesta.
+- **Modal de envío** por propuesta con selector de canal:
+  - **◉ WhatsApp** — abre la app con plantilla pre-redactada (URL personalizada o de visualización).
+  - **✉ Correo** — detecta el dominio del lead: Gmail → app Gmail nativa, Outlook/Hotmail/Live → app Outlook nativa, resto → `mailto:`. Incluye plantilla de asunto y cuerpo editable.
+  - **↑ Compartir** — hoja nativa de compartir del sistema operativo.
 
 ### CreateProposalScreen
-- Número de propuesta: se genera automáticamente (6 chars alfanumérico mayúsculas), editable.
+- Número de propuesta auto-generado (6 chars alfanumérico mayúsculas), editable.
 - Título de la propuesta.
-- **Búsqueda de lead por email**: llama a `/lead/exist` primero; si no parsea un lead con ID válido, hace fallback a `GET /v1/lead?email=xxx`.
-- Si el lead no existe: muestra formulario para crear uno nuevo (nombre + apellido).
-- Al confirmar: crea el lead si es necesario (`POST /v1/lead`), luego crea la propuesta (`POST /v1/proposal`) y navega directamente al editor.
+- **Búsqueda de lead por email**: llama a `/lead/exist`; si no resuelve un ID válido, hace fallback a `GET /v1/lead?email=xxx`.
+- Si el lead no existe: formulario para crear uno nuevo (nombre + apellido).
+- Al confirmar: crea el lead si es necesario (`POST /v1/lead`), crea la propuesta (`POST /v1/proposal`) y navega al editor.
+- Selector de moneda (`GET /v1/currency`).
+- Catálogo de productos desde la API (`GET /v1/product?disabled=false&limit=1000`).
 
 ### EditorScreen
-- Carga la propuesta completa (`GET /v1/proposal/{id}`).
-- **Estado**: selector de 4 estados (Borrador / Lista / Aprobada / Negada). Solo llama a la API si el estado cambió respecto al cargado.
-- **Productos**: lista editable con cantidad (stepper pill), descuento (modo % o valor $), subtotal por línea y total general con desglose (Subtotal / Descuento / Impuestos).
-- **Agregar producto**: desde el catálogo de la plataforma o creando uno personalizado (nombre + precio + cantidad). Los productos custom envían `name` y `price` al servidor.
-- **Guardar**: dos llamadas en secuencia:
-  1. `PUT /v1/proposal/{id}` — actualiza la lista de productos.
-  2. `PUT /v1/proposal/changeStatus` — cambia el estado (solo si cambió). Si la API rechaza el cambio de estado, los productos se guardan igual y se notifica al usuario.
-- **Pantalla de éxito**: muestra la URL de la propuesta con botones para abrir en el navegador y compartir.
+- Carga la propuesta completa (`GET /v1/proposal/{id}?populate=all`).
+- **Estado**: selector de 4 estados (Borrador / Lista / Aprobada / Negada).
+- **Productos**: lista editable con stepper de cantidad, descuento (% o $), subtotal por línea y total general (Subtotal / Descuento / Impuestos).
+- **Catálogo**: modal con buscador (sin auto-foco), conteo de productos cargados, y lista filtrable por nombre o SKU.
+- **Producto personalizado**: nombre + precio + cantidad.
+- **Guardar**:
+  1. `PUT /v1/proposal/{id}` — actualiza productos.
+  2. `PUT /v1/proposal/changeStatus` — cambia estado (solo si cambió).
+- **Pantalla de éxito**: URL de propuesta con botones para abrir en navegador y compartir.
 
 ---
 
 ## API (`src/api.js`)
 
+El dominio base es **dinámico** — se configura en `DomainScreen` y se aplica con `setApiDomain(domain)`.
+
+**Formato:** `https://{subdominio}.{plataforma}/v1`
+**Plataformas soportadas:** `.prolibu.com`, `.nodriza.io`
+
 | Función | Método | Endpoint |
 |---|---|---|
+| `setApiDomain(domain)` | — | Configura la BASE URL en runtime |
+| `getApiBase()` | — | Retorna la BASE URL activa |
 | `login(user, pass)` | POST | `/v1/user/login` |
 | `getAgents()` | GET | `/v1/publicservices/getAgents` |
 | `getProposals(agentId, token)` | GET | `/v1/proposal` |
 | `getProposal(id, token)` | GET | `/v1/proposal/{id}` |
 | `saveProposal(id, body, token)` | PUT | `/v1/proposal/{id}` |
 | `changeProposalStatus(id, status, token)` | PUT | `/v1/proposal/changeStatus` |
-| `getProducts(token)` | GET | `/v1/product?disabled=false` |
+| `getCurrencies(token)` | GET | `/v1/currency` |
+| `getProducts(token)` | GET | `/v1/product?disabled=false&limit=1000` |
 | `checkLeadByEmail(email, token)` | GET | `/v1/lead/exist?key=email&val={email}` |
 | `searchLeadByEmail(email, token)` | GET | `/v1/lead?email={email}` |
 | `createLead(data, token)` | POST | `/v1/lead` |
 | `createProposal(data, token)` | POST | `/v1/proposal` |
-
-**Dominio:** `customer-design.prolibu.com`
 
 ---
 
@@ -104,25 +142,42 @@ fanalca-app/
 
 | API value | Etiqueta | Color |
 |---|---|---|
-| `Draft` | Borrador | Amarillo |
-| `Ready` | Lista | Verde |
-| `Approved` | Aprobada | Azul |
-| `Denied` | Negada | Rojo |
+| `Draft` | Borrador | Amarillo Canario |
+| `Ready` | Lista | Verde Amazonia |
+| `Approved` | Aprobada | Azul Barú |
+| `Denied` | Negada | Rojo Crayola |
+
+---
+
+## Identidad visual (Prolibu Brand Book v7)
+
+| Token | Hex | Uso |
+|---|---|---|
+| `accent` / Azul Barú | `#4285F4` | Acción principal, botones, links |
+| `draft` / Amarillo Canario | `#FDBD00` | Estado Borrador |
+| `success` / `ready` / Verde Amazonia | `#39B54A` | Estado Lista, éxito |
+| `error` / `denied` / Rojo Crayola | `#D4145A` | Estado Negada, errores |
+| `bg` | `#FFFFFF` | Fondo general |
+| `card` | `#F5F5F5` | Tarjetas y paneles |
+| `text` | `#111111` | Texto principal |
+| `textMuted` | `#666666` | Texto secundario |
+| `border` | `#E5E5E5` | Bordes |
+
+Logo: `OII>` — O en Azul Barú · II en Amarillo Canario · > en Rojo Crayola.
 
 ---
 
 ## Notas técnicas
 
-- **Identificador de producto en catálogo:** se usa el campo `sku` (no el `_id` de MongoDB). Si no hay SKU se cae a `id`/`_id`.
-- **Productos personalizados:** generan un ID efímero `custom-{timestamp}-{random}`. Al guardar se envían `name` y `price` para que Prolibu los registre correctamente.
-- **Descuento:** admite modo porcentaje (`discountRate` 0–100) o valor absoluto (se convierte internamente a tasa). El campo enviado a la API es siempre `discountRate`.
-- **Moneda:** `proposal.currency` es un objeto `{code, name, format, id}`. Se usa `currency.code` para mostrar (ej: `COP`).
-- **IVA/Impuestos:** `p.product.tax` = monto en $ (no porcentaje). `p.product.taxRate` = porcentaje para recalcular cuando el usuario edita.
-- **Subtotal del servidor:** `p.subtotal` es el valor pre-calculado por Prolibu. Se usa mientras el usuario no edita cantidad/descuento (`_edited: false`). Al editar se recalcula localmente.
-- **Cambio de estado:** solo se llama a `PUT /v1/proposal/changeStatus` si el estado difiere del cargado originalmente. Si la API rechaza la transición, los productos se guardan igual.
-- **Búsqueda de lead:** doble estrategia — `/lead/exist` (rápido) con fallback a `GET /v1/lead?email=xxx` para encontrar leads recién creados.
-- **URL de propuesta:** `https://customer-design.prolibu.com/v1/document/proposal/{mongoId}/full?source=none&rand={random}`
-- **Stale closure en focus listener:** `ProposalsScreen` usa `useRef` para capturar `auth` y `userId` sin valores obsoletos en el closure del listener.
+- **Dominio dinámico:** `api.js` usa una variable `let BASE` mutable. `setApiDomain()` la actualiza; todas las funciones usan el mismo módulo, por lo que el cambio es global e inmediato.
+- **Respuesta de productos:** la API puede devolver el array directo o dentro de `docs`/`data`/`records`. El código prueba todos: `Array.isArray(res) ? res : (res.docs || res.data || res.records || [])`.
+- **Email inteligente:** detecta el dominio del correo del lead para abrir Gmail (`googlegmail://`), Outlook (`ms-outlook://`) o `mailto:` como fallback.
+- **Filtro de lead:** extrae leads únicos de las propuestas cargadas (no llama a una API adicional).
+- **IVA/Impuestos:** `p.product.tax` = monto en $ · `p.product.taxRate` = porcentaje para recalcular al editar.
+- **Descuento:** admite modo porcentaje (`discountRate`) o valor absoluto (se convierte a tasa). La API siempre recibe `discountRate`.
+- **URL de propuesta:** `https://{dominio}/v1/document/proposal/{mongoId}/full?source=none&rand={random}`
+- **Stale closure en focus listener:** `ProposalsScreen` usa `useRef` para capturar `auth` y `userId` sin valores obsoletos.
+- **Cambio de estado:** solo llama a `changeStatus` si el estado difiere del cargado originalmente.
 
 ---
 
@@ -132,6 +187,6 @@ fanalca-app/
 |---|---|---|
 | expo | ~54.0.0 | Runtime base |
 | react-native | 0.81.5 | UI nativa |
-| @react-navigation/native-stack | ^6.11.0 | Navegación entre pantallas |
+| @react-navigation/native-stack | ^6.11.0 | Navegación |
 | @react-native-async-storage/async-storage | 2.2.0 | Persistencia local |
-| react-native-safe-area-context | ~5.6.0 | Áreas seguras en Android |
+| react-native-safe-area-context | ~5.6.0 | Áreas seguras |

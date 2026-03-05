@@ -5,12 +5,14 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import DomainScreen from './src/screens/DomainScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import AgentsScreen from './src/screens/AgentsScreen';
 import ProposalsScreen from './src/screens/ProposalsScreen';
 import EditorScreen from './src/screens/EditorScreen';
 import CreateProposalScreen from './src/screens/CreateProposalScreen';
 import { COLORS } from './src/theme';
+import { setApiDomain } from './src/api';
 
 const Stack = createNativeStackNavigator();
 
@@ -18,9 +20,17 @@ export default function App() {
   const [initialRoute, setInitialRoute] = useState(null);
 
   useEffect(() => {
-    AsyncStorage.getItem('auth').then((val) => {
-      setInitialRoute(val ? 'Proposals' : 'Login');
-    });
+    async function bootstrap() {
+      const domain = await AsyncStorage.getItem('domain');
+      if (!domain) {
+        setInitialRoute('Domain');
+        return;
+      }
+      setApiDomain(domain);
+      const auth = await AsyncStorage.getItem('auth');
+      setInitialRoute(auth ? 'Proposals' : 'Login');
+    }
+    bootstrap();
   }, []);
 
   if (!initialRoute) {
@@ -38,6 +48,7 @@ export default function App() {
           initialRouteName={initialRoute}
           screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
         >
+          <Stack.Screen name="Domain" component={DomainScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Agents" component={AgentsScreen} />
           <Stack.Screen name="Proposals" component={ProposalsScreen} />

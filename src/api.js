@@ -1,5 +1,13 @@
-const DOMAIN = 'customer-design.prolibu.com';
-const BASE = `https://${DOMAIN}/v1`;
+// BASE is set at runtime via setApiDomain() — default kept for safety
+let BASE = 'https://customer-design.prolibu.com/v1';
+
+/** Call this once on app start with the stored domain (e.g. "customer-design.prolibu.com") */
+export function setApiDomain(domain) {
+  const clean = domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '').replace(/\/v1$/i, '');
+  BASE = `https://${clean}/v1`;
+}
+
+export function getApiBase() { return BASE; }
 
 // Token fijo de la plataforma (va en el body del login)
 const ACCESS_TOKEN = '56a69869-bf0a-4650-98e9-fcd9680b31d5';
@@ -21,12 +29,25 @@ async function request(path, options = {}) {
 
 // POST /v1/user/login
 // La API espera: username + password + accessToken (token fijo de la plataforma)
-export function login(username, password) {
-  return request('/user/login', {
+// Retorna el body JSON + _token (del header Authorization si no viene en el body)
+export async function login(username, password) {
+  const res = await fetch(`${BASE}/user/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'accept': 'application/json' },
-    body: JSON.stringify({ username, password, accessToken: ACCESS_TOKEN }),
+    headers: {
+      'Content-Type': 'application/json',
+      'accept': 'application/json',
+      'Authorization': `Bearer ${ACCESS_TOKEN}`,
+    },
+    body: JSON.stringify({ username, password }),
   });
+  const text = await res.text();
+  let json;
+  try { json = JSON.parse(text); } catch { throw new Error(`Respuesta no válida (HTTP ${res.status})`); }
+  if (!res.ok) throw new Error(json?.message || json?.error || `HTTP ${res.status}`);
+
+  // La API usa el accessToken fijo para todas las llamadas — se retorna como _token
+  const headerToken = (res.headers.get('authorization') || res.headers.get('token') || '').replace(/^Bearer\s+/i, '');
+  return { ...json, _headerToken: headerToken, _accessToken: ACCESS_TOKEN };
 }
 
 // GET /v1/publicservices/getAgents
@@ -38,9 +59,15 @@ export function getAgents() {
   return request(`/publicservices/getAgents?${params}`);
 }
 
-// GET /v1/proposal?createdBy={agentId}&limit=200
+// GET /v1/proposal?inCharge={agentId}&sort=updatedAt DESC&populate=all
 export function getProposals(agentId, token) {
-  const params = new URLSearchParams({ createdBy: agentId, limit: '200' });
+  const params = new URLSearchParams({
+    inCharge: agentId,
+    page: '1',
+    limit: '200',
+    sort: 'updatedAt DESC',
+    populate: 'all',
+  });
   return request(`/proposal?${params}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -48,7 +75,7 @@ export function getProposals(agentId, token) {
 
 // GET /v1/proposal/{id}
 export function getProposal(id, token) {
-  return request(`/proposal/${id}`, {
+  return request(`/proposal/${id}?populate=all`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
@@ -78,9 +105,16 @@ export function changeProposalStatus(id, status, token) {
   });
 }
 
-// GET /v1/product?disabled=false
+// GET /v1/currency
+export function getCurrencies(token) {
+  return request('/currency', {
+    headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
+  });
+}
+
+// GET /v1/product?disabled=false&limit=1000
 export function getProducts(token) {
-  return request(`/product?disabled=false`, {
+  return request(`/product?disabled=false&limit=1000`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 }

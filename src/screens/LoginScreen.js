@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../theme';
-import { login } from '../api';
+import { login, getApiBase } from '../api';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -32,12 +32,11 @@ export default function LoginScreen({ navigation }) {
       const res = await login(email.trim(), password);
       const data = res.data || res;
 
-      // El token puede ser string o { accessToken, expirationDate }
+      // El token viene en data.token.accessToken (objeto con accessToken + expirationDate)
       const token =
         (typeof data.token === 'object' ? data.token?.accessToken : data.token) ||
         data.accessToken ||
-        data.access_token ||
-        data.jwt ||
+        res._accessToken ||
         '';
 
       // El ID del usuario está en la raíz de la respuesta
@@ -75,7 +74,7 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
       <KeyboardAvoidingView
         style={styles.kav}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -83,10 +82,13 @@ export default function LoginScreen({ navigation }) {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* Logo */}
           <View style={styles.logoContainer}>
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoLetter}>F</Text>
+            {/* Logo mark OII> con colores de marca */}
+            <View style={styles.logoMark}>
+              <Text style={styles.logoO}>O</Text>
+              <Text style={styles.logoII}>II</Text>
+              <Text style={styles.logoArrow}>{'>'}</Text>
             </View>
-            <Text style={styles.logoText}>FANALCA</Text>
+            <Text style={styles.logoText}>PROLIBU</Text>
             <Text style={styles.logoSub}>Portal de Propuestas</Text>
           </View>
 
@@ -97,7 +99,7 @@ export default function LoginScreen({ navigation }) {
             <Text style={styles.label}>Usuario</Text>
             <TextInput
               style={styles.input}
-              placeholder="usuario@fanalca.com"
+              placeholder="usuario@prolibu.com"
               placeholderTextColor={COLORS.textMuted}
               value={email}
               onChangeText={setEmail}
@@ -133,7 +135,19 @@ export default function LoginScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.footer}>Prolibu · customer-design</Text>
+          <View style={styles.footerRow}>
+            <Text style={styles.footer}>
+              {getApiBase().replace('https://', '').replace('/v1', '')}
+            </Text>
+            <TouchableOpacity
+              onPress={async () => {
+                await AsyncStorage.multiRemove(['domain', 'auth']);
+                navigation.replace('Domain');
+              }}
+            >
+              <Text style={styles.footerLink}>Cambiar cuenta</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -152,23 +166,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 32,
   },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: COLORS.accent,
-    justifyContent: 'center',
+  logoMark: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  logoLetter: { color: '#fff', fontSize: 36, fontWeight: '900' },
+  logoO: {
+    fontSize: 48,
+    fontWeight: '900',
+    color: '#4285F4',   // Blue Baru
+    lineHeight: 54,
+  },
+  logoII: {
+    fontSize: 40,
+    fontWeight: '900',
+    color: '#FDBD00',   // Yellow Canario
+    lineHeight: 54,
+    marginHorizontal: 2,
+  },
+  logoArrow: {
+    fontSize: 42,
+    fontWeight: '900',
+    color: '#D4145A',   // Red Crayola
+    lineHeight: 54,
+  },
   logoText: {
-    color: COLORS.accent,
-    fontSize: 26,
+    color: COLORS.text,
+    fontSize: 22,
     fontWeight: '800',
-    letterSpacing: 5,
+    letterSpacing: 8,
   },
-  logoSub: { color: COLORS.textMuted, fontSize: 13, marginTop: 4 },
+  logoSub: { color: COLORS.textMuted, fontSize: 12, marginTop: 6, letterSpacing: 1 },
   card: {
     backgroundColor: COLORS.card,
     borderRadius: 16,
@@ -209,10 +237,20 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.6 },
   btnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  footerRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 28,
+    gap: 12,
+  },
   footer: {
     color: COLORS.textMuted,
     fontSize: 11,
-    textAlign: 'center',
-    marginTop: 28,
+  },
+  footerLink: {
+    color: COLORS.accent,
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

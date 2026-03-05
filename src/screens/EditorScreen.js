@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
-import { getProposal, saveProposal, changeProposalStatus, getProducts } from '../api';
+import { getProposal, saveProposal, changeProposalStatus, getProducts, getCurrencies } from '../api';
 
 const STATUSES = ['Draft', 'Ready', 'Approved', 'Denied'];
 const STATUS_LABEL = { Draft: 'Borrador', Ready: 'Lista', Approved: 'Aprobada', Denied: 'Negada' };
@@ -87,7 +87,7 @@ function SuccessScreen({ propUrl, proposal, status, onBack }) {
 
         <TouchableOpacity
           style={styles.shareBtn}
-          onPress={() => Share.share({ message: propUrl, url: propUrl, title: 'Propuesta Fanalca' })}
+          onPress={() => Share.share({ message: propUrl, url: propUrl, title: 'Propuesta Prolibu V1' })}
           activeOpacity={0.8}
         >
           <Text style={styles.shareBtnText}>Compartir enlace</Text>
@@ -114,6 +114,8 @@ export default function EditorScreen({ navigation, route }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [propUrl, setPropUrl] = useState('');
+  const [currency, setCurrency] = useState('COP');
+  const [currencies, setCurrencies] = useState([]);
 
   // Catalog modal state
   const [showCatalog, setShowCatalog] = useState(false);
@@ -128,7 +130,7 @@ export default function EditorScreen({ navigation, route }) {
   const [createQty, setCreateQty] = useState('1');
 
   useEffect(() => {
-    Promise.all([loadProposal(), loadCatalog()]).finally(() =>
+    Promise.all([loadProposal(), loadCatalog(), loadCurrencies()]).finally(() =>
       setLoading(false)
     );
   }, []);
@@ -144,13 +146,26 @@ export default function EditorScreen({ navigation, route }) {
     setOriginalStatus(s);
     const prods = parseProducts(data.products);
     setProducts(prods);
+    const currObj = data.currency;
+    const cur = (currObj && typeof currObj === 'object' ? currObj.code : currObj) || 'COP';
+    setCurrency(cur);
+  }
+
+  async function loadCurrencies() {
+    try {
+      const res = await getCurrencies(auth.token);
+      const raw = Array.isArray(res) ? res : (res.data || res.docs || res.records || []);
+      const list = Array.isArray(raw) ? raw.filter((c) => c && c.code) : [];
+      if (list.length > 0) setCurrencies(list);
+    } catch {}
   }
 
   async function loadCatalog() {
     try {
       const res = await getProducts(auth.token);
-      const raw = res.data || res || [];
-      setCatalog(Array.isArray(raw) ? raw : []);
+      const raw = Array.isArray(res) ? res : (res.docs || res.data || res.records || []);
+      const all = Array.isArray(raw) ? raw : [];
+      setCatalog(all.filter((p) => !p.disabled));
     } catch {
       // Catalog is optional — editor still works without it
     }
@@ -228,7 +243,7 @@ export default function EditorScreen({ navigation, route }) {
       }
       return [
         ...prev,
-        { id: itemId, name: selectedItem.name, quantity: qty },
+        { id: itemId, name: selectedItem.name, quantity: qty, product: selectedItem },
       ];
     });
     setSelectedItem(null);
@@ -260,9 +275,9 @@ export default function EditorScreen({ navigation, route }) {
       // 1. Guardar productos
       let productsRes;
       try {
-        productsRes = await saveProposal(proposalId, { products: productList }, auth.token);
+        productsRes = await saveProposal(proposalId, { products: productList, currency }, auth.token);
       } catch {
-        productsRes = await saveProposal(proposalId, { products: JSON.stringify(productList) }, auth.token);
+        productsRes = await saveProposal(proposalId, { products: JSON.stringify(productList), currency }, auth.token);
       }
       console.log('PUT productos OK:', JSON.stringify(productsRes));
 
@@ -299,38 +314,22 @@ export default function EditorScreen({ navigation, route }) {
     (p.sku || '').toLowerCase().includes(catalogSearch.toLowerCase())
   );
 
-  // Moneda: proposal.currency es un objeto {code, name, format, ...} o a veces string
-  const currencyObj = proposal?.currency;
-  const currency =
-    (currencyObj && typeof currencyObj === 'object' ? currencyObj.code : currencyObj) ||
-    products.find((p) => p.product?.currency)?.product?.currency ||
-    '';
-
-  // Resumen con desglose: subtotal bruto, descuento, impuestos, total
-  // p.product.discount = monto descuento en $ (del servidor)
-  // p.product.tax     = monto impuesto en $ (del servidor) — distinto a taxRate que es el %
+  // Resumen con desglose: subtotal bruto, descuento, IVA, total
+  // p.product.tax puede ser string "19" (tasa %) o number (monto $) — siempre tratamos como tasa
   const summary = products.reduce(
     (acc, p) => {
       const price = p.product?.price ?? p.price ?? 0;
       const qty = p.quantity || 1;
+      const taxRate = parseFloat(p.product?.taxRate ?? p.product?.tax ?? p.taxRate ?? 0);
       const lineGross = price * qty;
-      let discountAmt, taxAmt, lineTotal;
-      if (!p._edited) {
-        discountAmt = p.product?.discount ?? (lineGross * (p.discountRate || 0)) / 100;
-        taxAmt = p.product?.tax ?? 0; // monto en $, no porcentaje
-        lineTotal = p.subtotal ?? lineGross - discountAmt + taxAmt;
-      } else {
-        const taxRate = p.product?.taxRate ?? p.taxRate ?? 0;
-        discountAmt = (lineGross * (p.discountRate || 0)) / 100;
-        const lineNet = lineGross - discountAmt;
-        taxAmt = (lineNet * taxRate) / 100;
-        lineTotal = lineNet + taxAmt;
-      }
+      const discountAmt = (lineGross * (p.discountRate || 0)) / 100;
+      const lineNet = lineGross - discountAmt;
+      const taxAmt = (lineNet * taxRate) / 100;
       return {
         subtotal: acc.subtotal + lineGross,
         discount: acc.discount + discountAmt,
         tax: acc.tax + taxAmt,
-        total: acc.total + lineTotal,
+        total: acc.total + lineNet + taxAmt,
       };
     },
     { subtotal: 0, discount: 0, tax: 0, total: 0 }
@@ -360,7 +359,7 @@ export default function EditorScreen({ navigation, route }) {
   // ── Editor ─────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
       <Header
         title={proposalTitle}
         number={proposalNumber}
@@ -391,6 +390,21 @@ export default function EditorScreen({ navigation, route }) {
           })}
         </View>
 
+        {/* ── Moneda ── */}
+        <Text style={styles.sectionLabel}>Moneda</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.currencyRow}>
+          {(currencies.length > 0 ? currencies : [{ code: 'COP' }, { code: 'USD' }, { code: 'EUR' }]).map((c) => (
+            <TouchableOpacity
+              key={c.code}
+              style={[styles.currencyBtn, currency === c.code && styles.currencyBtnActive]}
+              onPress={() => setCurrency(c.code)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.currencyBtnText, currency === c.code && styles.currencyBtnTextActive]}>{c.code}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
         {/* ── Products ── */}
         <View style={styles.sectionRow}>
           <Text style={styles.sectionLabel}>Productos</Text>
@@ -403,11 +417,12 @@ export default function EditorScreen({ navigation, route }) {
 
         {products.map((p, i) => {
           const productName = p.product?.name || p.name || p.id || p._id;
+          const productSku = p.product?.sku || p.sku || p.id;
           const price = p.product?.price ?? p.price ?? null;
           const discount = p.discountRate || 0;
           const discountMode = p._discountMode || 'percent';
           const qty = p.quantity || 1;
-          const taxRate = p.product?.taxRate ?? p.taxRate ?? 0; // % (no p.product.tax que puede ser monto $)
+          const taxRate = parseFloat(p.product?.taxRate ?? p.product?.tax ?? p.taxRate ?? 0);
           const discountDisplayVal = discountMode === 'value'
             ? (p._discountValue != null ? String(p._discountValue) : '')
             : (discount > 0 ? String(discount) : '');
@@ -415,15 +430,14 @@ export default function EditorScreen({ navigation, route }) {
           const discountAmt = lineGross !== null ? (lineGross * discount) / 100 : null;
           const lineNet = lineGross !== null ? lineGross - (discountAmt || 0) : null;
           const taxAmt = lineNet !== null && taxRate > 0 ? (lineNet * taxRate) / 100 : null;
-          // Preferir subtotal del servidor si no hubo ediciones locales
-          const subtotal = p._edited
-            ? (lineNet !== null ? lineNet + (taxAmt || 0) : null)
-            : (p.subtotal ?? p.product?.total ?? (lineNet !== null ? lineNet + (taxAmt || 0) : null));
-          const prodCurrency = p.product?.currency || currency;
+          const subtotal = lineNet !== null ? lineNet + (taxAmt || 0) : null;
           return (
             <View key={i} style={styles.productCard}>
               <View style={styles.productHeader}>
-                <Text style={styles.productName} numberOfLines={2}>{productName}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.productName} numberOfLines={2}>{productName}</Text>
+                  {productSku ? <Text style={styles.productSku} numberOfLines={1}>SKU: {productSku}</Text> : null}
+                </View>
                 <TouchableOpacity style={styles.removeBtn} onPress={() => removeProduct(i)}>
                   <Text style={styles.removeBtnText}>✕</Text>
                 </TouchableOpacity>
@@ -431,7 +445,7 @@ export default function EditorScreen({ navigation, route }) {
 
               {price !== null && (
                 <Text style={styles.productPrice}>
-                  $ {price.toLocaleString('es-CO')} c/u{prodCurrency ? ` · ${prodCurrency}` : ''}{taxRate > 0 ? `  ·  IVA ${taxRate}%` : ''}
+                  $ {price.toLocaleString('es-CO')} c/u{currency ? ` · ${currency}` : ''}{taxRate > 0 ? `  ·  IVA ${taxRate}%` : ''}
                 </Text>
               )}
 
@@ -635,6 +649,7 @@ export default function EditorScreen({ navigation, route }) {
           {/* Modal header */}
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Catálogo de productos</Text>
+            <Text style={styles.modalProductCount}>{catalog.length} productos</Text>
             <TouchableOpacity onPress={() => setShowCatalog(false)} style={styles.modalCloseBtn}>
               <Text style={styles.modalCloseText}>✕</Text>
             </TouchableOpacity>
@@ -647,7 +662,6 @@ export default function EditorScreen({ navigation, route }) {
             placeholderTextColor={COLORS.textMuted}
             value={catalogSearch}
             onChangeText={setCatalogSearch}
-            autoFocus
           />
 
           {/* Catalog list */}
@@ -775,6 +789,17 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
 
+  // Currency
+  currencyRow: { flexDirection: 'row', gap: 8 },
+  currencyBtn: {
+    paddingHorizontal: 20, paddingVertical: 12,
+    borderRadius: 10, backgroundColor: COLORS.card,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  currencyBtnActive: { borderColor: COLORS.accent, backgroundColor: COLORS.accent + '20' },
+  currencyBtnText: { color: COLORS.textMuted, fontWeight: '700', fontSize: 14 },
+  currencyBtnTextActive: { color: COLORS.accent },
+
   // Status
   statusRow: { flexDirection: 'row', gap: 8 },
   statusBtn: {
@@ -818,6 +843,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   productName: { color: COLORS.text, fontWeight: '600', fontSize: 14, flex: 1 },
+  productSku: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
   productPrice: { color: COLORS.textMuted, fontSize: 12, marginBottom: 10 },
   productRow: {
     flexDirection: 'row',
@@ -1087,7 +1113,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
-  modalTitle: { color: COLORS.text, fontSize: 18, fontWeight: '700' },
+  modalTitle: { color: COLORS.text, fontSize: 18, fontWeight: '700', flex: 1 },
+  modalProductCount: { color: COLORS.textMuted, fontSize: 13, marginRight: 8, alignSelf: 'center' },
   modalCloseBtn: {
     width: 34,
     height: 34,
