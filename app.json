@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Fanalca Propuestas",
-    "slug": "fanalca-propuestas",
+    "name": "Prolibu V1",
+    "slug": "prolibu-v1",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -9,10 +9,10 @@
       "adaptiveIcon": {
         "backgroundColor": "#07070f"
       },
-      "package": "com.fanalca.propuestas"
+      "package": "com.prolibu.v1"
     },
     "ios": {
-      "bundleIdentifier": "com.fanalca.propuestas"
+      "bundleIdentifier": "com.prolibu.v1"
     },
     "plugins": [
       "expo-asset"
