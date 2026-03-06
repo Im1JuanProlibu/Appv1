@@ -1,44 +1,45 @@
-# Prolibu V1
+# Prolibu V1 — Fanalca App
 
-Aplicacion movil Android/iOS para que los agentes de Fanalca gestionen propuestas comerciales a traves de la plataforma **Prolibu**. Construida con React Native + Expo SDK 54.
+Aplicación móvil Android/iOS para que los agentes de Fanalca gestionen propuestas comerciales a través de la plataforma **Prolibu**. Construida con React Native + Expo SDK 54.
 
 ---
 
 ## Requisitos
 
 - Node.js >= 18
-- [Expo CLI](https://docs.expo.dev/get-started/installation/) (`npm install -g expo-cli`)
-- Android Studio + emulador, o dispositivo fisico con **Expo Go**
+- Expo CLI: `npm install -g expo-cli`
+- Dispositivo físico con **Expo Go** o emulador Android/iOS
 
 ---
 
-## Instalacion y ejecucion
+## Instalación y ejecución
 
 ```bash
-cd Appv1
 npm install
-npm run android      # abre en emulador Android
-# o
-npm start            # Metro Bundler (escanear QR con Expo Go)
+npx expo start          # Metro Bundler — escanear QR con Expo Go
+npx expo start --tunnel # Si no estás en la misma red local
 ```
+
+> **Nota Android (Expo Go):** Los banners de notificación del OS no funcionan en Expo Go SDK 53+ en Android (limitación de Expo). Todo lo demás funciona. Para banners en Android se necesita un development build (ver sección Build).
 
 ---
 
 ## Estructura del proyecto
 
 ```
-Appv1/
-├── App.js                          # Punto de entrada — navegacion (Stack) + bootstrap de dominio/sesion
-├── app.json                        # Config Expo (nombre: Prolibu V1, slug: prolibu-v1)
-├── eas.json                        # Config EAS Build (preview APK / production AAB)
+fanalca-app/
+├── App.js                          # Punto de entrada — navegación (Stack) + bootstrap dominio/sesión
+├── app.json                        # Config Expo (nombre, bundle ID, plugin expo-notifications)
+├── eas.json                        # Config EAS Build (development / preview / production)
 ├── src/
-│   ├── api.js                      # Llamadas a la API de Prolibu (dominio dinamico)
+│   ├── api.js                      # Todas las llamadas a la API de Prolibu (dominio dinámico)
 │   ├── theme.js                    # Paleta de colores (Prolibu Brand Book v7)
+│   ├── useNotifications.js         # Hook: Socket.IO en tiempo real + banners iOS
 │   └── screens/
-│       ├── DomainScreen.js         # Configuracion inicial del dominio/cuenta
-│       ├── LoginScreen.js          # Autenticacion del agente
-│       ├── AgentsScreen.js         # Seleccion de agente (pantalla auxiliar)
-│       ├── ProposalsScreen.js      # Lista de propuestas del agente
+│       ├── DomainScreen.js         # Configuración inicial del dominio/cuenta
+│       ├── LoginScreen.js          # Autenticación del agente
+│       ├── AgentsScreen.js         # Selección de agente
+│       ├── ProposalsScreen.js      # Lista de propuestas — pantalla principal
 │       ├── EditorScreen.js         # Editor de propuesta (productos + estado)
 │       └── CreateProposalScreen.js # Crear nueva propuesta
 └── package.json
@@ -51,11 +52,11 @@ Appv1/
 ```
 Abrir app
    |
-   +-- Hay dominio guardado?
-   |       NO -> DomainScreen  (configura subdominio + plataforma)
-   |       SI -> setApiDomain() -> Hay sesion guardada?
-   |                                   NO -> LoginScreen
-   |                                   SI -> ProposalsScreen
+   +-- ¿Hay dominio guardado?
+   |       NO → DomainScreen  (configura subdominio + plataforma)
+   |       SI → setApiDomain() → ¿Hay sesión guardada?
+   |                                  NO → LoginScreen
+   |                                  SI → ProposalsScreen
 ```
 
 ---
@@ -63,85 +64,159 @@ Abrir app
 ## Pantallas
 
 ### DomainScreen
-- Se muestra **solo la primera vez** (o al hacer "Cambiar cuenta").
-- El usuario ingresa el subdominio de su cuenta (ej. `mi-empresa`) y selecciona la plataforma (`.prolibu.com` / `.nodriza.io`).
-- Tambien acepta un dominio completo con punto (ej. `mi-empresa.prolibu.com`).
+- Primera vez (o al cambiar cuenta).
+- Ingresa subdominio (ej. `fanalca`) y plataforma (`.prolibu.com` / `.nodriza.io`).
+- También acepta dominio completo con punto (ej. `fanalca.prolibu.com`).
 - Vista previa en tiempo real de la URL resultante.
-- Guarda el dominio en AsyncStorage y llama a `setApiDomain()` para configurar todos los endpoints dinamicamente.
+- Guarda en AsyncStorage y llama `setApiDomain()`.
 
 ### LoginScreen
-- Formulario de usuario y contrasena.
-- Muestra el dominio activo en el footer.
-- Boton **"Cambiar cuenta"** que limpia dominio + sesion y vuelve a `DomainScreen`.
-- Llama a `POST /v1/user/login` con el `accessToken` fijo de plataforma.
-- Guarda el token JWT en AsyncStorage para persistir la sesion.
+- Formulario usuario + contraseña.
+- Muestra dominio activo en el footer.
+- Botón **Cambiar cuenta** → limpia dominio + sesión → vuelve a DomainScreen.
+- `POST /v1/user/login` con `accessToken` fijo de plataforma.
+- Guarda JWT en AsyncStorage.
 
 ### AgentsScreen
-- Lista los agentes activos (`GET /v1/publicservices/getAgents?status=active&roles[]=agent`).
-- Al seleccionar un agente, navega a sus propuestas.
+- Lista agentes activos (`GET /v1/publicservices/getAgents?status=active&roles[]=agent`).
+- Al seleccionar un agente navega a sus propuestas.
 
-### ProposalsScreen
-- Lista las propuestas del agente (`GET /v1/proposal?inCharge={agentId}&limit=200&populate=all`).
-- **Filtro por estado**: chips Todas / Borrador / Lista / Aprobada / Negada con contador por estado.
-- **Filtro por lead**: chip que abre un picker con buscador y lista de leads unicos con conteo de propuestas.
-- **Ordenamiento**: Recientes / Antiguas / Creacion / A-Z.
-- Pull-to-refresh y recarga automatica al volver desde el editor.
-- FAB **(+)** para crear nueva propuesta.
-- Cada tarjeta muestra: titulo, estado, numero, fecha, moneda, temperatura (Caliente/Tibia/Fria), contador de vistas (si la API lo retorna).
-- Boton de llamada directa al lead (si tiene telefono registrado).
-- **Modal de envio** por propuesta con selector de canal:
-  - **WhatsApp** — abre la app con plantilla pre-redactada y numero del lead pre-cargado.
-  - **Correo** — detecta el dominio del lead: Gmail -> app Gmail nativa, Outlook/Hotmail/Live -> app Outlook nativa, resto -> `mailto:`. Incluye plantilla de asunto y cuerpo editable.
-  - **Compartir** — hoja nativa de compartir del sistema operativo.
-- Selector de tipo de URL: Cliente (contabiliza vistas) o Anonima (sin seguimiento).
+### ProposalsScreen _(pantalla principal)_
+
+**Listado:**
+- `GET /v1/proposal?inCharge={agentId}&limit=200&populate=all` con throttle de 20 s (evita saturar el backend).
+- Pull-to-refresh (siempre forzado). Recarga al volver desde el editor.
+- Secciones por estado: Lista / Borrador / Aprobada / Negada.
+
+**Filtros y ordenamiento:**
+- Chips de estado con contador por estado.
+- Filtro por lead (picker con buscador, extraído de propuestas cargadas sin llamada extra al API).
+- Filtro por actividad, temperatura (Caliente/Tibia/Fría), vistas, rango de fechas (hoy / semana / mes / 3 meses / personalizado).
+- Ordenamiento: Recientes / Antiguas / Creación / A-Z.
+
+**Tarjeta de propuesta:**
+- Título, estado (con color), número, fecha, moneda/monto, temperatura, contador de vistas.
+- Botón de llamada directa al lead.
+- Botón **Enviar ↗** → modal de envío.
+
+**Botones de seguimiento (urgencia):**
+- 🔥 **Seguimiento urgente →** — aparece si la propuesta fue vista hace menos de 1 hora.
+- 📞 **Sin vistas — Contactar →** — aparece si nunca fue vista y tiene más de 1 semana de creada.
+- Ambos abren un drawer con WhatsApp y llamada directa.
+
+**Modal de envío:**
+- Canales: **WhatsApp**, **Correo**, **Compartir**.
+- Tipo de URL:
+  - **URL Cliente** — solo disponible para propuestas en estado `Lista`. Genera URL corta `/r/{uuid}` vía `POST /v1/urlShort/generate` con `?source=email@cliente.com`. Contabiliza vistas y dispara notificaciones socket al agente.
+  - **URL Anónima** — disponible para todos los estados. URL larga con `?source=none&rand=N`. Sin seguimiento.
+- La URL (corta o anónima) se inserta directamente en el cuerpo del mensaje — editable antes de enviar.
+- Al cambiar de tipo de URL, el mensaje se actualiza automáticamente.
+
+**WhatsApp:**
+- Abre la app con plantilla pre-redactada y número del lead pre-cargado.
+- Siempre envía la URL corta para propuestas `Lista`, larga para otras.
+
+**Correo:**
+- Detecta app instalada en el **dispositivo** (no el dominio del destinatario):
+  1. Gmail app (`googlegmail://`) si está instalada.
+  2. Outlook app (`ms-outlook://`) si está instalada.
+  3. `mailto:` como fallback (app de correo predeterminada del OS).
+- Incluye plantilla de asunto y cuerpo editables con URL incluida.
+
+**Notificaciones en tiempo real (🔔):**
+- Campanita con contador de no leídos.
+- Socket.IO conectado a `{dominio}:3001`, autenticado con el JWT del agente.
+- Escucha evento `common.proposalView` en el canal personal del usuario.
+- En **iOS**: muestra banner del OS (como WhatsApp) cuando un cliente ve la propuesta.
+- En **Android Expo Go**: solo campanita interna (limitación de Expo Go SDK 53+).
+- Deduplicación: ignora eventos de la misma propuesta en menos de 30 s.
+- Limpieza de listeners al reconectar (evita duplicados).
+- Persiste en AsyncStorage (max 50 notificaciones).
 
 ### CreateProposalScreen
-- Numero de propuesta auto-generado (6 chars alfanumerico mayusculas), editable.
-- Titulo de la propuesta.
-- Selector de moneda dinamico desde la API.
-- **Busqueda de lead por email**: llama a `/lead/exist`; si no resuelve un ID valido, hace fallback a `GET /v1/lead?email=xxx`.
-- Si el lead no existe: formulario para crear uno nuevo (nombre + apellido + celular con selector de codigo de pais: CO/US/MX/AR/CL/PE/BR/VE/EC/ES).
-- Al confirmar: crea el lead si es necesario (`POST /v1/lead`), crea la propuesta (`POST /v1/proposal`) y navega al editor.
-- Catalogo de productos desde la API con buscador por nombre o SKU.
+- Número auto-generado (6 chars alfanumérico mayúsculas), editable.
+- Título de la propuesta.
+- Selector de moneda dinámico desde la API.
+- Búsqueda de lead por email: `GET /v1/lead/exist` → fallback `GET /v1/lead?email=xxx`.
+- Si el lead no existe: formulario de creación (nombre + apellido + celular con selector de código de país: CO/US/MX/AR/CL/PE/BR/VE/EC/ES).
+- Catálogo de productos con buscador por nombre o SKU.
 - Resumen de subtotal, descuento e impuestos antes de crear.
+- Al confirmar: `POST /v1/lead` (si nuevo) → `POST /v1/proposal` → navega al editor.
 
 ### EditorScreen
-- Carga la propuesta completa (`GET /v1/proposal/{id}?populate=all`).
-- **Estado**: selector de 4 estados (Borrador / Lista / Aprobada / Negada).
-- **Moneda**: selector dinamico desde la API (fallback: COP, USD, EUR).
-- **Productos**: lista editable con stepper de cantidad, descuento (% o $ — toggleable), subtotal por linea con IVA y total general (Subtotal / Descuento / Impuestos / Total).
-- **Catalogo**: modal con buscador por nombre o SKU.
-- **Producto personalizado**: nombre + precio + cantidad (sin necesidad de que este en el catalogo).
-- **Guardar**:
-  1. `PUT /v1/proposal/{id}` — actualiza productos y moneda.
-  2. `PUT /v1/proposal/changeStatus` — cambia estado (solo si cambio respecto al cargado).
-- **Pantalla de exito**: URL de propuesta con botones para abrir en navegador y compartir.
+- Carga propuesta completa (`GET /v1/proposal/{id}?populate=all`).
+- Selector de estado (Borrador / Lista / Aprobada / Negada).
+- Selector de moneda dinámico.
+- Lista editable de productos: stepper de cantidad, descuento (% o $ — toggleable), subtotal por línea con IVA.
+- Total general: Subtotal / Descuento / Impuestos / Total.
+- Modal catálogo con buscador. Producto personalizado sin catálogo.
+- Guardar: `PUT /v1/proposal/{id}` → `PUT /v1/proposal/changeStatus` (solo si cambió).
+- Pantalla de éxito con URL de propuesta.
 
 ---
 
 ## API (`src/api.js`)
 
-El dominio base es **dinamico** — se configura en `DomainScreen` y se aplica con `setApiDomain(domain)`.
+Dominio **dinámico** — configurado en DomainScreen con `setApiDomain(domain)`.
 
-**Formato:** `https://{subdominio}.{plataforma}/v1`
-**Plataformas soportadas:** `.prolibu.com`, `.nodriza.io`
+**Base URL:** `https://{subdominio}.{plataforma}/v1`
+**Plataformas:** `.prolibu.com`, `.nodriza.io`
 
-| Funcion | Metodo | Endpoint |
+| Función | Método | Endpoint |
 |---|---|---|
-| `setApiDomain(domain)` | — | Configura la BASE URL en runtime |
-| `getApiBase()` | — | Retorna la BASE URL activa |
+| `setApiDomain(domain)` | — | Configura BASE URL en runtime |
+| `getApiBase()` | — | Retorna BASE URL activa |
 | `login(user, pass)` | POST | `/v1/user/login` |
 | `getAgents()` | GET | `/v1/publicservices/getAgents` |
 | `getProposals(agentId, token)` | GET | `/v1/proposal` |
 | `getProposal(id, token)` | GET | `/v1/proposal/{id}` |
 | `saveProposal(id, body, token)` | PUT | `/v1/proposal/{id}` |
 | `changeProposalStatus(id, status, token)` | PUT | `/v1/proposal/changeStatus` |
+| `generateShortUrl(longUrl, userId, token)` | POST | `/v1/urlShort/generate` |
 | `getCurrencies(token)` | GET | `/v1/currency` |
 | `getProducts(token)` | GET | `/v1/product?disabled=false&limit=1000` |
 | `checkLeadByEmail(email, token)` | GET | `/v1/lead/exist?key=email&val={email}` |
 | `searchLeadByEmail(email, token)` | GET | `/v1/lead?email={email}` |
 | `createLead(data, token)` | POST | `/v1/lead` |
 | `createProposal(data, token)` | POST | `/v1/proposal` |
+
+### URL corta (`/v1/urlShort/generate`)
+```json
+// Body
+{ "url": "https://dominio/v1/document/proposal/{id}/full?source=email@cliente.com",
+  "createdBy": "{userId}", "updatedBy": "{userId}" }
+
+// Respuesta
+{ "url": "https://dominio/r/AbCd3F" }
+```
+- Si la URL larga ya existe en la DB, reutiliza la URL corta existente (deduplicación en servidor).
+- La URL corta `/r/{uuid}` redirige a la URL larga, registra la vista y dispara notificaciones socket al agente.
+
+---
+
+## useNotifications (`src/useNotifications.js`)
+
+```
+Token JWT disponible
+   |
+   +-- Conecta Socket.IO a {dominio}:3001
+   +-- emit authenticate { accessToken: JWT }
+   +-- server → authenticated { socketId }
+   +-- Escucha canal socketId
+   +-- Evento common.proposalView
+         |
+         +-- Deduplicar (< 30s misma propuesta) → ignorar
+         +-- iOS: scheduleNotificationAsync → banner del OS
+         +-- Actualiza estado interno + AsyncStorage
+```
+
+**Comportamiento por plataforma:**
+
+| | iOS | Android Expo Go | Android dev build |
+|---|---|---|---|
+| Banner OS | ✅ | ❌ SDK 53+ | ✅ |
+| Campanita interna | ✅ | ✅ | ✅ |
+| Socket tiempo real | ✅ | ✅ | ✅ |
 
 ---
 
@@ -151,7 +226,7 @@ El dominio base es **dinamico** — se configura en `DomainScreen` y se aplica c
 |---|---|---|
 | `Draft` | Borrador | Amarillo Canario `#FDBD00` |
 | `Ready` | Lista | Verde Amazonia `#39B54A` |
-| `Approved` | Aprobada | Azul Baru `#4285F4` |
+| `Approved` | Aprobada | Azul Barú `#4285F4` |
 | `Denied` | Negada | Rojo Crayola `#D4145A` |
 
 ---
@@ -160,43 +235,66 @@ El dominio base es **dinamico** — se configura en `DomainScreen` y se aplica c
 
 | Token | Hex | Uso |
 |---|---|---|
-| `accent` / Azul Baru | `#4285F4` | Accion principal, botones, links |
+| `accent` / Azul Barú | `#4285F4` | Acción principal, botones, links |
 | `draft` / Amarillo Canario | `#FDBD00` | Estado Borrador |
-| `success` / `ready` / Verde Amazonia | `#39B54A` | Estado Lista, exito |
-| `error` / `denied` / Rojo Crayola | `#D4145A` | Estado Negada, errores |
+| `ready` / Verde Amazonia | `#39B54A` | Estado Lista, éxito |
+| `denied` / Rojo Crayola | `#D4145A` | Estado Negada, errores |
 | `bg` | `#FFFFFF` | Fondo general |
 | `card` | `#F5F5F5` | Tarjetas y paneles |
 | `text` | `#111111` | Texto principal |
 | `textMuted` | `#666666` | Texto secundario |
 | `border` | `#E5E5E5` | Bordes |
 
-Logo: `OII>` — O en Azul Baru · II en Amarillo Canario · > en Rojo Crayola.
+Logo: `OII>` — O en Azul Barú · II en Amarillo Canario · > en Rojo Crayola.
 
 ---
 
-## Notas tecnicas
+## Notas técnicas
 
-- **Dominio dinamico:** `api.js` usa una variable `let BASE` mutable. `setApiDomain()` la actualiza; todas las funciones usan el mismo modulo, por lo que el cambio es global e inmediato.
-- **Respuesta de productos:** la API puede devolver el array directo o dentro de `docs`/`data`/`records`. El codigo prueba todos: `Array.isArray(res) ? res : (res.docs || res.data || res.records || [])`.
-- **Email inteligente:** detecta el dominio del correo del lead para abrir Gmail (`googlegmail://`), Outlook (`ms-outlook://`) o `mailto:` como fallback.
-- **Filtro de lead:** extrae leads unicos de las propuestas cargadas (no llama a una API adicional).
-- **IVA/Impuestos:** `p.product.taxRate` = porcentaje usado para recalcular al editar (fallback a `p.product.tax`).
-- **Descuento:** admite modo porcentaje (`discountRate`) o valor absoluto (se convierte internamente a tasa). La API siempre recibe `discountRate`.
-- **URL de propuesta:** `https://{dominio}/v1/document/proposal/{mongoId}/full?source={email}` (cliente) o `?source=none&rand={random}` (anonima).
-- **Stale closure en focus listener:** `ProposalsScreen` usa `useRef` para capturar `auth` y `userId` sin valores obsoletos en el listener de navegacion.
-- **Cambio de estado:** solo llama a `changeStatus` si el estado difiere del cargado originalmente; en caso de error, revierte la UI al estado anterior.
-- **Telefono en leads:** el numero se limpia de caracteres no numericos y se prefija con el codigo de pais seleccionado antes de guardar.
+- **Dominio dinámico:** `api.js` usa `let BASE` mutable. `setApiDomain()` actualiza globalmente todos los endpoints.
+- **Throttle de carga:** `load()` en ProposalsScreen tiene un cooldown de 20 s para peticiones desde el listener de navegación. La carga inicial y el pull-to-refresh siempre se fuerzan.
+- **URL corta:** generada en demanda al abrir el modal de envío vía `POST /v1/urlShort/generate`. El servidor deduplica — si la URL larga ya existe, devuelve la misma URL corta.
+- **URL Cliente:** solo disponible para propuestas en estado `Lista`. Para otros estados, la UI desactiva el botón y usa URL anónima por defecto.
+- **Email inteligente:** detecta app instalada en el dispositivo (no el dominio del destinatario) — prueba Gmail → Outlook → mailto.
+- **Socket listener leak:** al reconectar, se quita el listener del canal anterior antes de registrar el nuevo (`socket.off(socketIdRef.current)`).
+- **Deduplicación de notificaciones:** `lastNotifRef` almacena el timestamp por `proposalId`. Eventos del mismo proposal en < 30 s se descartan.
+- **`shouldSetBadge: false`:** no acumula badge de app para evitar interferir con otras apps (WhatsApp, etc.).
+- **Stale closure en focus listener:** usa `useRef` para capturar `auth` y `userId` sin valores obsoletos.
+- **Descuento:** admite modo porcentaje (`discountRate`) o valor absoluto. La API siempre recibe `discountRate`.
+- **Teléfono en leads:** se limpia de caracteres no numéricos antes de guardar.
 
 ---
 
 ## Build con EAS
 
+### Development build (hot reload desde cualquier red)
+
+```bash
+# 1. Instalar dependencias
+npx expo install expo-dev-client @expo/ngrok
+
+# 2. Build del APK de desarrollo (solo una vez)
+eas build --profile development --platform android
+
+# 3. Instalar el APK en el dispositivo
+
+# 4. Desde cualquier red, conectar via tunnel:
+npx expo start --dev-client --tunnel
+```
+
+El APK de development se conecta al servidor Metro por internet (ngrok). Los cambios de JS se reflejan con hot reload sin recompilar el APK. Solo se necesita un nuevo APK si cambia código nativo.
+
+### Preview / Producción
+
 ```bash
 # APK de prueba (Android)
 eas build --profile preview --platform android
 
-# AAB de produccion (Google Play)
+# AAB para Google Play
 eas build --profile production --platform android
+
+# IPA para App Store
+eas build --profile production --platform ios
 ```
 
 Requiere cuenta en [expo.dev](https://expo.dev) y EAS CLI >= 12.
@@ -205,13 +303,15 @@ Requiere cuenta en [expo.dev](https://expo.dev) y EAS CLI >= 12.
 
 ## Dependencias principales
 
-| Paquete | Version | Uso |
+| Paquete | Versión | Uso |
 |---|---|---|
-| expo | ~54.0.0 | Runtime base |
-| react-native | 0.81.5 | UI nativa |
-| @react-navigation/native-stack | ^6.11.0 | Navegacion |
-| @react-native-async-storage/async-storage | 2.2.0 | Persistencia local |
-| react-native-safe-area-context | ~5.6.0 | Areas seguras |
-| react-native-screens | ~4.16.0 | Optimizacion de pantallas |
-| expo-asset | ~12.0.12 | Gestion de assets |
-| expo-constants | ~18.0.13 | Constantes de entorno |
+| `expo` | ~54.0.0 | Runtime base |
+| `react-native` | 0.81.5 | UI nativa |
+| `expo-notifications` | ~0.29.0 | Banners locales iOS |
+| `expo-constants` | ~18.0.13 | Constantes de entorno |
+| `expo-asset` | ~12.0.12 | Assets |
+| `@react-navigation/native-stack` | ^6.11.0 | Navegación |
+| `@react-native-async-storage/async-storage` | 2.2.0 | Persistencia local |
+| `react-native-safe-area-context` | ~5.6.0 | Áreas seguras |
+| `react-native-screens` | ~4.16.0 | Optimización de pantallas |
+| `socket.io-client` | ^4.5.4 | Notificaciones tiempo real (puerto 3001) |

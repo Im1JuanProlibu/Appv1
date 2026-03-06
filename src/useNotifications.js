@@ -1,0 +1,209 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Platform } from 'react-native';
+import { io } from 'socket.io-client';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import { getApiBase } from './api';
+
+// Mostrar notificación como banner aunque la app esté en primer plano (solo iOS)
+if (Platform.OS === 'ios') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false, // no acumular badge — evita interferir con otras apps
+    }),
+  });
+}
+
+const STORAGE_KEY = 'prolibu_notifications';
+const MAX_NOTIFICATIONS = 50;
+
+/**
+ * Hook que se conecta al socket privado de Prolibu (puerto 3001),
+ * autentica con el accessToken y escucha eventos common.proposalView.
+ *
+ * Flujo del backend:
+ *  1. cliente emite: authenticate { accessToken }
+ *  2. servidor responde: authenticated { socketId }
+ *  3. servidor emite al canal socketId: { action, data }
+ */
+export function useNotifications(token) {
+  const [notifications, setNotifications] = useState([]);
+  const [unread, setUnread] = useState(0);
+  const [connected, setConnected] = useState(false);
+  const [liveViewing, setLiveViewing] = useState({}); // { [proposalId]: true }
+  const socketRef = useRef(null);
+  const socketIdRef = useRef(null);
+  // Deduplicar: evita múltiples notificaciones de la misma propuesta en < 30s
+  const lastNotifRef = useRef({});
+  // Bandera para saber si los permisos iOS fueron concedidos
+  const notifPermittedRef = useRef(Platform.OS !== 'ios');
+
+  // Pedir permisos de notificación al montar (solo iOS)
+  useEffect(() => {
+    if (Platform.OS === 'ios') {
+      Notifications.requestPermissionsAsync().then(({ status }) => {
+        notifPermittedRef.current = status === 'granted';
+        if (status !== 'granted') console.log('[Notifications] Permisos denegados:', status);
+      }).catch(() => {});
+    }
+  }, []);
+
+  // Cargar notificaciones persistidas al inicio
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
+      if (!raw) return;
+      try {
+        const list = JSON.parse(raw);
+        setNotifications(list);
+        setUnread(list.filter((n) => !n.read).length);
+      } catch {}
+    });
+  }, []);
+
+  // Conectar socket cuando hay token
+  useEffect(() => {
+    if (!token) return;
+
+    // El servidor socket.io v4.5.4 escucha en el puerto 3001 (HTTPS vía nginx).
+    const base = getApiBase().replace('/v1', ''); // https://fanalca.prolibu.com
+    const socketUrl = `${base}:3001`;
+
+    const socket = io(socketUrl, {
+      transports: ['polling', 'websocket'],
+      reconnection: true,
+      reconnectionDelay: 3000,
+      reconnectionAttempts: 10,
+      // El servidor verifica CORS; enviamos el mismo Origin que usaría el browser.
+      extraHeaders: {
+        Origin: base,
+      },
+    });
+
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      setConnected(true);
+      // Autenticar con el token
+      socket.emit('authenticate', { accessToken: token });
+    });
+
+    socket.on('disconnect', () => {
+      setConnected(false);
+      socketIdRef.current = null;
+    });
+
+    socket.on('connect_error', (err) => {
+      console.log('[Socket] Error de conexión:', err.message);
+    });
+
+    // El servidor responde con el socketId único del usuario
+    socket.on('authenticated', (payload) => {
+      const socketId = typeof payload === 'string' ? payload : (payload?.socketId || payload?.id || '');
+      console.log('[Socket] Autenticado, socketId:', socketId);
+
+      // Quitar listener anterior antes de agregar uno nuevo (evita duplicados en reconexión)
+      if (socketIdRef.current) socket.off(socketIdRef.current);
+      socketIdRef.current = socketId;
+
+      socket.on(socketId, (event) => {
+        const { action, data } = event || {};
+        if (action === 'common.proposalView') {
+          handleProposalView(data);
+        }
+      });
+    });
+
+    return () => {
+      if (socketIdRef.current) socket.off(socketIdRef.current);
+      socket.disconnect();
+    };
+  }, [token]);
+
+  function handleProposalView(data) {
+    const proposalTitle = data?.proposal?.title || data?.title || 'Propuesta';
+    const leadName = data?.lead?.firstName
+      ? `${data.lead.firstName} ${data.lead.lastName || ''}`.trim()
+      : (data?.source || 'Cliente');
+    const proposalId = data?.proposal?.id || data?.proposal?._id || data?.id || '';
+
+    // Deduplicar: ignorar si la misma propuesta fue vista hace menos de 30s
+    const now = Date.now();
+    if (proposalId && lastNotifRef.current[proposalId] && now - lastNotifRef.current[proposalId] < 30000) {
+      return;
+    }
+    if (proposalId) lastNotifRef.current[proposalId] = now;
+
+    // Banner del sistema operativo (solo iOS — Android Expo Go SDK 53+ no lo soporta)
+    if (notifPermittedRef.current) {
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: `👁 ${leadName} vio tu propuesta`,
+          body: proposalTitle,
+          sound: true,
+          data: { proposalId },
+        },
+        trigger: null,
+      }).catch((e) => console.log('[Notifications] Error al mostrar banner:', e.message));
+    }
+
+    const notification = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      type: 'view',
+      proposalTitle,
+      proposalNumber: data?.proposal?.proposalNumber || data?.proposalNumber || '',
+      proposalId: data?.proposal?.id || data?.proposal?._id || data?.id || '',
+      leadName,
+      leadEmail: data?.lead?.email || data?.source || '',
+      timestamp: new Date().toISOString(),
+      read: false,
+    };
+
+    setNotifications((prev) => {
+      const updated = [notification, ...prev].slice(0, MAX_NOTIFICATIONS);
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+    setUnread((prev) => prev + 1);
+
+    // Marcar la propuesta como "siendo vista ahora" y limpiar tras 60s
+    const pid = notification.proposalId;
+    if (pid) {
+      setLiveViewing((prev) => ({ ...prev, [pid]: true }));
+      setTimeout(() => {
+        setLiveViewing((prev) => {
+          const next = { ...prev };
+          delete next[pid];
+          return next;
+        });
+      }, 60000);
+    }
+
+  }
+
+  const markAllRead = useCallback(() => {
+    setUnread(0);
+    setNotifications((prev) => {
+      const updated = prev.map((n) => ({ ...n, read: true }));
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const clearAll = useCallback(() => {
+    setNotifications([]);
+    setUnread(0);
+    AsyncStorage.removeItem(STORAGE_KEY);
+  }, []);
+
+  // Última vista por proposalId, calculada desde el historial de notificaciones
+  const lastViewed = {};
+  for (const n of notifications) {
+    if (n.type === 'view' && n.proposalId && !lastViewed[n.proposalId]) {
+      lastViewed[n.proposalId] = { timestamp: n.timestamp, leadName: n.leadName };
+    }
+  }
+
+  return { notifications, unread, connected, liveViewing, lastViewed, markAllRead, clearAll };
+}

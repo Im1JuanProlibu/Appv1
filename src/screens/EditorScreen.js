@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
-import { getProposal, saveProposal, changeProposalStatus, getProducts, getCurrencies } from '../api';
+import { getProposal, saveProposal, changeProposalStatus, getProducts, getCurrencies, searchCurrencies, getApiBase, createProduct } from '../api';
 
 const STATUSES = ['Draft', 'Ready', 'Approved', 'Denied'];
 const STATUS_LABEL = { Draft: 'Borrador', Ready: 'Lista', Approved: 'Aprobada', Denied: 'Negada' };
@@ -116,6 +116,9 @@ export default function EditorScreen({ navigation, route }) {
   const [propUrl, setPropUrl] = useState('');
   const [currency, setCurrency] = useState('COP');
   const [currencies, setCurrencies] = useState([]);
+  const [currencySearch, setCurrencySearch] = useState('COP');
+  const [currencySuggestions, setCurrencySuggestions] = useState([]);
+  const [currencySearching, setCurrencySearching] = useState(false);
 
   // Catalog modal state
   const [showCatalog, setShowCatalog] = useState(false);
@@ -126,13 +129,24 @@ export default function EditorScreen({ navigation, route }) {
   // Create product modal state
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState('');
+  const [createSku, setCreateSku] = useState('');
   const [createPrice, setCreatePrice] = useState('');
   const [createQty, setCreateQty] = useState('1');
+  const [creatingProduct, setCreatingProduct] = useState(false);
 
   useEffect(() => {
-    Promise.all([loadProposal(), loadCatalog(), loadCurrencies()]).finally(() =>
-      setLoading(false)
-    );
+    Promise.all([loadProposal(), loadCatalog(), loadCurrencies()])
+      .then(([, catalogResult]) => {
+        if (catalogResult && catalogResult.length > 0) {
+          setProducts((prev) => prev.map((p) => {
+            if (p.product?.price != null || p.price != null) return p;
+            const pId = p.id || p._id;
+            const match = catalogResult.find((c) => (c.sku || c.id || c._id) === pId);
+            return match ? { ...p, _catalogRef: match } : p;
+          }));
+        }
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const [originalStatus, setOriginalStatus] = useState('');
@@ -149,6 +163,7 @@ export default function EditorScreen({ navigation, route }) {
     const currObj = data.currency;
     const cur = (currObj && typeof currObj === 'object' ? currObj.code : currObj) || 'COP';
     setCurrency(cur);
+    setCurrencySearch(cur);
   }
 
   async function loadCurrencies() {
@@ -165,9 +180,11 @@ export default function EditorScreen({ navigation, route }) {
       const res = await getProducts(auth.token);
       const raw = Array.isArray(res) ? res : (res.docs || res.data || res.records || []);
       const all = Array.isArray(raw) ? raw : [];
-      setCatalog(all.filter((p) => !p.disabled));
+      const filtered = all.filter((p) => !p.disabled);
+      setCatalog(filtered);
+      return filtered;
     } catch {
-      // Catalog is optional — editor still works without it
+      return [];
     }
   }
 
@@ -181,7 +198,7 @@ export default function EditorScreen({ navigation, route }) {
       if (i !== index) return p;
       if (mode === 'value') {
         const absVal = Math.max(0, parseFloat(val) || 0);
-        const price = p.product?.price ?? p.price ?? 0;
+        const price = (p.product || p._catalogRef)?.price ?? p.price ?? 0;
         const qty = p.quantity || 1;
         const rate = price > 0 ? Math.min(100, (absVal / (price * qty)) * 100) : 0;
         return { ...p, discountRate: rate, _discountMode: 'value', _discountValue: absVal, _edited: true };
@@ -197,7 +214,7 @@ export default function EditorScreen({ navigation, route }) {
       const currentMode = p._discountMode || 'percent';
       const newMode = currentMode === 'percent' ? 'value' : 'percent';
       if (newMode === 'value') {
-        const price = p.product?.price ?? p.price ?? 0;
+        const price = (p.product || p._catalogRef)?.price ?? p.price ?? 0;
         const qty = p.quantity || 1;
         const absVal = parseFloat(((price * qty * (p.discountRate || 0)) / 100).toFixed(2));
         return { ...p, _discountMode: 'value', _discountValue: absVal };
@@ -210,20 +227,37 @@ export default function EditorScreen({ navigation, route }) {
     setProducts((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function addCustomProduct() {
+  async function addCustomProduct() {
     const name = createName.trim();
+    const sku = createSku.trim();
     if (!name) {
       Alert.alert('Nombre requerido', 'Ingresa el nombre del producto.');
       return;
     }
+    if (!sku) {
+      Alert.alert('SKU requerido', 'Ingresa el SKU del producto.');
+      return;
+    }
     const price = Math.max(0, parseFloat(createPrice) || 0);
     const qty = Math.max(1, parseInt(createQty) || 1);
-    const id = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-    setProducts((prev) => [...prev, { id, name, price, quantity: qty }]);
-    setCreateName('');
-    setCreatePrice('');
-    setCreateQty('1');
-    setShowCreate(false);
+    setCreatingProduct(true);
+    try {
+      const res = await createProduct({ name, sku, price, disabled: false }, auth.token);
+      const created = res.data || res;
+      const newProduct = { ...(created || {}), name, sku, price };
+      const productId = newProduct.sku || newProduct.id || newProduct._id;
+      setProducts((prev) => [...prev, { id: productId, name, price, quantity: qty, product: newProduct }]);
+      setCatalog((prev) => [...prev, newProduct]);
+      setCreateName('');
+      setCreateSku('');
+      setCreatePrice('');
+      setCreateQty('1');
+      setShowCreate(false);
+    } catch (e) {
+      Alert.alert('Error al crear producto', e.message || 'No se pudo crear el producto en el catálogo.');
+    } finally {
+      setCreatingProduct(false);
+    }
   }
 
   function addCatalogItem() {
@@ -259,20 +293,20 @@ export default function EditorScreen({ navigation, route }) {
         quantity: p.quantity || 1,
         discountRate: p.discountRate || 0,
       };
-      // Producto custom (no viene del catálogo): incluir nombre y precio
-      if (!p.product && p.name) {
-        entry.name = p.name;
-        entry.price = p.price ?? 0;
-      }
+      // Incluir nombre y precio cuando estén disponibles (productos custom o sin referencia de catálogo)
+      if (p.name) entry.name = p.name;
+      if (p.price != null) entry.price = p.price;
       return entry;
     });
 
     // URL pública de la propuesta: /v1/document/proposal/{mongoId}/full
     const rand = Math.floor(Math.random() * 9999999);
-    const propViewUrl = `https://customer-design.prolibu.com/v1/document/proposal/${proposalId}/full?source=none&rand=${rand}`;
+    const base = getApiBase(); // e.g. https://fanalca.prolibu.com/v1
+    const propViewUrl = `${base}/document/proposal/${proposalId}/full?source=none&rand=${rand}`;
 
     try {
       // 1. Guardar productos
+      console.log('Guardando productos:', JSON.stringify(productList));
       let productsRes;
       try {
         productsRes = await saveProposal(proposalId, { products: productList, currency }, auth.token);
@@ -318,9 +352,10 @@ export default function EditorScreen({ navigation, route }) {
   // p.product.tax puede ser string "19" (tasa %) o number (monto $) — siempre tratamos como tasa
   const summary = products.reduce(
     (acc, p) => {
-      const price = p.product?.price ?? p.price ?? 0;
+      const ref = p.product || p._catalogRef;
+      const price = parseFloat(ref?.price ?? ref?.value ?? ref?.unitPrice ?? p.price ?? 0) || 0;
       const qty = p.quantity || 1;
-      const taxRate = parseFloat(p.product?.taxRate ?? p.product?.tax ?? p.taxRate ?? 0);
+      const taxRate = parseFloat(ref?.taxRate ?? ref?.tax ?? p.taxRate ?? 0) || 0;
       const lineGross = price * qty;
       const discountAmt = (lineGross * (p.discountRate || 0)) / 100;
       const lineNet = lineGross - discountAmt;
@@ -335,7 +370,6 @@ export default function EditorScreen({ navigation, route }) {
     { subtotal: 0, discount: 0, tax: 0, total: 0 }
   );
   const grandTotal = summary.total;
-  const hasAnyPrice = products.some((p) => (p.product?.price ?? p.price) != null);
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
@@ -392,18 +426,46 @@ export default function EditorScreen({ navigation, route }) {
 
         {/* ── Moneda ── */}
         <Text style={styles.sectionLabel}>Moneda</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.currencyRow}>
-          {(currencies.length > 0 ? currencies : [{ code: 'COP' }, { code: 'USD' }, { code: 'EUR' }]).map((c) => (
-            <TouchableOpacity
-              key={c.code}
-              style={[styles.currencyBtn, currency === c.code && styles.currencyBtnActive]}
-              onPress={() => setCurrency(c.code)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.currencyBtnText, currency === c.code && styles.currencyBtnTextActive]}>{c.code}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <View style={styles.currencySearchWrap}>
+          <TextInput
+            style={styles.currencyInput}
+            placeholder="Buscar moneda (ej: COP, USD...)"
+            placeholderTextColor={COLORS.textMuted}
+            value={currencySearch}
+            autoCapitalize="characters"
+            onChangeText={async (text) => {
+              setCurrencySearch(text);
+              if (text.length < 1) { setCurrencySuggestions([]); return; }
+              setCurrencySearching(true);
+              try {
+                const res = await searchCurrencies(text, auth.token);
+                const raw = Array.isArray(res) ? res : (res.data || res.docs || res.records || []);
+                setCurrencySuggestions(Array.isArray(raw) ? raw.filter((c) => c && c.code) : []);
+              } catch { setCurrencySuggestions([]); } finally { setCurrencySearching(false); }
+            }}
+          />
+          {currencySearching && <ActivityIndicator size="small" color={COLORS.accent} style={styles.currencySpinner} />}
+          {currency ? (
+            <View style={styles.currencyChip}>
+              <Text style={styles.currencyChipText}>{currency}</Text>
+            </View>
+          ) : null}
+        </View>
+        {currencySuggestions.length > 0 && (
+          <View style={styles.currencyDropdown}>
+            {currencySuggestions.map((c) => (
+              <TouchableOpacity
+                key={c.code}
+                style={styles.currencyDropdownItem}
+                onPress={() => { setCurrency(c.code); setCurrencySearch(c.code); setCurrencySuggestions([]); }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.currencyDropdownCode}>{c.code}</Text>
+                {c.name ? <Text style={styles.currencyDropdownName}>{c.name}</Text> : null}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* ── Products ── */}
         <View style={styles.sectionRow}>
@@ -416,21 +478,22 @@ export default function EditorScreen({ navigation, route }) {
         )}
 
         {products.map((p, i) => {
-          const productName = p.product?.name || p.name || p.id || p._id;
-          const productSku = p.product?.sku || p.sku || p.id;
-          const price = p.product?.price ?? p.price ?? null;
+          const ref = p.product || p._catalogRef;
+          const productName = ref?.name || p.name || p.id || p._id;
+          const productSku = ref?.sku || p.sku || (String(p.id || '').startsWith('custom-') ? null : p.id);
+          const price = parseFloat(ref?.price ?? ref?.value ?? ref?.unitPrice ?? p.price ?? 0) || 0;
           const discount = p.discountRate || 0;
           const discountMode = p._discountMode || 'percent';
           const qty = p.quantity || 1;
-          const taxRate = parseFloat(p.product?.taxRate ?? p.product?.tax ?? p.taxRate ?? 0);
+          const taxRate = parseFloat(ref?.taxRate ?? ref?.tax ?? p.taxRate ?? 0) || 0;
           const discountDisplayVal = discountMode === 'value'
             ? (p._discountValue != null ? String(p._discountValue) : '')
             : (discount > 0 ? String(discount) : '');
-          const lineGross = price !== null ? price * qty : null;
-          const discountAmt = lineGross !== null ? (lineGross * discount) / 100 : null;
-          const lineNet = lineGross !== null ? lineGross - (discountAmt || 0) : null;
-          const taxAmt = lineNet !== null && taxRate > 0 ? (lineNet * taxRate) / 100 : null;
-          const subtotal = lineNet !== null ? lineNet + (taxAmt || 0) : null;
+          const lineGross = price * qty;
+          const discountAmt = (lineGross * discount) / 100;
+          const lineNet = lineGross - discountAmt;
+          const taxAmt = taxRate > 0 ? (lineNet * taxRate) / 100 : 0;
+          const subtotal = lineNet + taxAmt;
           return (
             <View key={i} style={styles.productCard}>
               <View style={styles.productHeader}>
@@ -443,11 +506,9 @@ export default function EditorScreen({ navigation, route }) {
                 </TouchableOpacity>
               </View>
 
-              {price !== null && (
-                <Text style={styles.productPrice}>
-                  $ {price.toLocaleString('es-CO')} c/u{currency ? ` · ${currency}` : ''}{taxRate > 0 ? `  ·  IVA ${taxRate}%` : ''}
-                </Text>
-              )}
+              <Text style={styles.productPrice}>
+                $ {price.toLocaleString('es-CO')} c/u{currency ? ` · ${currency}` : ''}{taxRate > 0 ? `  ·  IVA ${taxRate}%` : ''}
+              </Text>
 
               {/* Cantidad */}
               <View style={styles.productRow}>
@@ -491,7 +552,7 @@ export default function EditorScreen({ navigation, route }) {
                     placeholderTextColor={COLORS.textMuted}
                     selectTextOnFocus
                   />
-                  {discountMode === 'percent' && discount > 0 && discountAmt !== null && (
+                  {discountMode === 'percent' && discount > 0 && (
                     <Text style={styles.discountCalc}>
                       − ${discountAmt.toLocaleString('es-CO')}
                     </Text>
@@ -503,24 +564,18 @@ export default function EditorScreen({ navigation, route }) {
               </View>
 
               {/* Subtotal con IVA */}
-              {subtotal !== null && (
-                <View style={styles.subtotalRow}>
-                  {taxAmt !== null && taxAmt > 0 ? (
-                    <Text style={styles.subtotalLabel}>
-                      Neto + IVA {taxRate}%
-                    </Text>
-                  ) : (
-                    <Text style={styles.subtotalLabel}>Subtotal</Text>
-                  )}
-                  <Text style={styles.subtotalValue}>$ {subtotal.toLocaleString('es-CO')}</Text>
-                </View>
-              )}
+              <View style={styles.subtotalRow}>
+                <Text style={styles.subtotalLabel}>
+                  {taxAmt > 0 ? `Neto + IVA ${taxRate}%` : 'Subtotal'}
+                </Text>
+                <Text style={styles.subtotalValue}>$ {subtotal.toLocaleString('es-CO')}</Text>
+              </View>
             </View>
           );
         })}
 
         {/* Total breakdown */}
-        {products.length > 0 && hasAnyPrice && (
+        {products.length > 0 && (
           <View style={styles.totalBox}>
             <View style={styles.totalBreakdown}>
               <View style={styles.totalBreakdownRow}>
@@ -553,7 +608,7 @@ export default function EditorScreen({ navigation, route }) {
         <View style={styles.addBtnRow}>
           <TouchableOpacity
             style={[styles.addBtn, styles.addBtnFlex]}
-            onPress={() => { setCreateName(''); setCreatePrice(''); setCreateQty('1'); setShowCreate(true); }}
+            onPress={() => { setCreateName(''); setCreateSku(''); setCreatePrice(''); setCreateQty('1'); setShowCreate(true); }}
             activeOpacity={0.7}
           >
             <Text style={styles.addBtnText}>+ Crear producto</Text>
@@ -607,6 +662,16 @@ export default function EditorScreen({ navigation, route }) {
               autoFocus
               returnKeyType="next"
             />
+            <Text style={styles.createLabel}>SKU</Text>
+            <TextInput
+              style={styles.createInput}
+              placeholder="Ej: PROD-001"
+              placeholderTextColor={COLORS.textMuted}
+              value={createSku}
+              onChangeText={setCreateSku}
+              autoCapitalize="characters"
+              returnKeyType="next"
+            />
             <Text style={styles.createLabel}>Precio unitario</Text>
             <TextInput
               style={styles.createInput}
@@ -628,11 +693,14 @@ export default function EditorScreen({ navigation, route }) {
               returnKeyType="done"
             />
             <TouchableOpacity
-              style={[styles.modalAddBtn, { marginTop: 24 }]}
+              style={[styles.modalAddBtn, { marginTop: 24 }, creatingProduct && { opacity: 0.6 }]}
               onPress={addCustomProduct}
+              disabled={creatingProduct}
               activeOpacity={0.8}
             >
-              <Text style={styles.modalAddBtnText}>Agregar producto</Text>
+              {creatingProduct
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.modalAddBtnText}>Agregar producto</Text>}
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -790,15 +858,29 @@ const styles = StyleSheet.create({
   },
 
   // Currency
-  currencyRow: { flexDirection: 'row', gap: 8 },
-  currencyBtn: {
-    paddingHorizontal: 20, paddingVertical: 12,
-    borderRadius: 10, backgroundColor: COLORS.card,
+  currencySearchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  currencyInput: {
+    flex: 1, backgroundColor: COLORS.card, color: COLORS.text,
     borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15,
   },
-  currencyBtnActive: { borderColor: COLORS.accent, backgroundColor: COLORS.accent + '20' },
-  currencyBtnText: { color: COLORS.textMuted, fontWeight: '700', fontSize: 14 },
-  currencyBtnTextActive: { color: COLORS.accent },
+  currencySpinner: { position: 'absolute', right: 80 },
+  currencyChip: {
+    backgroundColor: COLORS.accent + '20', borderWidth: 1, borderColor: COLORS.accent,
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
+  },
+  currencyChipText: { color: COLORS.accent, fontWeight: '700', fontSize: 14 },
+  currencyDropdown: {
+    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 10, marginTop: 4, overflow: 'hidden',
+  },
+  currencyDropdownItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  currencyDropdownCode: { color: COLORS.text, fontWeight: '700', fontSize: 14, minWidth: 44 },
+  currencyDropdownName: { color: COLORS.textMuted, fontSize: 13, flex: 1 },
 
   // Status
   statusRow: { flexDirection: 'row', gap: 8 },

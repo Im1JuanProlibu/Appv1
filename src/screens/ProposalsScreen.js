@@ -20,7 +20,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../theme';
-import { getProposals } from '../api';
+import { getProposals, getApiBase, generateShortUrl } from '../api';
+import { useNotifications } from '../useNotifications';
 
 const STATUS_COLOR = {
   Ready: COLORS.ready,
@@ -43,6 +44,15 @@ const SORT_OPTIONS = [
   { key: 'title_asc',      label: 'A-Z'        },
 ];
 
+const ACTIVITY_FILTERS = [
+  { key: 'all',             label: 'Toda actividad' },
+  { key: 'viewed_today',    label: '👁 Vista hoy'       },
+  { key: 'viewed_week',     label: '👁 Esta semana'     },
+  { key: 'not_viewed',      label: '○ Sin vistas'       },
+  { key: 'approved_viewed', label: '✓ Aprobada + vista' },
+  { key: 'ready_viewed',    label: '● Lista + vista'    },
+];
+
 const FILTERS = [
   { key: 'all',      label: 'Todas',    color: COLORS.accent, fg: COLORS.accentFg },
   { key: 'Draft',    label: 'Borrador', color: COLORS.draft,  fg: '#000000' },
@@ -60,11 +70,24 @@ function formatDate(dateStr) {
   });
 }
 
+function timeAgo(isoString) {
+  if (!isoString) return '';
+  const diff = Date.now() - new Date(isoString).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'hace un momento';
+  if (mins < 60) return `hace ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `hace ${hrs} h`;
+  const days = Math.floor(hrs / 24);
+  return `hace ${days} día${days > 1 ? 's' : ''}`;
+}
+
 export default function ProposalsScreen({ navigation, route }) {
   const [auth, setAuth] = useState(null);
   const [userId, setUserId] = useState(null);
   const authRef = React.useRef(null);
   const userIdRef = React.useRef(null);
+  const lastLoadRef = React.useRef(0); // throttle: evita peticiones repetidas al backend
   const [userName, setUserName] = useState('');
   const [allProposals, setAllProposals] = useState([]);
   const [sections, setSections] = useState([]);
@@ -72,7 +95,14 @@ export default function ProposalsScreen({ navigation, route }) {
   const [activeSort, setActiveSort] = useState('updatedAt_desc');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [leadFilter, setLeadFilter] = useState(null);   // null = todos
+  const [leadFilter, setLeadFilter] = useState(null);
+  const [activityFilter, setActivityFilter] = useState('all');
+  const [ratingFilter, setRatingFilter] = useState('all');   // all | Hot | Warm | Cold
+  const [viewsFilter, setViewsFilter] = useState('all');     // all | has_views | no_views | many_views
+  const [dateFilter, setDateFilter] = useState('all');       // all | today | week | month | 3months | custom
+  const [dateFrom, setDateFrom] = useState('');              // YYYY-MM-DD
+  const [dateTo, setDateTo] = useState('');                  // YYYY-MM-DD
+  const [filterPanelVisible, setFilterPanelVisible] = useState(false);
   const [leadPickerVisible, setLeadPickerVisible] = useState(false);
   const [leadSearch, setLeadSearch] = useState('');
   const [sendModal, setSendModal] = useState({
@@ -80,6 +110,12 @@ export default function ProposalsScreen({ navigation, route }) {
     channel: 'whatsapp',
     waMsg: '', emailSubject: '', emailMsg: '',
   });
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [seguimientoModal, setSeguimientoModal] = useState({ visible: false, proposal: null, type: 'urgente' });
+
+  const { notifications, unread, connected, liveViewing, lastViewed, markAllRead, clearAll } = useNotifications(
+    auth?.token ?? null
+  );
 
   useEffect(() => {
     AsyncStorage.getItem('auth').then((val) => {
@@ -100,7 +136,7 @@ export default function ProposalsScreen({ navigation, route }) {
       setAuth(authData);
       setUserId(id);
       setUserName(name);
-      load(id, authData.token);
+      load(id, authData.token, true); // carga inicial: siempre forzar
     });
   }, []);
 
@@ -115,7 +151,14 @@ export default function ProposalsScreen({ navigation, route }) {
     return unsubscribe;
   }, [navigation]);
 
-  async function load(id, token) {
+  async function load(id, token, force = false) {
+    const now = Date.now();
+    // Throttle: no más de 1 petición cada 20 segundos salvo que sea forzado
+    if (!force && now - lastLoadRef.current < 20000) {
+      setRefreshing(false);
+      return;
+    }
+    lastLoadRef.current = now;
     try {
       const res = await getProposals(id, token);
       const raw = res.docs || res.data || (Array.isArray(res) ? res : []);
@@ -157,14 +200,57 @@ export default function ProposalsScreen({ navigation, route }) {
     return s;
   }
 
-  function buildSections(proposals, filter, sort = activeSort, lf = leadFilter) {
-    let base = lf
-      ? proposals.filter((p) => {
-          const lead = p.relatedLead;
-          if (typeof lead !== 'object' || !lead) return false;
-          return (lead._id || lead.id) === lf;
-        })
-      : proposals;
+  function applyAllFilters(list, { af, rf, vf, lf, df, dfrom, dto }) {
+    const now = Date.now();
+    const DAY  = 24 * 60 * 60 * 1000;
+    const WEEK = 7 * DAY;
+    return list.filter((p) => {
+      // Lead filter
+      if (lf) {
+        const lead = p.relatedLead;
+        if (typeof lead !== 'object' || !lead) return false;
+        if ((lead._id || lead.id) !== lf) return false;
+      }
+      // Activity filter
+      const raw = p.lastView || p.lastSeen || p.lastViewed;
+      const ts  = raw ? new Date(raw).getTime() : null;
+      if (af === 'viewed_today'    && !(ts != null && (now - ts) < DAY))  return false;
+      if (af === 'viewed_week'     && !(ts != null && (now - ts) < WEEK)) return false;
+      if (af === 'not_viewed'      && ts != null)                         return false;
+      if (af === 'approved_viewed' && !(p.status === 'Approved' && ts != null)) return false;
+      if (af === 'ready_viewed'    && !(p.status === 'Ready'    && ts != null)) return false;
+      // Rating filter
+      if (rf !== 'all' && p.rating !== rf) return false;
+      // Views filter
+      const views = p.views ?? p.visits ?? p.opens ?? p.timesOpened ?? p.opened ?? null;
+      if (vf === 'has_views'  && !(views != null && views > 0))  return false;
+      if (vf === 'no_views'   && !(views == null || views === 0)) return false;
+      if (vf === 'many_views' && !(views != null && views >= 5)) return false;
+      // Date range filter (aplica sobre última vista, o si no hay, sobre updatedAt)
+      if (df !== 'all') {
+        const refRaw = p.lastView || p.lastSeen || p.lastViewed || p.updatedAt;
+        const refTs  = refRaw ? new Date(refRaw).getTime() : null;
+        if (!refTs) return false;
+        if (df === 'today')   { if ((now - refTs) > DAY)       return false; }
+        if (df === 'week')    { if ((now - refTs) > WEEK)      return false; }
+        if (df === 'month')   { if ((now - refTs) > 30 * DAY)  return false; }
+        if (df === '3months') { if ((now - refTs) > 90 * DAY)  return false; }
+        if (df === 'custom') {
+          if (dfrom) { const from = new Date(dfrom).getTime(); if (refTs < from) return false; }
+          if (dto)   { const to   = new Date(dto + 'T23:59:59').getTime(); if (refTs > to) return false; }
+        }
+      }
+      return true;
+    });
+  }
+
+  function buildSections(
+    proposals, filter,
+    sort = activeSort, lf = leadFilter,
+    af = activityFilter, rf = ratingFilter, vf = viewsFilter,
+    df = dateFilter, dfrom = dateFrom, dto = dateTo,
+  ) {
+    let base = applyAllFilters(proposals, { af, rf, vf, lf, df, dfrom, dto });
     const sorted = sortProposals(base, sort);
     if (filter === 'all') {
       setSections(sorted.length > 0 ? [{ title: null, data: sorted }] : []);
@@ -176,25 +262,47 @@ export default function ProposalsScreen({ navigation, route }) {
 
   function handleFilter(key) {
     setActiveFilter(key);
-    buildSections(allProposals, key, activeSort, leadFilter);
+    buildSections(allProposals, key, activeSort, leadFilter, activityFilter, ratingFilter, viewsFilter, dateFilter, dateFrom, dateTo);
   }
 
   function handleSort(key) {
     setActiveSort(key);
-    buildSections(allProposals, activeFilter, key, leadFilter);
+    buildSections(allProposals, activeFilter, key, leadFilter, activityFilter, ratingFilter, viewsFilter, dateFilter, dateFrom, dateTo);
   }
 
   function handleLeadFilter(leadId) {
     setLeadFilter(leadId);
     setLeadPickerVisible(false);
     setLeadSearch('');
-    buildSections(allProposals, activeFilter, activeSort, leadId);
+    buildSections(allProposals, activeFilter, activeSort, leadId, activityFilter, ratingFilter, viewsFilter, dateFilter, dateFrom, dateTo);
   }
+
+  function applyPanel({ sort, lf, af, rf, vf, df, dfrom, dto }) {
+    setActiveSort(sort);
+    setLeadFilter(lf);
+    setActivityFilter(af);
+    setRatingFilter(rf);
+    setViewsFilter(vf);
+    setDateFilter(df);
+    setDateFrom(dfrom);
+    setDateTo(dto);
+    setFilterPanelVisible(false);
+    buildSections(allProposals, activeFilter, sort, lf, af, rf, vf, df, dfrom, dto);
+  }
+
+  const activeFilterCount = [
+    activityFilter !== 'all',
+    ratingFilter   !== 'all',
+    viewsFilter    !== 'all',
+    dateFilter     !== 'all',
+    leadFilter     != null,
+    activeSort     !== 'updatedAt_desc',
+  ].filter(Boolean).length;
 
   function onRefresh() {
     if (!userId || !auth) return;
     setRefreshing(true);
-    load(userId, auth.token);
+    load(userId, auth.token, true); // pull-to-refresh: siempre forzar
   }
 
   async function handleLogout() {
@@ -204,14 +312,26 @@ export default function ProposalsScreen({ navigation, route }) {
 
   function buildProposalUrl(proposal, urlType) {
     const id = proposal.id || proposal._id;
-    const base = `https://customer-design.prolibu.com/v1/document/proposal/${id}/full`;
+    const base = `${getApiBase()}/document/proposal/${id}/full`;
     if (urlType === 'anonymous') {
       const rand = Math.floor(Math.random() * 9999999);
       return `${base}?source=none&rand=${rand}`;
     }
+    // URL cliente larga (con source=email para tracking)
     const lead = proposal.relatedLead;
     const email = (typeof lead === 'object' ? lead?.email : null) || '';
-    return `${base}?source=${encodeURIComponent(email)}`;
+    return email ? `${base}?source=${encodeURIComponent(email)}` : `${base}?source=none`;
+  }
+
+  // Genera la URL corta /r/{uuid} vía POST /v1/urlShort/generate
+  async function buildClientShortUrl(proposal) {
+    const longUrl = buildProposalUrl(proposal, 'client');
+    try {
+      const res = await generateShortUrl(longUrl, userId, auth.token);
+      return res.url || longUrl;
+    } catch {
+      return longUrl;
+    }
   }
 
   function getLeadPhone(proposal) {
@@ -226,9 +346,9 @@ export default function ProposalsScreen({ navigation, route }) {
     return lead.email || '';
   }
 
-  function handleWhatsApp(proposal, urlType, template) {
+  function handleWhatsApp(proposal, urlType, template, skipUrlAppend = false) {
     const url = buildProposalUrl(proposal, urlType);
-    const fullText = template ? `${template}\n${url}` : url;
+    const fullText = skipUrlAppend ? (template || url) : (template ? `${template}\n${url}` : url);
     const msg = encodeURIComponent(fullText);
     const rawPhone = getLeadPhone(proposal);
     // Limpiar número: solo dígitos, sin +, espacios ni guiones
@@ -244,47 +364,41 @@ export default function ProposalsScreen({ navigation, route }) {
     });
   }
 
-  function handleEmail(proposal, urlType, subjectTpl, bodyTpl) {
-    const url = buildProposalUrl(proposal, urlType);
+  async function handleEmail(proposal, urlType, subjectTpl, bodyTpl) {
     const to = getLeadEmail(proposal);
-
-    // Validar formato de correo
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!to || !emailRegex.test(to)) {
       Alert.alert('Correo inválido', 'El lead no tiene un correo registrado o válido.');
       return;
     }
 
+    const url = urlType === 'client'
+      ? await buildClientShortUrl(proposal)
+      : buildProposalUrl(proposal, 'anonymous');
+
     const fullBody = bodyTpl ? `${bodyTpl}\n${url}` : url;
+    const encodedTo = encodeURIComponent(to);
     const encodedSubject = encodeURIComponent(subjectTpl || proposal.title || proposal.name || 'Propuesta');
     const encodedBody = encodeURIComponent(fullBody);
     const mailtoUrl = `mailto:${to}?subject=${encodedSubject}&body=${encodedBody}`;
 
-    // Detección inteligente: Gmail / Outlook / genérico
-    const domain = (to.split('@')[1] || '').toLowerCase();
-    if (domain === 'gmail.com') {
-      const gmailUrl = `googlegmail://co?to=${encodeURIComponent(to)}&subject=${encodedSubject}&body=${encodedBody}`;
-      Linking.canOpenURL(gmailUrl).then((supported) => {
-        Linking.openURL(supported ? gmailUrl : mailtoUrl).catch(() =>
-          Linking.openURL(mailtoUrl).catch(() =>
-            Alert.alert('Error', 'No se pudo abrir Gmail.')
-          )
-        );
-      });
-    } else if (['outlook.com', 'hotmail.com', 'live.com', 'msn.com', 'microsoft.com'].includes(domain)) {
-      const outlookUrl = `ms-outlook://compose?to=${encodeURIComponent(to)}&subject=${encodedSubject}&body=${encodedBody}`;
-      Linking.canOpenURL(outlookUrl).then((supported) => {
-        Linking.openURL(supported ? outlookUrl : mailtoUrl).catch(() =>
-          Linking.openURL(mailtoUrl).catch(() =>
-            Alert.alert('Error', 'No se pudo abrir Outlook.')
-          )
-        );
-      });
-    } else {
-      Linking.openURL(mailtoUrl).catch(() =>
-        Alert.alert('Error', 'No se pudo abrir la aplicación de correo.')
-      );
+    // Detectar app instalada en el dispositivo (no el dominio del destinatario)
+    const gmailUrl = `googlegmail://co?to=${encodedTo}&subject=${encodedSubject}&body=${encodedBody}`;
+    const outlookUrl = `ms-outlook://compose?to=${encodedTo}&subject=${encodedSubject}&body=${encodedBody}`;
+
+    const hasGmail = await Linking.canOpenURL(gmailUrl).catch(() => false);
+    if (hasGmail) {
+      Linking.openURL(gmailUrl).catch(() => Linking.openURL(mailtoUrl));
+      return;
     }
+    const hasOutlook = await Linking.canOpenURL(outlookUrl).catch(() => false);
+    if (hasOutlook) {
+      Linking.openURL(outlookUrl).catch(() => Linking.openURL(mailtoUrl));
+      return;
+    }
+    Linking.openURL(mailtoUrl).catch(() =>
+      Alert.alert('Error', 'No se pudo abrir la aplicación de correo.')
+    );
   }
 
   async function handleShareUrl(proposal, urlType) {
@@ -303,12 +417,33 @@ export default function ProposalsScreen({ navigation, route }) {
   function renderItem({ item }) {
     const title = item.title || item.name || 'Sin título';
     const color = STATUS_COLOR[item.status] || COLORS.textMuted;
+    const propId = item.id || item._id || '';
+    const isLive = !!(propId && liveViewing[propId]);
+    // Última vista: primero del socket (sesión actual), luego del API (persistido)
+    const socketView = propId ? lastViewed[propId] : null;
+    const apiLastView = item.lastView || item.lastSeen || item.lastViewed || null;
+    const lastViewTs = socketView?.timestamp || apiLastView || null;
+
+    const nowMs = Date.now();
+    const isRecentlyViewed = !!(lastViewTs && (nowMs - new Date(lastViewTs).getTime()) < 3600000);
+    const isNeverViewedOld = !lastViewTs && !!(item.createdAt && (nowMs - new Date(item.createdAt).getTime()) > 7 * 24 * 60 * 60 * 1000);
+
     return (
       <TouchableOpacity
-        style={styles.card}
+        style={[styles.card, isLive && styles.cardLive]}
         onPress={() => navigation.navigate('Editor', { proposal: item, auth })}
         activeOpacity={0.75}
       >
+        {isLive && (
+          <View style={styles.liveBanner}>
+            <Text style={styles.liveBannerText}>👁  Viendo ahora</Text>
+          </View>
+        )}
+        {!isLive && lastViewTs && (
+          <View style={styles.lastViewBanner}>
+            <Text style={styles.lastViewText}>👁  Última vista {timeAgo(lastViewTs)}</Text>
+          </View>
+        )}
         <View style={styles.cardTop}>
           <Text style={styles.cardTitle} numberOfLines={2}>{title}</Text>
           <View style={[styles.badge, { backgroundColor: color + '25', borderColor: color }]}>
@@ -350,14 +485,18 @@ export default function ProposalsScreen({ navigation, route }) {
             ) : null}
             <TouchableOpacity
               style={styles.sendBtn}
-              onPress={() => {
+              onPress={async () => {
                 const lead = item.relatedLead;
                 const name = typeof lead === 'object' ? (lead?.firstName || lead?.name || '') : '';
                 const title = item.title || item.name || '';
-                const waMsg = `${name ? `Hola ${name},` : 'Hola,'} te comparto nuestra propuesta comercial${title ? ` *"${title}"*` : ''}.\n\nPuedes revisarla en el siguiente enlace:`;
+                const urlType = item.status === 'Ready' ? 'client' : 'anonymous';
                 const emailSubject = `Propuesta comercial${title ? `: ${title}` : ''}`;
                 const emailMsg = `Hola${name ? ` ${name}` : ''},\n\nEspero que te encuentres muy bien. Te compartimos nuestra propuesta comercial${title ? ` "${title}"` : ''} para tu revisión.\n\nPuedes acceder a ella en el siguiente enlace:\n\nQuedo atento a tus comentarios y a cualquier duda que puedas tener.\n\nSaludos cordiales,`;
-                setSendModal({ visible: true, proposal: item, urlType: 'client', channel: 'whatsapp', waMsg, emailSubject, emailMsg });
+                const previewUrl = urlType === 'client'
+                  ? await buildClientShortUrl(item)
+                  : buildProposalUrl(item, 'anonymous');
+                const waMsg = `${name ? `Hola ${name},` : 'Hola,'} te comparto nuestra propuesta comercial${title ? ` *"${title}"*` : ''}.\n\nPuedes revisarla en el siguiente enlace:\n${previewUrl}`;
+                setSendModal({ visible: true, proposal: item, urlType, channel: 'whatsapp', waMsg, emailSubject, emailMsg });
               }}
               activeOpacity={0.7}
             >
@@ -365,6 +504,24 @@ export default function ProposalsScreen({ navigation, route }) {
             </TouchableOpacity>
           </View>
         </View>
+        {isRecentlyViewed && (
+          <TouchableOpacity
+            style={styles.urgentBtn}
+            onPress={() => setSeguimientoModal({ visible: true, proposal: item, type: 'urgente' })}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.urgentBtnText}>🔥 Seguimiento urgente →</Text>
+          </TouchableOpacity>
+        )}
+        {!isRecentlyViewed && isNeverViewedOld && (
+          <TouchableOpacity
+            style={styles.noVistaBtn}
+            onPress={() => setSeguimientoModal({ visible: true, proposal: item, type: 'novista' })}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.noVistaBtnText}>📞 Sin vistas — Contactar →</Text>
+          </TouchableOpacity>
+        )}
       </TouchableOpacity>
     );
   }
@@ -400,6 +557,18 @@ export default function ProposalsScreen({ navigation, route }) {
               <Text style={styles.countText}>{totalCount}</Text>
             </View>
           )}
+          <TouchableOpacity
+            style={styles.bellBtn}
+            onPress={() => { setShowNotifications(true); markAllRead(); }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.bellIcon}>🔔</Text>
+            {unread > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unread > 99 ? '99+' : unread}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
           <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
             <Text style={styles.logoutText}>Salir</Text>
           </TouchableOpacity>
@@ -438,7 +607,7 @@ export default function ProposalsScreen({ navigation, route }) {
         </ScrollView>
       </View>
 
-      {/* Barra de ordenamiento + filtro de lead */}
+      {/* Barra de ordenamiento */}
       <View style={styles.sortBar}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortScroll}>
           {SORT_OPTIONS.map((s) => {
@@ -454,30 +623,28 @@ export default function ProposalsScreen({ navigation, route }) {
               </TouchableOpacity>
             );
           })}
-          {/* Separador */}
-          <View style={styles.sortSep} />
-          {/* Chip de lead */}
-          <TouchableOpacity
-            style={[styles.sortChip, leadFilter && styles.sortChipActive]}
-            onPress={() => setLeadPickerVisible(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.sortChipText, leadFilter && styles.sortChipTextActive]}>
-              {leadFilter
-                ? `◈ ${getUniqueLeads(allProposals).find((l) => l.id === leadFilter)?.name || 'Lead'}`
-                : '◈ Lead'}
-            </Text>
-            {leadFilter && (
-              <TouchableOpacity
-                onPress={() => handleLeadFilter(null)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={{ color: COLORS.accent, fontSize: 12, marginLeft: 4 }}>✕</Text>
-              </TouchableOpacity>
-            )}
-          </TouchableOpacity>
         </ScrollView>
       </View>
+
+      {/* Botón de filtros avanzados */}
+      <TouchableOpacity
+        style={[styles.filterBarBtn, activeFilterCount > 0 && styles.filterBarBtnActive]}
+        onPress={() => setFilterPanelVisible(true)}
+        activeOpacity={0.85}
+      >
+        <Text style={[styles.filterBarBtnIcon, activeFilterCount > 0 && { color: COLORS.accentFg }]}>⚙</Text>
+        <Text style={[styles.filterBarBtnText, activeFilterCount > 0 && { color: COLORS.accentFg }]}>
+          {activeFilterCount > 0 ? `Filtros activos (${activeFilterCount})` : 'Filtros avanzados'}
+        </Text>
+        {activeFilterCount > 0 && (
+          <TouchableOpacity
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            onPress={() => applyPanel({ sort: activeSort, lf: null, af: 'all', rf: 'all', vf: 'all', df: 'all', dfrom: '', dto: '' })}
+          >
+            <Text style={{ color: COLORS.accentFg, fontSize: 13, fontWeight: '700', marginLeft: 6 }}>✕ Limpiar</Text>
+          </TouchableOpacity>
+        )}
+      </TouchableOpacity>
 
       {loading ? (
         <ActivityIndicator color={COLORS.accent} size="large" style={styles.loader} />
@@ -508,6 +675,15 @@ export default function ProposalsScreen({ navigation, route }) {
           }
         />
       )}
+
+      {/* Panel de filtros avanzados */}
+      <FilterPanel
+        visible={filterPanelVisible}
+        onClose={() => setFilterPanelVisible(false)}
+        initialValues={{ sort: activeSort, lf: leadFilter, af: activityFilter, rf: ratingFilter, vf: viewsFilter, df: dateFilter, dfrom: dateFrom, dto: dateTo }}
+        leads={getUniqueLeads(allProposals)}
+        onApply={applyPanel}
+      />
 
       {/* Modal filtro por lead */}
       <Modal
@@ -644,17 +820,39 @@ export default function ProposalsScreen({ navigation, route }) {
               {/* ── Tipo de URL ── */}
               <Text style={styles.sendSheetLabel}>Tipo de URL</Text>
               <View style={styles.urlTypeRow}>
-                <TouchableOpacity
-                  style={[styles.urlTypeBtn, sendModal.urlType === 'client' && styles.urlTypeBtnActive]}
-                  onPress={() => setSendModal({ ...sendModal, urlType: 'client' })}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.urlTypeBtnTitle, sendModal.urlType === 'client' && { color: COLORS.accent }]}>URL Cliente</Text>
-                  <Text style={styles.urlTypeBtnDesc}>Contabiliza vistas</Text>
-                </TouchableOpacity>
+                {(() => {
+                  const canClient = sendModal.proposal?.status === 'Ready';
+                  return (
+                    <TouchableOpacity
+                      style={[styles.urlTypeBtn, sendModal.urlType === 'client' && styles.urlTypeBtnActive, !canClient && { opacity: 0.38 }]}
+                      onPress={async () => {
+                        if (!canClient) return;
+                        const newUrl = await buildClientShortUrl(sendModal.proposal);
+                        const lines = sendModal.waMsg.split('\n');
+                        const last = lines[lines.length - 1];
+                        const newWaMsg = (last.startsWith('http') || last.startsWith('/'))
+                          ? [...lines.slice(0, -1), newUrl].join('\n')
+                          : `${sendModal.waMsg}\n${newUrl}`;
+                        setSendModal({ ...sendModal, urlType: 'client', waMsg: newWaMsg });
+                      }}
+                      activeOpacity={canClient ? 0.7 : 1}
+                    >
+                      <Text style={[styles.urlTypeBtnTitle, sendModal.urlType === 'client' && canClient && { color: COLORS.accent }]}>URL Cliente</Text>
+                      <Text style={styles.urlTypeBtnDesc}>{canClient ? 'Contabiliza vistas' : 'Solo propuestas Lista'}</Text>
+                    </TouchableOpacity>
+                  );
+                })()}
                 <TouchableOpacity
                   style={[styles.urlTypeBtn, sendModal.urlType === 'anonymous' && styles.urlTypeBtnActive]}
-                  onPress={() => setSendModal({ ...sendModal, urlType: 'anonymous' })}
+                  onPress={() => {
+                    const newUrl = buildProposalUrl(sendModal.proposal, 'anonymous');
+                    const lines = sendModal.waMsg.split('\n');
+                    const last = lines[lines.length - 1];
+                    const newWaMsg = (last.startsWith('http') || last.startsWith('/'))
+                      ? [...lines.slice(0, -1), newUrl].join('\n')
+                      : `${sendModal.waMsg}\n${newUrl}`;
+                    setSendModal({ ...sendModal, urlType: 'anonymous', waMsg: newWaMsg });
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.urlTypeBtnTitle, sendModal.urlType === 'anonymous' && { color: COLORS.accent }]}>URL Anónima</Text>
@@ -676,7 +874,7 @@ export default function ProposalsScreen({ navigation, route }) {
                     returnKeyType="done"
                     blurOnSubmit
                   />
-                  <Text style={styles.waMsgHint}>La URL se adjunta automáticamente al final</Text>
+                  <Text style={styles.waMsgHint}>Puedes editar el mensaje y la URL antes de enviar</Text>
                 </>
               )}
 
@@ -727,7 +925,7 @@ export default function ProposalsScreen({ navigation, route }) {
                 activeOpacity={0.8}
                 onPress={async () => {
                   if (sendModal.channel === 'whatsapp') {
-                    handleWhatsApp(sendModal.proposal, sendModal.urlType, sendModal.waMsg);
+                    handleWhatsApp(sendModal.proposal, sendModal.urlType, sendModal.waMsg, true);
                     setSendModal({ ...sendModal, visible: false });
                   } else if (sendModal.channel === 'email') {
                     handleEmail(sendModal.proposal, sendModal.urlType, sendModal.emailSubject, sendModal.emailMsg);
@@ -738,7 +936,6 @@ export default function ProposalsScreen({ navigation, route }) {
                     try {
                       await Share.share({
                         message: url,
-                        url,
                         title: sendModal.proposal?.title || sendModal.proposal?.name || 'Propuesta',
                       });
                     } catch {}
@@ -765,6 +962,147 @@ export default function ProposalsScreen({ navigation, route }) {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* Modal seguimiento urgente */}
+      <Modal
+        visible={seguimientoModal.visible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setSeguimientoModal({ ...seguimientoModal, visible: false })}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => setSeguimientoModal({ ...seguimientoModal, visible: false })}
+          />
+          <View style={styles.sendSheet}>
+            <View style={styles.sendSheetHandle} />
+            {seguimientoModal.type === 'urgente' ? (
+              <>
+                <Text style={styles.sendSheetTitle}>🔥 Seguimiento urgente</Text>
+                <Text style={styles.sendSheetSub}>
+                  El cliente vio la propuesta hace menos de 1 hora. ¡Es el momento de contactar!
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.sendSheetTitle}>📞 Sin vistas — Contactar</Text>
+                <Text style={styles.sendSheetSub}>
+                  Esta propuesta lleva más de una semana sin ser vista. Recuérdale al lead.
+                </Text>
+              </>
+            )}
+
+            <TouchableOpacity
+              style={[styles.seguimientoBtn, { backgroundColor: '#25D366' }]}
+              onPress={async () => {
+                const p = seguimientoModal.proposal;
+                if (!p) return;
+                const lead = p.relatedLead;
+                const name = typeof lead === 'object' ? (lead?.firstName || lead?.name || '') : '';
+                const t = p.title || p.name || '';
+                const urlType = p.status === 'Ready' ? 'client' : 'anonymous';
+                const url = urlType === 'client'
+                  ? await buildClientShortUrl(p)
+                  : buildProposalUrl(p, 'anonymous');
+                const msg = seguimientoModal.type === 'urgente'
+                  ? `Hola${name ? ` ${name}` : ''}, ¿qué te pareció${t ? ` "${t}"` : ' nuestra propuesta'}? Quedo atento a tus comentarios 😊\n${url}`
+                  : `Hola${name ? ` ${name}` : ''}, quería recordarte que tienes una propuesta disponible${t ? `: "${t}"` : ''}. ¿Tienes alguna duda? Con gusto te ayudo.\n${url}`;
+                handleWhatsApp(p, urlType, msg, true);
+                setSeguimientoModal({ ...seguimientoModal, visible: false });
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.seguimientoBtnText, { color: '#fff' }]}>◉  Contactar por WhatsApp</Text>
+            </TouchableOpacity>
+
+            {seguimientoModal.proposal && getLeadPhone(seguimientoModal.proposal) ? (
+              <TouchableOpacity
+                style={[styles.seguimientoBtn, { backgroundColor: '#3B82F6', marginTop: 10 }]}
+                onPress={() => {
+                  Linking.openURL(`tel:${getLeadPhone(seguimientoModal.proposal)}`);
+                  setSeguimientoModal({ ...seguimientoModal, visible: false });
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.seguimientoBtnText, { color: '#fff' }]}>✆  Llamar</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            <TouchableOpacity
+              style={[styles.sendCancelBtn, { marginTop: 10 }]}
+              onPress={() => setSeguimientoModal({ ...seguimientoModal, visible: false })}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.sendCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de notificaciones */}
+      <Modal
+        visible={showNotifications}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowNotifications(false)}
+      >
+        <SafeAreaView style={styles.notifSafe} edges={['top', 'bottom']}>
+          <View style={styles.notifHeader}>
+            <View>
+              <Text style={styles.notifTitle}>Notificaciones</Text>
+              {connected
+                ? <Text style={styles.notifConnected}>● Conectado en tiempo real</Text>
+                : <Text style={styles.notifDisconnected}>○ Sin conexión en tiempo real</Text>}
+            </View>
+            <View style={styles.notifHeaderRight}>
+              {notifications.length > 0 && (
+                <TouchableOpacity onPress={clearAll} style={styles.notifClearBtn}>
+                  <Text style={styles.notifClearText}>Limpiar</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={() => setShowNotifications(false)} style={styles.notifCloseBtn}>
+                <Text style={styles.notifCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {notifications.length === 0 ? (
+            <View style={styles.notifEmpty}>
+              <Text style={styles.notifEmptyIcon}>🔔</Text>
+              <Text style={styles.notifEmptyText}>Sin notificaciones</Text>
+              <Text style={styles.notifEmptyHint}>Cuando un cliente abra una propuesta aparecerá aquí</Text>
+            </View>
+          ) : (
+            <ScrollView style={styles.notifList} contentContainerStyle={{ paddingBottom: 32 }}>
+              {notifications.map((n) => (
+                <View key={n.id} style={[styles.notifItem, !n.read && styles.notifItemUnread]}>
+                  <View style={styles.notifItemIcon}>
+                    <Text style={{ fontSize: 20 }}>👁</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.notifItemTitle} numberOfLines={1}>
+                      {n.leadName || 'Cliente'} vio tu propuesta
+                    </Text>
+                    <Text style={styles.notifItemSub} numberOfLines={1}>
+                      {n.proposalTitle}{n.proposalNumber ? ` · #${n.proposalNumber}` : ''}
+                    </Text>
+                    {n.leadEmail ? (
+                      <Text style={styles.notifItemEmail} numberOfLines={1}>{n.leadEmail}</Text>
+                    ) : null}
+                    <Text style={styles.notifItemTime}>
+                      {new Date(n.timestamp).toLocaleString('es-CO', {
+                        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+                      })}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+        </SafeAreaView>
+      </Modal>
+
       {/* FAB — nueva propuesta */}
       {auth && (
         <TouchableOpacity
@@ -776,6 +1114,229 @@ export default function ProposalsScreen({ navigation, route }) {
         </TouchableOpacity>
       )}
     </SafeAreaView>
+  );
+}
+
+// ─── Panel de filtros avanzados ───────────────────────────────────────────────
+function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
+  const [sort,  setSort]  = useState(initialValues.sort);
+  const [af,    setAf]    = useState(initialValues.af);
+  const [rf,    setRf]    = useState(initialValues.rf);
+  const [vf,    setVf]    = useState(initialValues.vf);
+  const [lf,    setLf]    = useState(initialValues.lf);
+  const [df,    setDf]    = useState(initialValues.df);
+  const [dfrom, setDfrom] = useState(initialValues.dfrom);
+  const [dto,   setDto]   = useState(initialValues.dto);
+  const [leadSearch, setLeadSearch] = useState('');
+
+  React.useEffect(() => {
+    if (visible) {
+      setSort(initialValues.sort);
+      setAf(initialValues.af);
+      setRf(initialValues.rf);
+      setVf(initialValues.vf);
+      setLf(initialValues.lf);
+      setDf(initialValues.df);
+      setDfrom(initialValues.dfrom);
+      setDto(initialValues.dto);
+      setLeadSearch('');
+    }
+  }, [visible]);
+
+  function clearAll() {
+    setSort('updatedAt_desc'); setAf('all'); setRf('all');
+    setVf('all'); setLf(null); setDf('all'); setDfrom(''); setDto('');
+    setLeadSearch('');
+  }
+
+  // Chip toggle: si ya está activo, vuelve a 'all'
+  function toggle(current, key, setter, reset = 'all') {
+    setter(current === key ? reset : key);
+  }
+
+  const SORT_OPTS = [
+    { key: 'updatedAt_desc', label: '↓ Más recientes' },
+    { key: 'updatedAt_asc',  label: '↑ Más antiguas'  },
+    { key: 'createdAt_desc', label: '+ Por creación'  },
+    { key: 'title_asc',      label: 'A–Z Título'      },
+  ];
+  const ACTIVITY_OPTS = [
+    { key: 'all',             label: 'Toda actividad'      },
+    { key: 'viewed_today',    label: '👁 Vista hoy'         },
+    { key: 'viewed_week',     label: '👁 Esta semana'       },
+    { key: 'not_viewed',      label: '○ Sin vistas'         },
+    { key: 'approved_viewed', label: '✓ Aprobada + vista'  },
+    { key: 'ready_viewed',    label: '● Lista + vista'      },
+  ];
+  const RATING_OPTS = [
+    { key: 'all',  label: 'Cualquiera'   },
+    { key: 'Hot',  label: '🔥 Caliente'  },
+    { key: 'Warm', label: '🌤 Tibia'     },
+    { key: 'Cold', label: '🧊 Fría'      },
+  ];
+  const VIEWS_OPTS = [
+    { key: 'all',        label: 'Cualquiera'   },
+    { key: 'has_views',  label: '◎ Con vistas' },
+    { key: 'no_views',   label: '○ Sin vistas' },
+    { key: 'many_views', label: '◎◎ 5+ vistas' },
+  ];
+  const DATE_OPTS = [
+    { key: 'all',     label: 'Cualquier fecha' },
+    { key: 'today',   label: 'Hoy'             },
+    { key: 'week',    label: 'Última semana'   },
+    { key: 'month',   label: 'Último mes'      },
+    { key: '3months', label: 'Últimos 3 meses' },
+    { key: 'custom',  label: '✎ Personalizado' },
+  ];
+
+  const filteredLeads = leads.filter((l) => {
+    if (!leadSearch.trim()) return true;
+    const q = leadSearch.toLowerCase();
+    return l.name.toLowerCase().includes(q) || l.email.toLowerCase().includes(q);
+  });
+
+  function PanelSection({ title, children }) {
+    return (
+      <View style={styles.panelSection}>
+        <Text style={styles.panelSectionTitle}>{title}</Text>
+        {children}
+      </View>
+    );
+  }
+
+  function ChipRow({ opts, value, onSelect }) {
+    return (
+      <View style={styles.panelChipRow}>
+        {opts.map((o) => {
+          const active = value === o.key;
+          return (
+            <TouchableOpacity
+              key={o.key}
+              style={[styles.panelChip, active && styles.panelChipActive]}
+              onPress={() => onSelect(active && o.key !== 'all' ? 'all' : o.key)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.panelChipText, active && styles.panelChipTextActive]}>{o.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        style={styles.modalOverlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={onClose} />
+        <View style={[styles.sendSheet, { maxHeight: '94%' }]}>
+          <View style={styles.sendSheetHandle} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+            <View>
+              <Text style={styles.sendSheetTitle}>Filtros avanzados</Text>
+              <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 2 }}>Toca un filtro activo para desactivarlo</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={styles.notifCloseBtn}>
+              <Text style={styles.notifCloseText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+
+            <PanelSection title="Ordenar por">
+              <ChipRow opts={SORT_OPTS} value={sort} onSelect={setSort} />
+            </PanelSection>
+
+            <PanelSection title="Actividad de vista">
+              <ChipRow opts={ACTIVITY_OPTS} value={af} onSelect={setAf} />
+            </PanelSection>
+
+            <PanelSection title="Temperatura del lead">
+              <ChipRow opts={RATING_OPTS} value={rf} onSelect={setRf} />
+            </PanelSection>
+
+            <PanelSection title="Contador de vistas">
+              <ChipRow opts={VIEWS_OPTS} value={vf} onSelect={setVf} />
+            </PanelSection>
+
+            <PanelSection title="Rango de fecha (vista o modificación)">
+              <ChipRow opts={DATE_OPTS} value={df} onSelect={setDf} />
+              {df === 'custom' && (
+                <View style={styles.dateRangeRow}>
+                  <View style={styles.dateInputWrap}>
+                    <Text style={styles.dateInputLabel}>Desde</Text>
+                    <TextInput
+                      style={styles.dateInput}
+                      value={dfrom}
+                      onChangeText={setDfrom}
+                      placeholder="AAAA-MM-DD"
+                      placeholderTextColor={COLORS.textMuted}
+                      keyboardType="numeric"
+                      maxLength={10}
+                    />
+                  </View>
+                  <Text style={{ color: COLORS.textMuted, alignSelf: 'flex-end', paddingBottom: 12, marginHorizontal: 4 }}>→</Text>
+                  <View style={styles.dateInputWrap}>
+                    <Text style={styles.dateInputLabel}>Hasta</Text>
+                    <TextInput
+                      style={styles.dateInput}
+                      value={dto}
+                      onChangeText={setDto}
+                      placeholder="AAAA-MM-DD"
+                      placeholderTextColor={COLORS.textMuted}
+                      keyboardType="numeric"
+                      maxLength={10}
+                    />
+                  </View>
+                </View>
+              )}
+            </PanelSection>
+
+            <PanelSection title="Lead">
+              <TextInput
+                style={[styles.emailSubjectInput, { marginBottom: 8 }]}
+                value={leadSearch}
+                onChangeText={setLeadSearch}
+                placeholder="Buscar lead..."
+                placeholderTextColor={COLORS.textMuted}
+                autoCapitalize="none"
+              />
+              {[{ id: null, name: 'Todos los leads', email: '' }, ...filteredLeads].map((lead) => {
+                const active = lf === lead.id;
+                return (
+                  <TouchableOpacity
+                    key={lead.id ?? '__all__'}
+                    style={[styles.panelLeadBtn, { marginBottom: 6 }, active && styles.panelLeadBtnActive]}
+                    onPress={() => setLf(active && lead.id !== null ? null : lead.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.panelLeadBtnText, active && styles.panelLeadBtnTextActive]}>{lead.name}</Text>
+                      {lead.email ? <Text style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>{lead.email}</Text> : null}
+                    </View>
+                    {active && <Text style={{ color: COLORS.accent, fontWeight: '800' }}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+            </PanelSection>
+
+            <TouchableOpacity
+              style={styles.panelApplyBtn}
+              onPress={() => onApply({ sort, lf, af, rf, vf, df, dfrom, dto })}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.panelApplyText}>Aplicar filtros</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.panelClearBtn} onPress={clearAll} activeOpacity={0.7}>
+              <Text style={styles.panelClearText}>Limpiar todo y cerrar</Text>
+            </TouchableOpacity>
+            <View style={{ height: 32 }} />
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
@@ -878,6 +1439,37 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     padding: 16,
     marginBottom: 10,
+    overflow: 'hidden',
+  },
+  cardLive: {
+    borderColor: '#39B54A',
+    borderWidth: 1.5,
+  },
+  liveBanner: {
+    backgroundColor: '#39B54A18',
+    marginHorizontal: -16,
+    marginTop: -16,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+  },
+  liveBannerText: {
+    color: '#39B54A',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  lastViewBanner: {
+    backgroundColor: '#60A5FA12',
+    marginHorizontal: -16,
+    marginTop: -16,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+  },
+  lastViewText: {
+    color: '#60A5FA',
+    fontSize: 11,
+    fontWeight: '600',
   },
   cardTop: {
     flexDirection: 'row',
@@ -927,6 +1519,72 @@ const styles = StyleSheet.create({
   sortChipText: { color: COLORS.textMuted, fontSize: 12, fontWeight: '600' },
   sortChipTextActive: { color: COLORS.accent },
   sortSep: { width: 1, backgroundColor: COLORS.border, marginHorizontal: 4, alignSelf: 'stretch' },
+  filterPanelBtn: {},  // legacy, unused
+  filterPanelBtnActive: {},
+  filterPanelBtnText: {},
+  filterPanelBtnTextActive: {},
+  filterBarBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
+  },
+  filterBarBtnActive: {
+    backgroundColor: COLORS.accent,
+    borderColor: COLORS.accent,
+  },
+  filterBarBtnIcon: { fontSize: 15, color: COLORS.textMuted },
+  filterBarBtnText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '700' },
+  dateRangeRow: {
+    flexDirection: 'row', alignItems: 'center', marginTop: 10,
+  },
+  dateInputWrap: { flex: 1 },
+  dateInputLabel: { color: COLORS.textMuted, fontSize: 11, fontWeight: '700', marginBottom: 4 },
+  dateInput: {
+    backgroundColor: COLORS.card, color: COLORS.text,
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
+  },
+  // Panel styles
+  panelSection: { marginBottom: 20 },
+  panelSectionTitle: {
+    color: COLORS.textMuted, fontSize: 11, fontWeight: '800',
+    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10,
+  },
+  panelChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  panelChip: {
+    paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: 16, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
+  },
+  panelChipActive: { borderColor: COLORS.accent, backgroundColor: COLORS.accent + '15' },
+  panelChipText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '600' },
+  panelChipTextActive: { color: COLORS.accent, fontWeight: '700' },
+  panelLeadBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 12, backgroundColor: COLORS.card,
+  },
+  panelLeadBtnActive: { borderColor: COLORS.accent, backgroundColor: COLORS.accent + '10' },
+  panelLeadBtnText: { color: COLORS.textMuted, fontSize: 14 },
+  panelLeadBtnTextActive: { color: COLORS.accent, fontWeight: '600' },
+  panelApplyBtn: {
+    backgroundColor: COLORS.accent, borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center', marginTop: 8,
+  },
+  panelApplyText: { color: COLORS.accentFg, fontWeight: '800', fontSize: 16 },
+  panelClearBtn: {
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 12,
+    paddingVertical: 12, alignItems: 'center', marginTop: 8,
+  },
+  panelClearText: { color: COLORS.textMuted, fontWeight: '600', fontSize: 14 },
   leadPickerItem: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 12, paddingHorizontal: 4,
@@ -1046,4 +1704,83 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   fabText: { color: COLORS.accentFg, fontSize: 30, fontWeight: '300', lineHeight: 34 },
+
+  // Bell
+  bellBtn: { position: 'relative', padding: 4 },
+  bellIcon: { fontSize: 22 },
+  bellBadge: {
+    position: 'absolute', top: 0, right: 0,
+    backgroundColor: '#EF4444', borderRadius: 8,
+    minWidth: 16, height: 16, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3,
+  },
+  bellBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
+
+  // Notification modal
+  notifSafe: { flex: 1, backgroundColor: COLORS.bg },
+  notifHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 16,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  notifTitle: { color: COLORS.text, fontSize: 18, fontWeight: '800' },
+  notifConnected: { color: '#22c55e', fontSize: 11, marginTop: 2 },
+  notifDisconnected: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
+  notifHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  notifClearBtn: { paddingHorizontal: 10, paddingVertical: 6 },
+  notifClearText: { color: COLORS.textMuted, fontSize: 13 },
+  notifCloseBtn: {
+    width: 32, height: 32, borderRadius: 8,
+    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  notifCloseText: { color: COLORS.text, fontSize: 14, fontWeight: '700' },
+  notifList: { flex: 1 },
+  notifItem: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    paddingHorizontal: 20, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  notifItemUnread: { backgroundColor: COLORS.accent + '10' },
+  notifItemIcon: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  notifItemTitle: { color: COLORS.text, fontSize: 14, fontWeight: '700' },
+  notifItemSub: { color: COLORS.textMuted, fontSize: 13, marginTop: 2 },
+  notifItemEmail: { color: COLORS.accent, fontSize: 12, marginTop: 2 },
+  notifItemTime: { color: COLORS.textMuted, fontSize: 11, marginTop: 4 },
+  notifEmpty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, gap: 12 },
+  notifEmptyIcon: { fontSize: 48 },
+  notifEmptyText: { color: COLORS.text, fontSize: 16, fontWeight: '700' },
+  notifEmptyHint: { color: COLORS.textMuted, fontSize: 13, textAlign: 'center' },
+
+  // Seguimiento urgente
+  urgentBtn: {
+    marginTop: 10,
+    backgroundColor: '#FF5722',
+    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+  },
+  urgentBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  noVistaBtn: {
+    marginTop: 10,
+    backgroundColor: '#3B82F620',
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+  },
+  noVistaBtnText: { color: '#3B82F6', fontSize: 13, fontWeight: '700' },
+  seguimientoBtn: {
+    marginTop: 16,
+    borderRadius: 12,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  seguimientoBtnText: { fontSize: 16, fontWeight: '700' },
 });

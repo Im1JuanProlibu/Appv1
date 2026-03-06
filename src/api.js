@@ -80,6 +80,20 @@ export function getProposal(id, token) {
   });
 }
 
+// POST /v1/urlShort/generate — devuelve { url: "https://dominio/r/AbCd3F" }
+// Reutiliza la URL corta si la URL larga ya existe en la DB
+export function generateShortUrl(longUrl, userId, token) {
+  return request('/urlShort/generate', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify({ url: longUrl, createdBy: userId, updatedBy: userId }),
+  });
+}
+
 // PUT /v1/proposal/{id}
 export function saveProposal(id, body, token) {
   return request(`/proposal/${id}`, {
@@ -112,10 +126,38 @@ export function getCurrencies(token) {
   });
 }
 
+// GET /v1/currency/search
+export function searchCurrencies(criteria, token) {
+  const params = new URLSearchParams({
+    criteria,
+    limit: '100',
+    page: '1',
+    searchFields: 'code,name',
+    selectedFields: 'code,name',
+    sort: 'updatedAt DESC',
+  });
+  return request(`/currency/search?${params}`, {
+    headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
+  });
+}
+
 // GET /v1/product?disabled=false&limit=1000
 export function getProducts(token) {
   return request(`/product?disabled=false&limit=1000`, {
     headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// POST /v1/product — crea un producto en el catálogo
+export function createProduct(data, token) {
+  return request('/product', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify(data),
   });
 }
 

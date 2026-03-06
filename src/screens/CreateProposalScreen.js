@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
-import { checkLeadByEmail, searchLeadByEmail, createLead, createProposal, getProducts, getCurrencies } from '../api';
+import { checkLeadByEmail, searchLeadByEmail, createLead, createProposal, getProducts, getCurrencies, searchCurrencies } from '../api';
 
 const COUNTRY_CODES = [
   { code: '+57',  flag: '🇨🇴', name: 'CO' },
@@ -41,6 +41,9 @@ export default function CreateProposalScreen({ navigation, route }) {
   const [title, setTitle] = useState('');
   const [currency, setCurrency] = useState('COP');
   const [currencies, setCurrencies] = useState([]);
+  const [currencySearch, setCurrencySearch] = useState('COP');
+  const [currencySuggestions, setCurrencySuggestions] = useState([]);
+  const [currencySearching, setCurrencySearching] = useState(false);
 
   // Lead
   const [email, setEmail] = useState('');
@@ -168,11 +171,16 @@ export default function CreateProposalScreen({ navigation, route }) {
       }
       if (!leadId) throw new Error('No se pudo obtener el ID del cliente.');
 
-      const productList = products.map((p) => ({
-        id: p.id,
-        quantity: p.quantity || 1,
-        discountRate: p.discountRate || 0,
-      }));
+      const productList = products.map((p) => {
+        const entry = {
+          id: p.id || p._id,
+          quantity: p.quantity || 1,
+          discountRate: p.discountRate || 0,
+        };
+        if (p.name) entry.name = p.name;
+        if (p.price != null) entry.price = p.price;
+        return entry;
+      });
 
       const res = await createProposal(
         {
@@ -196,9 +204,9 @@ export default function CreateProposalScreen({ navigation, route }) {
 
   // Resumen
   const summary = products.reduce((acc, p) => {
-    const price = p.product?.price ?? p.price ?? 0;
+    const price = parseFloat(p.product?.price ?? p.product?.value ?? p.product?.unitPrice ?? p.price ?? 0) || 0;
     const qty = p.quantity || 1;
-    const taxRate = parseFloat(p.product?.taxRate ?? p.product?.tax ?? 0);
+    const taxRate = parseFloat(p.product?.taxRate ?? p.product?.tax ?? 0) || 0;
     const lineGross = price * qty;
     const discountAmt = (lineGross * (p.discountRate || 0)) / 100;
     const lineNet = lineGross - discountAmt;
@@ -260,18 +268,46 @@ export default function CreateProposalScreen({ navigation, route }) {
 
         {/* Moneda */}
         <Text style={styles.label}>Moneda</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.currencyRow}>
-          {(currencies.length > 0 ? currencies : [{ code: 'COP' }, { code: 'USD' }, { code: 'EUR' }]).map((c) => (
-            <TouchableOpacity
-              key={c.code}
-              style={[styles.currencyBtn, currency === c.code && styles.currencyBtnActive]}
-              onPress={() => setCurrency(c.code)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.currencyBtnText, currency === c.code && styles.currencyBtnTextActive]}>{c.code}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <View style={styles.currencySearchWrap}>
+          <TextInput
+            style={styles.currencyInput}
+            placeholder="Buscar moneda (ej: COP, USD...)"
+            placeholderTextColor={COLORS.textMuted}
+            value={currencySearch}
+            autoCapitalize="characters"
+            onChangeText={async (text) => {
+              setCurrencySearch(text);
+              if (text.length < 1) { setCurrencySuggestions([]); return; }
+              setCurrencySearching(true);
+              try {
+                const res = await searchCurrencies(text, auth.token);
+                const raw = Array.isArray(res) ? res : (res.data || res.docs || res.records || []);
+                setCurrencySuggestions(Array.isArray(raw) ? raw.filter((c) => c && c.code) : []);
+              } catch { setCurrencySuggestions([]); } finally { setCurrencySearching(false); }
+            }}
+          />
+          {currencySearching && <ActivityIndicator size="small" color={COLORS.accent} style={styles.currencySpinner} />}
+          {currency ? (
+            <View style={styles.currencyChip}>
+              <Text style={styles.currencyChipText}>{currency}</Text>
+            </View>
+          ) : null}
+        </View>
+        {currencySuggestions.length > 0 && (
+          <View style={styles.currencyDropdown}>
+            {currencySuggestions.map((c) => (
+              <TouchableOpacity
+                key={c.code}
+                style={styles.currencyDropdownItem}
+                onPress={() => { setCurrency(c.code); setCurrencySearch(c.code); setCurrencySuggestions([]); }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.currencyDropdownCode}>{c.code}</Text>
+                {c.name ? <Text style={styles.currencyDropdownName}>{c.name}</Text> : null}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* Cliente */}
         <Text style={styles.label}>Cliente (Lead)</Text>
@@ -354,12 +390,12 @@ export default function CreateProposalScreen({ navigation, route }) {
         </View>
 
         {products.map((p, i) => {
-          const price = p.product?.price ?? p.price ?? null;
-          const taxRate = parseFloat(p.product?.taxRate ?? p.product?.tax ?? 0);
+          const price = parseFloat(p.product?.price ?? p.product?.value ?? p.product?.unitPrice ?? p.price ?? 0) || 0;
+          const taxRate = parseFloat(p.product?.taxRate ?? p.product?.tax ?? 0) || 0;
           const qty = p.quantity || 1;
-          const lineGross = price !== null ? price * qty : null;
-          const taxAmt = lineGross !== null && taxRate > 0 ? (lineGross * taxRate) / 100 : null;
-          const subtotal = lineGross !== null ? lineGross + (taxAmt || 0) : null;
+          const lineGross = price * qty;
+          const taxAmt = taxRate > 0 ? (lineGross * taxRate) / 100 : 0;
+          const subtotal = lineGross + taxAmt;
           return (
             <View key={i} style={styles.productCard}>
               <View style={styles.productHeader}>
@@ -371,11 +407,9 @@ export default function CreateProposalScreen({ navigation, route }) {
                   <Text style={styles.removeBtnText}>✕</Text>
                 </TouchableOpacity>
               </View>
-              {price !== null && (
-                <Text style={styles.productPrice}>
-                  $ {price.toLocaleString('es-CO')} c/u · {currency}{taxRate > 0 ? `  ·  IVA ${taxRate}%` : ''}
-                </Text>
-              )}
+              <Text style={styles.productPrice}>
+                $ {price.toLocaleString('es-CO')} c/u · {currency}{taxRate > 0 ? `  ·  IVA ${taxRate}%` : ''}
+              </Text>
               <View style={styles.productRow}>
                 <Text style={styles.fieldLabel}>Cantidad</Text>
                 <View style={styles.qtyPill}>
@@ -394,12 +428,10 @@ export default function CreateProposalScreen({ navigation, route }) {
                   </TouchableOpacity>
                 </View>
               </View>
-              {subtotal !== null && (
-                <View style={styles.subtotalRow}>
-                  <Text style={styles.subtotalLabel}>{taxRate > 0 ? `Neto + IVA ${taxRate}%` : 'Subtotal'}</Text>
-                  <Text style={styles.subtotalValue}>$ {subtotal.toLocaleString('es-CO')}</Text>
-                </View>
-              )}
+              <View style={styles.subtotalRow}>
+                <Text style={styles.subtotalLabel}>{taxRate > 0 ? `Neto + IVA ${taxRate}%` : 'Subtotal'}</Text>
+                <Text style={styles.subtotalValue}>$ {subtotal.toLocaleString('es-CO')}</Text>
+              </View>
             </View>
           );
         })}
@@ -547,14 +579,29 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: COLORS.border,
     borderRadius: 10, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15,
   },
-  currencyRow: { flexDirection: 'row', gap: 8 },
-  currencyBtn: {
-    paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10,
-    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
+  currencySearchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  currencyInput: {
+    flex: 1, backgroundColor: COLORS.card, color: COLORS.text,
+    borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15,
   },
-  currencyBtnActive: { borderColor: COLORS.accent, backgroundColor: COLORS.accent + '20' },
-  currencyBtnText: { color: COLORS.textMuted, fontWeight: '700', fontSize: 14 },
-  currencyBtnTextActive: { color: COLORS.accent },
+  currencySpinner: { position: 'absolute', right: 80 },
+  currencyChip: {
+    backgroundColor: COLORS.accent + '20', borderWidth: 1, borderColor: COLORS.accent,
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
+  },
+  currencyChipText: { color: COLORS.accent, fontWeight: '700', fontSize: 14 },
+  currencyDropdown: {
+    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 10, marginTop: 4, overflow: 'hidden',
+  },
+  currencyDropdownItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  currencyDropdownCode: { color: COLORS.text, fontWeight: '700', fontSize: 14, minWidth: 44 },
+  currencyDropdownName: { color: COLORS.textMuted, fontSize: 13, flex: 1 },
   countryRow: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
   countryChip: {
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,

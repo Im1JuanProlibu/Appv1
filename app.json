@@ -4,18 +4,29 @@
     "slug": "prolibu-v1",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#07070f"
+        "backgroundColor": "#FFFFFF"
       },
       "package": "com.prolibu.v1"
     },
     "ios": {
-      "bundleIdentifier": "com.prolibu.v1"
+      "bundleIdentifier": "com.prolibu.v1",
+      "infoPlist": {
+        "NSUserNotificationsUsageDescription": "Para notificarte cuando un cliente está viendo tu propuesta."
+      }
     },
     "plugins": [
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#4285F4",
+          "sounds": []
+        }
+      ]
     ]
   }
 }
