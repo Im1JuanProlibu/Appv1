@@ -7,7 +7,7 @@ Aplicación móvil Android/iOS para que los agentes de Fanalca gestionen propues
 ## Requisitos
 
 - Node.js >= 18
-- Expo CLI: `npm install -g expo-cli`
+- EAS CLI >= 12: `npm install -g eas-cli`
 - Dispositivo físico con **Expo Go** o emulador Android/iOS
 
 ---
@@ -132,11 +132,13 @@ Abrir app
 - Deduplicación: ignora eventos de la misma propuesta en menos de 30 s.
 - Limpieza de listeners al reconectar (evita duplicados).
 - Persiste en AsyncStorage (max 50 notificaciones).
+- `liveViewing`: estado `{ [proposalId]: true }` activo 60 s tras cada vista en tiempo real.
+- `lastViewed`: mapa `{ [proposalId]: { timestamp, leadName } }` calculado del historial persistido.
 
 ### CreateProposalScreen
 - Número auto-generado (6 chars alfanumérico mayúsculas), editable.
 - Título de la propuesta.
-- Selector de moneda dinámico desde la API.
+- Selector de moneda con buscador en tiempo real vía `GET /v1/currency/search`.
 - Búsqueda de lead por email: `GET /v1/lead/exist` → fallback `GET /v1/lead?email=xxx`.
 - Si el lead no existe: formulario de creación (nombre + apellido + celular con selector de código de país: CO/US/MX/AR/CL/PE/BR/VE/EC/ES).
 - Catálogo de productos con buscador por nombre o SKU.
@@ -146,10 +148,11 @@ Abrir app
 ### EditorScreen
 - Carga propuesta completa (`GET /v1/proposal/{id}?populate=all`).
 - Selector de estado (Borrador / Lista / Aprobada / Negada).
-- Selector de moneda dinámico.
+- Selector de moneda con buscador en tiempo real vía `GET /v1/currency/search`.
 - Lista editable de productos: stepper de cantidad, descuento (% o $ — toggleable), subtotal por línea con IVA.
 - Total general: Subtotal / Descuento / Impuestos / Total.
-- Modal catálogo con buscador. Producto personalizado sin catálogo.
+- Modal catálogo con buscador por nombre o SKU.
+- **Producto personalizado:** si el producto no está en el catálogo se puede crear directamente desde la UI (`POST /v1/product`) y se agrega a la propuesta.
 - Guardar: `PUT /v1/proposal/{id}` → `PUT /v1/proposal/changeStatus` (solo si cambió).
 - Pantalla de éxito con URL de propuesta.
 
@@ -174,7 +177,9 @@ Dominio **dinámico** — configurado en DomainScreen con `setApiDomain(domain)`
 | `changeProposalStatus(id, status, token)` | PUT | `/v1/proposal/changeStatus` |
 | `generateShortUrl(longUrl, userId, token)` | POST | `/v1/urlShort/generate` |
 | `getCurrencies(token)` | GET | `/v1/currency` |
+| `searchCurrencies(criteria, token)` | GET | `/v1/currency/search` |
 | `getProducts(token)` | GET | `/v1/product?disabled=false&limit=1000` |
+| `createProduct(data, token)` | POST | `/v1/product` |
 | `checkLeadByEmail(email, token)` | GET | `/v1/lead/exist?key=email&val={email}` |
 | `searchLeadByEmail(email, token)` | GET | `/v1/lead?email={email}` |
 | `createLead(data, token)` | POST | `/v1/lead` |
@@ -192,6 +197,12 @@ Dominio **dinámico** — configurado en DomainScreen con `setApiDomain(domain)`
 - Si la URL larga ya existe en la DB, reutiliza la URL corta existente (deduplicación en servidor).
 - La URL corta `/r/{uuid}` redirige a la URL larga, registra la vista y dispara notificaciones socket al agente.
 
+### Búsqueda de monedas (`/v1/currency/search`)
+```
+GET /v1/currency/search?criteria={texto}&limit=100&searchFields=code,name&selectedFields=code,name&sort=updatedAt DESC
+```
+- Usada en CreateProposalScreen y EditorScreen para el selector de moneda con buscador en tiempo real.
+
 ---
 
 ## useNotifications (`src/useNotifications.js`)
@@ -208,7 +219,20 @@ Token JWT disponible
          +-- Deduplicar (< 30s misma propuesta) → ignorar
          +-- iOS: scheduleNotificationAsync → banner del OS
          +-- Actualiza estado interno + AsyncStorage
+         +-- liveViewing[proposalId] = true  (se limpia tras 60s)
 ```
+
+**Retorna:**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `notifications` | Array | Historial (max 50), persistido en AsyncStorage |
+| `unread` | Number | Contador de no leídas |
+| `connected` | Boolean | Estado de conexión Socket.IO |
+| `liveViewing` | Object | `{ [proposalId]: true }` — activo 60 s por cada vista |
+| `lastViewed` | Object | `{ [proposalId]: { timestamp, leadName } }` del historial |
+| `markAllRead()` | Function | Marca todas como leídas |
+| `clearAll()` | Function | Limpia historial y AsyncStorage |
 
 **Comportamiento por plataforma:**
 
@@ -262,6 +286,9 @@ Logo: `OII>` — O en Azul Barú · II en Amarillo Canario · > en Rojo Crayola.
 - **Stale closure en focus listener:** usa `useRef` para capturar `auth` y `userId` sin valores obsoletos.
 - **Descuento:** admite modo porcentaje (`discountRate`) o valor absoluto. La API siempre recibe `discountRate`.
 - **Teléfono en leads:** se limpia de caracteres no numéricos antes de guardar.
+- **`liveViewing`:** al recibir un evento `common.proposalView`, el `proposalId` se agrega a `liveViewing` por 60 s. ProposalsScreen puede usar esto para destacar tarjetas en tiempo real.
+- **Producto personalizado en EditorScreen:** si el catálogo no tiene el producto deseado, se puede crear inline vía `POST /v1/product` y queda disponible en la propuesta.
+- **Búsqueda de moneda:** usa `GET /v1/currency/search` con debounce en el input; si la API falla, el campo queda editable con el valor manual del agente.
 
 ---
 
@@ -270,15 +297,12 @@ Logo: `OII>` — O en Azul Barú · II en Amarillo Canario · > en Rojo Crayola.
 ### Development build (hot reload desde cualquier red)
 
 ```bash
-# 1. Instalar dependencias
-npx expo install expo-dev-client @expo/ngrok
-
-# 2. Build del APK de desarrollo (solo una vez)
+# 1. Build del APK de desarrollo (solo una vez)
 eas build --profile development --platform android
 
-# 3. Instalar el APK en el dispositivo
+# 2. Instalar el APK en el dispositivo
 
-# 4. Desde cualquier red, conectar via tunnel:
+# 3. Desde cualquier red, conectar via tunnel:
 npx expo start --dev-client --tunnel
 ```
 
@@ -306,11 +330,14 @@ Requiere cuenta en [expo.dev](https://expo.dev) y EAS CLI >= 12.
 | Paquete | Versión | Uso |
 |---|---|---|
 | `expo` | ~54.0.0 | Runtime base |
+| `react` | 19.1.0 | UI declarativa |
 | `react-native` | 0.81.5 | UI nativa |
 | `expo-notifications` | ~0.29.0 | Banners locales iOS |
+| `expo-dev-client` | ~6.0.20 | Development builds con hot reload |
 | `expo-constants` | ~18.0.13 | Constantes de entorno |
 | `expo-asset` | ~12.0.12 | Assets |
-| `@react-navigation/native-stack` | ^6.11.0 | Navegación |
+| `@react-navigation/native` | ^6.1.18 | Contenedor de navegación |
+| `@react-navigation/native-stack` | ^6.11.0 | Navegación stack nativa |
 | `@react-native-async-storage/async-storage` | 2.2.0 | Persistencia local |
 | `react-native-safe-area-context` | ~5.6.0 | Áreas seguras |
 | `react-native-screens` | ~4.16.0 | Optimización de pantallas |
