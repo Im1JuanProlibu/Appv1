@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../theme';
 import { getProposals } from '../api';
+import BottomTabBar from '../components/BottomTabBar';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const STATUS_CONFIG = [
@@ -56,8 +57,16 @@ function computeStats(proposals) {
   const now  = Date.now();
   const ms7  = 7  * 24 * 60 * 60 * 1000;
   const ms30 = 30 * 24 * 60 * 60 * 1000;
-  const recent7  = proposals.filter(p => (now - new Date(p.updatedAt || p.createdAt || 0).getTime()) < ms7).length;
-  const recent30 = proposals.filter(p => (now - new Date(p.updatedAt || p.createdAt || 0).getTime()) < ms30).length;
+  const parseDate = (raw) => {
+    if (!raw) return new Date(0);
+    if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      const [y, m, d] = raw.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+    return new Date(raw);
+  };
+  const recent7  = proposals.filter(p => (now - parseDate(p.updatedAt || p.createdAt).getTime()) < ms7).length;
+  const recent30 = proposals.filter(p => (now - parseDate(p.updatedAt || p.createdAt).getTime()) < ms30).length;
 
   return { total, byStatus, conversionRate, lossRate, byRating, totalAmount, approvedAmount, pipelineAmount, recent7, recent30 };
 }
@@ -185,9 +194,6 @@ export default function DashboardScreen({ navigation }) {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
-          <Text style={styles.backText}>← Volver</Text>
-        </TouchableOpacity>
         <View style={styles.headerInfo}>
           <Text style={styles.headerTitle}>Dashboard</Text>
           <Text style={styles.headerSub} numberOfLines={1}>{userName}</Text>
@@ -411,6 +417,8 @@ export default function DashboardScreen({ navigation }) {
           </Animated.View>
         </ScrollView>
       )}
+
+      <BottomTabBar active="Dashboard" navigation={navigation} />
     </SafeAreaView>
   );
 }

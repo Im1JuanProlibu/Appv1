@@ -13,6 +13,7 @@ import EditorScreen from './src/screens/EditorScreen';
 import CreateProposalScreen from './src/screens/CreateProposalScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import ReportsScreen from './src/screens/ReportsScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 import { COLORS } from './src/theme';
 import { setApiDomain } from './src/api';
 
@@ -58,6 +59,7 @@ export default function App() {
           <Stack.Screen name="CreateProposal" component={CreateProposalScreen} />
           <Stack.Screen name="Dashboard" component={DashboardScreen} />
           <Stack.Screen name="Reports" component={ReportsScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

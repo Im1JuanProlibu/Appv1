@@ -66,6 +66,14 @@ export default function CreateProposalScreen({ navigation, route }) {
 
   const [creating, setCreating] = useState(false);
 
+  // Modo avanzado
+  const [advMode, setAdvMode] = useState(false);
+  const [specialObservations, setSpecialObservations] = useState('');
+  const [expirationDate, setExpirationDate]       = useState('');
+  const [expectedCloseDate, setExpectedCloseDate] = useState('');
+  const [numberOfPayments, setNumberOfPayments]   = useState('');
+  const [referenceNumber, setReferenceNumber]     = useState('');
+
   useEffect(() => {
     setCatalogLoading(true);
     Promise.all([
@@ -182,17 +190,32 @@ export default function CreateProposalScreen({ navigation, route }) {
         return entry;
       });
 
-      const res = await createProposal(
-        {
-          proposalNumber: proposalNumber.trim().toUpperCase(),
-          title: title.trim(),
-          relatedLead: leadId,
-          numberOfPayments: 1,
-          currency,
-          products: productList,
-        },
-        auth.token
-      );
+      const payload = {
+        proposalNumber: proposalNumber.trim().toUpperCase(),
+        title: title.trim(),
+        relatedLead: leadId,
+        numberOfPayments: advMode && numberOfPayments ? parseInt(numberOfPayments) || 1 : 1,
+        currency,
+        products: productList,
+      };
+      if (advMode) {
+        if (specialObservations.trim()) payload.specialObservations = specialObservations.trim();
+        if (referenceNumber.trim())     payload.referenceNumber     = referenceNumber.trim();
+        // Fechas: convertir DD/MM/AAAA → YYYY-MM-DD
+        const parseDate = (str) => {
+          if (!str) return null;
+          if (str.includes('/')) {
+            const [d, m, y] = str.split('/').map(Number);
+            if (y > 2000 && m >= 1 && m <= 12 && d >= 1 && d <= 31) return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+          }
+          return null;
+        };
+        const exp  = parseDate(expirationDate);
+        const ecd  = parseDate(expectedCloseDate);
+        if (exp) payload.expirationDate    = exp;
+        if (ecd) payload.expectedCloseDate = ecd;
+      }
+      const res = await createProposal(payload, auth.token);
       const proposal = res.data || res;
       navigation.replace('Editor', { proposal, auth });
     } catch (e) {
@@ -238,6 +261,24 @@ export default function CreateProposalScreen({ navigation, route }) {
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nueva propuesta</Text>
+      </View>
+
+      {/* Toggle Básico / Avanzado */}
+      <View style={styles.modeToggle}>
+        <TouchableOpacity
+          style={[styles.modeChip, !advMode && styles.modeChipActive]}
+          onPress={() => setAdvMode(false)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.modeChipText, !advMode && styles.modeChipTextActive]}>Básico</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.modeChip, advMode && styles.modeChipActive]}
+          onPress={() => setAdvMode(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.modeChipText, advMode && styles.modeChipTextActive]}>Avanzado</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -470,6 +511,67 @@ export default function CreateProposalScreen({ navigation, route }) {
               <Text style={styles.totalFinalLabel}>Total · {currency}</Text>
               <Text style={styles.totalFinalVal}>$ {summary.total.toLocaleString('es-CO')}</Text>
             </View>
+          </View>
+        )}
+
+        {/* Campos avanzados */}
+        {advMode && (
+          <View style={styles.advBlock}>
+            <Text style={styles.advTitle}>Campos adicionales</Text>
+
+            <Text style={styles.label}>Número de referencia</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ej: OC-2026-001"
+              placeholderTextColor={COLORS.textMuted}
+              value={referenceNumber}
+              onChangeText={setReferenceNumber}
+              autoCapitalize="characters"
+            />
+
+            <Text style={styles.label}>Cuotas de pago</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="1"
+              placeholderTextColor={COLORS.textMuted}
+              value={numberOfPayments}
+              onChangeText={setNumberOfPayments}
+              keyboardType="number-pad"
+            />
+
+            <Text style={styles.label}>Fecha de vencimiento (DD/MM/AAAA)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="31/12/2026"
+              placeholderTextColor={COLORS.textMuted}
+              value={expirationDate}
+              onChangeText={setExpirationDate}
+              keyboardType="numeric"
+            />
+
+            <Text style={styles.label}>Fecha estimada de cierre (DD/MM/AAAA)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="31/12/2026"
+              placeholderTextColor={COLORS.textMuted}
+              value={expectedCloseDate}
+              onChangeText={setExpectedCloseDate}
+              keyboardType="numeric"
+            />
+
+            <Text style={styles.label}>Observaciones especiales</Text>
+            <TextInput
+              style={[styles.input, { height: 90, textAlignVertical: 'top' }]}
+              placeholder="Notas o condiciones particulares para el cliente…"
+              placeholderTextColor={COLORS.textMuted}
+              value={specialObservations}
+              onChangeText={setSpecialObservations}
+              multiline
+              maxLength={500}
+            />
+            <Text style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 8, textAlign: 'right' }}>
+              {specialObservations.length}/500
+            </Text>
           </View>
         )}
 
@@ -718,4 +820,48 @@ const styles = StyleSheet.create({
   },
   modalAddBtn: { flex: 1, backgroundColor: COLORS.accent, borderRadius: 8, padding: 13, alignItems: 'center' },
   modalAddBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+
+  // Modo Básico / Avanzado
+  modeToggle: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 4,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modeChip: {
+    flex: 1, borderRadius: 10, paddingVertical: 9, alignItems: 'center',
+  },
+  modeChipActive: {
+    backgroundColor: COLORS.accent,
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modeChipText:       { color: COLORS.textMuted, fontWeight: '600', fontSize: 14 },
+  modeChipTextActive: { color: '#fff', fontWeight: '700' },
+
+  // Bloque avanzado
+  advBlock: {
+    backgroundColor: COLORS.accent + '08',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.accent + '30',
+    padding: 16,
+    marginBottom: 16,
+  },
+  advTitle: {
+    color: COLORS.accent,
+    fontWeight: '800',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
 });

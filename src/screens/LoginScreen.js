@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../theme';
 import { login, getApiBase } from '../api';
+import { ProlibuLogoVertical } from '../components/ProlibuLogo';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -82,14 +83,7 @@ export default function LoginScreen({ navigation }) {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* Logo */}
           <View style={styles.logoContainer}>
-            {/* Logo mark OII> con colores de marca */}
-            <View style={styles.logoMark}>
-              <Text style={styles.logoO}>O</Text>
-              <Text style={styles.logoII}>II</Text>
-              <Text style={styles.logoArrow}>{'>'}</Text>
-            </View>
-            <Text style={styles.logoText}>PROLIBU</Text>
-            <Text style={styles.logoSub}>Portal de Propuestas</Text>
+            <ProlibuLogoVertical size={1.15} />
           </View>
 
           {/* Card */}
@@ -164,39 +158,8 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 36,
   },
-  logoMark: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  logoO: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: '#4285F4',   // Blue Baru
-    lineHeight: 54,
-  },
-  logoII: {
-    fontSize: 40,
-    fontWeight: '900',
-    color: '#FDBD00',   // Yellow Canario
-    lineHeight: 54,
-    marginHorizontal: 2,
-  },
-  logoArrow: {
-    fontSize: 42,
-    fontWeight: '900',
-    color: '#D4145A',   // Red Crayola
-    lineHeight: 54,
-  },
-  logoText: {
-    color: COLORS.text,
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: 8,
-  },
-  logoSub: { color: COLORS.textMuted, fontSize: 12, marginTop: 6, letterSpacing: 1 },
   card: {
     backgroundColor: COLORS.card,
     borderRadius: 16,

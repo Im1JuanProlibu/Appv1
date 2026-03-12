@@ -22,6 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../theme';
 import { getProposals, getApiBase, generateShortUrl } from '../api';
 import { useNotifications } from '../useNotifications';
+import BottomTabBar from '../components/BottomTabBar';
 
 const STATUS_COLOR = {
   Ready: COLORS.ready,
@@ -112,10 +113,18 @@ export default function ProposalsScreen({ navigation, route }) {
   });
   const [showNotifications, setShowNotifications] = useState(false);
   const [seguimientoModal, setSeguimientoModal] = useState({ visible: false, proposal: null, type: 'urgente' });
+  const [msgTemplates, setMsgTemplates] = useState(null); // null = usar defaults
 
   const { notifications, unread, connected, liveViewing, lastViewed, markAllRead, clearAll } = useNotifications(
     auth?.token ?? null
   );
+
+  // Cargar plantillas de mensajes personalizadas
+  useEffect(() => {
+    AsyncStorage.getItem('message_templates').then(val => {
+      if (val) setMsgTemplates(JSON.parse(val));
+    });
+  }, []);
 
   useEffect(() => {
     AsyncStorage.getItem('auth').then((val) => {
@@ -490,12 +499,20 @@ export default function ProposalsScreen({ navigation, route }) {
                 const name = typeof lead === 'object' ? (lead?.firstName || lead?.name || '') : '';
                 const title = item.title || item.name || '';
                 const urlType = item.status === 'Ready' ? 'client' : 'anonymous';
-                const emailSubject = `Propuesta comercial${title ? `: ${title}` : ''}`;
-                const emailMsg = `Hola${name ? ` ${name}` : ''},\n\nEspero que te encuentres muy bien. Te compartimos nuestra propuesta comercial${title ? ` "${title}"` : ''} para tu revisión.\n\nPuedes acceder a ella en el siguiente enlace:\n\nQuedo atento a tus comentarios y a cualquier duda que puedas tener.\n\nSaludos cordiales,`;
                 const previewUrl = urlType === 'client'
                   ? await buildClientShortUrl(item)
                   : buildProposalUrl(item, 'anonymous');
-                const waMsg = `${name ? `Hola ${name},` : 'Hola,'} te comparto nuestra propuesta comercial${title ? ` *"${title}"*` : ''}.\n\nPuedes revisarla en el siguiente enlace:\n${previewUrl}`;
+                const applyT = (tpl) =>
+                  tpl.replace('{nombre}', name).replace('{propuesta}', title).replace('{url}', previewUrl);
+                const emailSubject = msgTemplates?.emailAsunto
+                  ? applyT(msgTemplates.emailAsunto)
+                  : `Propuesta comercial${title ? `: ${title}` : ''}`;
+                const emailMsg = msgTemplates?.emailCuerpo
+                  ? applyT(msgTemplates.emailCuerpo)
+                  : `Hola${name ? ` ${name}` : ''},\n\nEspero que te encuentres muy bien. Te compartimos nuestra propuesta comercial${title ? ` "${title}"` : ''} para tu revisión.\n\nPuedes acceder a ella en el siguiente enlace:\n${previewUrl}\n\nQuedo atento a tus comentarios y a cualquier duda que puedas tener.\n\nSaludos cordiales,`;
+                const waMsg = msgTemplates?.envio
+                  ? applyT(msgTemplates.envio)
+                  : `${name ? `Hola ${name},` : 'Hola,'} te comparto nuestra propuesta comercial${title ? ` *"${title}"*` : ''}.\n\nPuedes revisarla en el siguiente enlace:\n${previewUrl}`;
                 setSendModal({ visible: true, proposal: item, urlType, channel: 'whatsapp', waMsg, emailSubject, emailMsg });
               }}
               activeOpacity={0.7}
@@ -573,25 +590,6 @@ export default function ProposalsScreen({ navigation, route }) {
             <Text style={styles.logoutText}>Salir</Text>
           </TouchableOpacity>
         </View>
-      </View>
-
-      {/* Acceso rapido — Dashboard y Reportes */}
-      <View style={styles.quickNav}>
-        <TouchableOpacity
-          style={styles.quickNavBtn}
-          onPress={() => navigation.navigate('Dashboard')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.quickNavText}>◉  Dashboard</Text>
-        </TouchableOpacity>
-        <View style={styles.quickNavSep} />
-        <TouchableOpacity
-          style={styles.quickNavBtn}
-          onPress={() => navigation.navigate('Reports')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.quickNavText}>≡  Reportes</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Barra de filtros fija */}
@@ -1024,9 +1022,15 @@ export default function ProposalsScreen({ navigation, route }) {
                 const url = urlType === 'client'
                   ? await buildClientShortUrl(p)
                   : buildProposalUrl(p, 'anonymous');
-                const msg = seguimientoModal.type === 'urgente'
-                  ? `Hola${name ? ` ${name}` : ''}, ¿qué te pareció${t ? ` "${t}"` : ' nuestra propuesta'}? Quedo atento a tus comentarios 😊\n${url}`
-                  : `Hola${name ? ` ${name}` : ''}, quería recordarte que tienes una propuesta disponible${t ? `: "${t}"` : ''}. ¿Tienes alguna duda? Con gusto te ayudo.\n${url}`;
+                const applyTpl = (tpl) =>
+                  tpl.replace('{nombre}', name).replace('{propuesta}', t).replace('{url}', url);
+                const defaults = {
+                  urgente: `Hola${name ? ` ${name}` : ''}, ¿qué te pareció${t ? ` "${t}"` : ' nuestra propuesta'}? Quedo atento a tus comentarios 😊\n${url}`,
+                  novista: `Hola${name ? ` ${name}` : ''}, quería recordarte que tienes una propuesta disponible${t ? `: "${t}"` : ''}. ¿Tienes alguna duda? Con gusto te ayudo.\n${url}`,
+                };
+                const tplKey = seguimientoModal.type === 'urgente' ? 'urgente' : 'novista';
+                const tplRaw = msgTemplates?.[tplKey];
+                const msg = tplRaw ? applyTpl(tplRaw) : defaults[tplKey];
                 handleWhatsApp(p, urlType, msg, true);
                 setSeguimientoModal({ ...seguimientoModal, visible: false });
               }}
@@ -1132,6 +1136,8 @@ export default function ProposalsScreen({ navigation, route }) {
           <Text style={styles.fabText}>+</Text>
         </TouchableOpacity>
       )}
+
+      <BottomTabBar active="Proposals" navigation={navigation} />
     </SafeAreaView>
   );
 }

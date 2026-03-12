@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../theme';
 import { getProposals, getReports, runReport, downloadReport } from '../api';
+import BottomTabBar from '../components/BottomTabBar';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const RANGE_OPTIONS = [
@@ -137,7 +138,17 @@ function generateReport(proposals, rangeKey, periodKey, customStart, customEnd) 
     const label = periodLabel(cur, periodKey);
 
     const inPeriod = proposals.filter(p => {
-      const t = new Date(p.updatedAt || p.createdAt || 0);
+      // Parseo robusto: strings solo-fecha (YYYY-MM-DD) se tratan como hora local,
+      // no UTC, para evitar desfase de zona horaria.
+      const raw = p.updatedAt || p.createdAt;
+      if (!raw) return false;
+      let t;
+      if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        const [y, m, d] = raw.split('-').map(Number);
+        t = new Date(y, m - 1, d); // medianoche local
+      } else {
+        t = new Date(raw);
+      }
       return t >= cur && t <= pEnd;
     });
 
@@ -392,9 +403,6 @@ export default function ReportsScreen({ navigation }) {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
-          <Text style={styles.backText}>← Volver</Text>
-        </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Generador de reportes</Text>
           {generated && report && (
@@ -635,6 +643,8 @@ export default function ReportsScreen({ navigation }) {
           </View>
         </View>
       </Modal>
+
+      <BottomTabBar active="Reports" navigation={navigation} />
     </SafeAreaView>
   );
 }
