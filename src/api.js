@@ -202,3 +202,32 @@ export function createProposal(data, token) {
     body: JSON.stringify(data),
   });
 }
+
+// GET /v1/proposal/calcStats?inCharge={agentId}
+export function getProposalStats(agentId, token) {
+  const params = new URLSearchParams({ inCharge: agentId });
+  return request(`/proposal/calcStats?${params}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// GET /v1/report?limit=50
+export function getReports(token) {
+  return request('/report?limit=50&sort=createdAt DESC', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// GET /v1/report/{id}/run
+export function runReport(id, token) {
+  return request(`/report/${id}/run`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// GET /v1/report/{id}/download — envía Excel por email al usuario
+export function downloadReport(id, token) {
+  return request(`/report/${id}/download`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}

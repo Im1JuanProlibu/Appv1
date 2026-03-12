@@ -575,6 +575,25 @@ export default function ProposalsScreen({ navigation, route }) {
         </View>
       </View>
 
+      {/* Acceso rapido — Dashboard y Reportes */}
+      <View style={styles.quickNav}>
+        <TouchableOpacity
+          style={styles.quickNavBtn}
+          onPress={() => navigation.navigate('Dashboard')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.quickNavText}>◉  Dashboard</Text>
+        </TouchableOpacity>
+        <View style={styles.quickNavSep} />
+        <TouchableOpacity
+          style={styles.quickNavBtn}
+          onPress={() => navigation.navigate('Reports')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.quickNavText}>≡  Reportes</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Barra de filtros fija */}
       <View style={styles.filterBar}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
@@ -1370,6 +1389,30 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   logoutText: { color: COLORS.accent, fontWeight: '600', fontSize: 13 },
+
+  // Barra de acceso rapido
+  quickNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.card,
+  },
+  quickNavBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  quickNavText: {
+    color: COLORS.accent,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  quickNavSep: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: COLORS.border,
+  },
 
   // Barra de filtros
   filterBar: {

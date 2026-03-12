@@ -1,0 +1,804 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  StatusBar,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  ScrollView,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { COLORS } from '../theme';
+import { getProposals, getReports, runReport, downloadReport } from '../api';
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+const RANGE_OPTIONS = [
+  { key: '3m',   label: '3 meses',   months: 3  },
+  { key: '6m',   label: '6 meses',   months: 6  },
+  { key: 'year', label: 'Este año',   months: null },
+  { key: 'prev', label: 'Año pasado', months: null },
+  { key: 'custom', label: 'Personalizado' },
+];
+
+const PERIOD_OPTIONS = [
+  { key: 'daily',     label: 'Diario'     },
+  { key: 'weekly',    label: 'Semanal'    },
+  { key: 'monthly',   label: 'Mensual'    },
+  { key: 'quarterly', label: 'Trimestral' },
+  { key: 'annual',    label: 'Anual'      },
+];
+
+const PERIOD_LABELS_SERVER = {
+  Daily: 'Diario', Weekly: 'Semanal', Biweekly: 'Quincenal',
+  Monthly: 'Mensual', Bimestrial: 'Bimestral', Quarterly: 'Trimestral',
+  FourMonthPeriod: 'Cuatrimestral', Semestral: 'Semestral', Annual: 'Anual',
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function parseInputDate(str) {
+  if (!str) return null;
+  if (str.includes('/')) {
+    const [d, m, y] = str.split('/').map(Number);
+    const dt = new Date(y, m - 1, d);
+    return isNaN(dt.getTime()) ? null : dt;
+  }
+  const dt = new Date(str);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function fmtDateShort(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
+}
+
+function fmtAmount(n) {
+  if (!n || n === 0) return '—';
+  if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+  return `$${Math.round(n)}`;
+}
+
+function isAdminUser(user) {
+  if (!user) return false;
+  const role = user.role;
+  if (!role) return false;
+  const name = typeof role === 'string' ? role : (role.name || role.slug || '');
+  return ['admin', 'superadmin', 'super'].some(r => name.toLowerCase().includes(r));
+}
+
+// ─── Calcular rango de fechas ─────────────────────────────────────────────────
+function resolveRange(rangeKey, customStart, customEnd) {
+  const now = new Date();
+  if (rangeKey === 'custom') return { start: customStart || new Date(now.getFullYear(), 0, 1), end: customEnd || now };
+  if (rangeKey === 'year')   return { start: new Date(now.getFullYear(), 0, 1), end: now };
+  if (rangeKey === 'prev')   return {
+    start: new Date(now.getFullYear() - 1, 0, 1),
+    end:   new Date(now.getFullYear() - 1, 11, 31),
+  };
+  const opt = RANGE_OPTIONS.find(r => r.key === rangeKey);
+  const months = opt?.months || 3;
+  const start = new Date(now.getFullYear(), now.getMonth() - months, 1);
+  return { start, end: now };
+}
+
+// ─── Motor de generación de períodos ─────────────────────────────────────────
+function periodLabel(date, periodKey) {
+  const d = new Date(date);
+  if (periodKey === 'daily')     return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+  if (periodKey === 'weekly')    return `Sem. ${fmtDateShort(d)} ${d.getFullYear()}`;
+  if (periodKey === 'monthly')   return d.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  if (periodKey === 'quarterly') {
+    const q = Math.floor(d.getMonth() / 3) + 1;
+    return `Q${q} ${d.getFullYear()}`;
+  }
+  return String(d.getFullYear());
+}
+
+function nextPeriodStart(date, periodKey) {
+  const d = new Date(date);
+  if (periodKey === 'daily')     { d.setDate(d.getDate() + 1); return d; }
+  if (periodKey === 'weekly')    { d.setDate(d.getDate() + 7); return d; }
+  if (periodKey === 'monthly')   { return new Date(d.getFullYear(), d.getMonth() + 1, 1); }
+  if (periodKey === 'quarterly') { return new Date(d.getFullYear(), d.getMonth() + 3, 1); }
+  return new Date(d.getFullYear() + 1, 0, 1);
+}
+
+function periodEnd(start, periodKey, rangeEnd) {
+  const d = nextPeriodStart(start, periodKey);
+  d.setMilliseconds(-1); // último ms del período
+  return d > rangeEnd ? rangeEnd : d;
+}
+
+function generateReport(proposals, rangeKey, periodKey, customStart, customEnd) {
+  const { start, end } = resolveRange(rangeKey, customStart, customEnd);
+  const periods = [];
+  let cur = new Date(start);
+  cur.setHours(0, 0, 0, 0);
+
+  const MAX_PERIODS = 366; // máximo 366 períodos (1 año diario / 3 años semanales)
+  let iterations = 0;
+
+  while (cur <= end && iterations < MAX_PERIODS) {
+    iterations++;
+    const pEnd = periodEnd(cur, periodKey, end);
+    const label = periodLabel(cur, periodKey);
+
+    const inPeriod = proposals.filter(p => {
+      const t = new Date(p.updatedAt || p.createdAt || 0);
+      return t >= cur && t <= pEnd;
+    });
+
+    const created  = inPeriod.length;
+    const approved = inPeriod.filter(p => p.status === 'Approved').length;
+    const denied   = inPeriod.filter(p => p.status === 'Denied').length;
+    const ready    = inPeriod.filter(p => p.status === 'Ready').length;
+    const draft    = inPeriod.filter(p => p.status === 'Draft').length;
+    const closed   = approved + denied;
+    const conversion = closed > 0 ? Math.round((approved / closed) * 100) : null;
+
+    let approvedAmt = 0;
+    inPeriod.forEach(p => {
+      if (p.status === 'Approved') approvedAmt += parseFloat(p.total || p.amount || 0) || 0;
+    });
+
+    periods.push({ label, start: new Date(cur), end: new Date(pEnd), created, approved, denied, ready, draft, closed, conversion, approvedAmt });
+    cur = nextPeriodStart(cur, periodKey);
+  }
+
+  // Totales
+  const totCreated  = periods.reduce((a, p) => a + p.created, 0);
+  const totApproved = periods.reduce((a, p) => a + p.approved, 0);
+  const totDenied   = periods.reduce((a, p) => a + p.denied, 0);
+  const totClosed   = totApproved + totDenied;
+  const totConversion = totClosed > 0 ? Math.round((totApproved / totClosed) * 100) : null;
+  const totAmt = periods.reduce((a, p) => a + p.approvedAmt, 0);
+  const maxCreated = Math.max(...periods.map(p => p.created), 1);
+
+  return { periods, totals: { created: totCreated, approved: totApproved, denied: totDenied, conversion: totConversion, approvedAmt: totAmt }, maxCreated };
+}
+
+// ─── Componente ───────────────────────────────────────────────────────────────
+export default function ReportsScreen({ navigation }) {
+  const [auth, setAuth]           = useState(null);
+  const [isAdmin, setIsAdmin]     = useState(false);
+  const [proposals, setProposals] = useState([]);
+  const [loadingProposals, setLoadingProposals] = useState(true);
+
+  // Configuración del reporte
+  const [rangeKey, setRangeKey]       = useState('6m');
+  const [periodKey, setPeriodKey]     = useState('monthly');
+  const [customStart, setCustomStart] = useState(null);
+  const [customEnd, setCustomEnd]     = useState(null);
+  const [inputFrom, setInputFrom]     = useState('');
+  const [inputTo, setInputTo]         = useState('');
+  const [dateModal, setDateModal]     = useState(false);
+
+  // Reporte generado
+  const [report, setReport]       = useState(null);
+  const [generated, setGenerated] = useState(false);
+
+  // Reportes servidor (solo admin)
+  const [serverReports, setServerReports]   = useState([]);
+  const [serverLoading, setServerLoading]   = useState(false);
+  const [running, setRunning]               = useState(null);
+  const [downloading, setDownloading]       = useState(null);
+  const [resultModal, setResultModal]       = useState({ visible: false, report: null, data: null });
+
+  useEffect(() => {
+    AsyncStorage.getItem('auth').then(val => {
+      if (!val) { navigation.replace('Login'); return; }
+      const authData = JSON.parse(val);
+      const user = authData.user || {};
+      const id   = authData.userId || user._id || user.id || '';
+      const admin = isAdminUser(user);
+      setAuth(authData);
+      setIsAdmin(admin);
+      loadProposals(id, authData.token);
+      if (admin) {
+        setServerLoading(true);
+        loadServerReports(authData.token);
+      }
+    });
+  }, []);
+
+  async function loadProposals(id, token) {
+    try {
+      const res = await getProposals(id, token);
+      const raw = res.docs || res.data || (Array.isArray(res) ? res : []);
+      setProposals((Array.isArray(raw) ? raw : []).filter(p =>
+        ['Draft', 'Ready', 'Approved', 'Denied'].includes(p.status)
+      ));
+    } catch { /* sin propuestas */ } finally {
+      setLoadingProposals(false);
+    }
+  }
+
+  async function loadServerReports(token) {
+    try {
+      const res = await getReports(token);
+      const raw = res.docs || res.data || (Array.isArray(res) ? res : []);
+      setServerReports(Array.isArray(raw) ? raw : []);
+    } catch { } finally { setServerLoading(false); }
+  }
+
+  function handleGenerate() {
+    if (proposals.length === 0) {
+      Alert.alert('Sin datos', 'No hay propuestas disponibles para generar el reporte.');
+      return;
+    }
+    const result = generateReport(proposals, rangeKey, periodKey, customStart, customEnd);
+    setReport(result);
+    setGenerated(true);
+  }
+
+  function applyCustomDates() {
+    const s = parseInputDate(inputFrom);
+    const e = parseInputDate(inputTo);
+    if (!s || !e) {
+      Alert.alert('Fecha inválida', 'Usa el formato DD/MM/AAAA.');
+      return;
+    }
+    if (s > e) {
+      Alert.alert('Rango inválido', 'La fecha inicio debe ser anterior al fin.');
+      return;
+    }
+    setCustomStart(s);
+    setCustomEnd(e);
+    setRangeKey('custom');
+    setGenerated(false);
+    setReport(null);
+    setDateModal(false);
+  }
+
+  async function handleRunServer(item) {
+    if (!auth) return;
+    const id = item.id || item._id;
+    setRunning(id);
+    try {
+      const data = await runReport(id, auth.token);
+      setResultModal({ visible: true, report: item, data });
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo ejecutar el reporte: ' + e.message);
+    } finally { setRunning(null); }
+  }
+
+  async function handleDownloadServer(item) {
+    if (!auth) return;
+    const id = item.id || item._id;
+    setDownloading(id);
+    try {
+      await downloadReport(id, auth.token);
+      Alert.alert('Listo', 'El reporte Excel fue enviado a tu correo electrónico.');
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo exportar el reporte: ' + e.message);
+    } finally { setDownloading(null); }
+  }
+
+  // ── Etiqueta del rango activo ──
+  function activRangeLabel() {
+    if (rangeKey === 'custom' && customStart && customEnd) {
+      return `${fmtDate(customStart)} — ${fmtDate(customEnd)}`;
+    }
+    return RANGE_OPTIONS.find(r => r.key === rangeKey)?.label || '';
+  }
+
+  // ── Renderizar período ──
+  function renderPeriod(p, maxCreated) {
+    const barW = maxCreated > 0 ? p.created / maxCreated : 0;
+    const hasAmt = p.approvedAmt > 0;
+    return (
+      <View key={p.label + p.start.toISOString()} style={styles.periodCard}>
+        {/* Etiqueta y fechas */}
+        <View style={styles.periodCardHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.periodCardLabel}>{p.label}</Text>
+            <Text style={styles.periodCardDates}>{fmtDateShort(p.start)} — {fmtDateShort(p.end)}</Text>
+          </View>
+          {p.conversion !== null && (
+            <View style={[styles.convBadge, { backgroundColor: p.conversion >= 50 ? COLORS.success + '22' : COLORS.error + '18' }]}>
+              <Text style={[styles.convBadgeText, { color: p.conversion >= 50 ? COLORS.success : COLORS.error }]}>
+                {p.conversion}%
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Barra de actividad */}
+        <View style={styles.activityBarTrack}>
+          <View style={[styles.activityBarFill, { flex: Math.max(barW, 0.001) }]} />
+          <View style={{ flex: Math.max(1 - barW, 0.001) }} />
+        </View>
+
+        {/* Stats */}
+        <View style={styles.periodCardStats}>
+          <View style={styles.pStat}>
+            <Text style={styles.pStatVal}>{p.created}</Text>
+            <Text style={styles.pStatLbl}>Creadas</Text>
+          </View>
+          <View style={styles.pStatDivider} />
+          <View style={styles.pStat}>
+            <Text style={[styles.pStatVal, { color: COLORS.success }]}>{p.approved}</Text>
+            <Text style={styles.pStatLbl}>Aprobadas</Text>
+          </View>
+          <View style={styles.pStatDivider} />
+          <View style={styles.pStat}>
+            <Text style={[styles.pStatVal, { color: COLORS.error }]}>{p.denied}</Text>
+            <Text style={styles.pStatLbl}>Negadas</Text>
+          </View>
+          <View style={styles.pStatDivider} />
+          <View style={styles.pStat}>
+            <Text style={styles.pStatVal}>{p.ready + p.draft}</Text>
+            <Text style={styles.pStatLbl}>Activas</Text>
+          </View>
+          {hasAmt && (
+            <>
+              <View style={styles.pStatDivider} />
+              <View style={styles.pStat}>
+                <Text style={[styles.pStatVal, { color: COLORS.success, fontSize: 13 }]}>{fmtAmount(p.approvedAmt)}</Text>
+                <Text style={styles.pStatLbl}>$ Aprobado</Text>
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  // ── Renderizar resultados del servidor ──
+  function renderServerResult(data) {
+    if (!data) return <Text style={styles.emptyHint}>Sin datos.</Text>;
+    const periods = data.periods || data.docs || (Array.isArray(data) ? data : null);
+    if (Array.isArray(periods) && periods.length > 0) {
+      return periods.map((p, i) => (
+        <View key={p.uuid || String(i)} style={styles.periodCard}>
+          <Text style={styles.periodCardLabel}>{p.title || `Período ${i + 1}`}</Text>
+          {(p.startDate || p.endDate) && (
+            <Text style={styles.periodCardDates}>{fmtDate(p.startDate)} — {fmtDate(p.endDate)}</Text>
+          )}
+          <View style={styles.periodCardStats}>
+            {[
+              { val: p.created || 0, lbl: 'Creadas', color: COLORS.text },
+              { val: p.approved || 0, lbl: 'Aprobadas', color: COLORS.success },
+              { val: p.denied || 0, lbl: 'Negadas', color: COLORS.error },
+            ].map(s => (
+              <View key={s.lbl} style={styles.pStat}>
+                <Text style={[styles.pStatVal, { color: s.color }]}>{s.val}</Text>
+                <Text style={styles.pStatLbl}>{s.lbl}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ));
+    }
+    return <Text style={styles.emptyHint}>Sin datos para mostrar.</Text>;
+  }
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
+          <Text style={styles.backText}>← Volver</Text>
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>Generador de reportes</Text>
+          {generated && report && (
+            <Text style={styles.headerSub}>{activRangeLabel()} · {PERIOD_OPTIONS.find(p => p.key === periodKey)?.label}</Text>
+          )}
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* ── Configuración ── */}
+        <View style={styles.configBlock}>
+          <Text style={styles.configLabel}>RANGO DE TIEMPO</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
+            {RANGE_OPTIONS.map(r => {
+              const active = rangeKey === r.key;
+              return (
+                <TouchableOpacity
+                  key={r.key}
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => {
+                    if (r.key === 'custom') { setDateModal(true); return; }
+                    setRangeKey(r.key);
+                    setGenerated(false);
+                    setReport(null);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                    {r.key === 'custom' && customStart ? `${fmtDate(customStart)} — ${fmtDate(customEnd)}` : r.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          <Text style={[styles.configLabel, { marginTop: 14 }]}>AGRUPACIÓN POR PERÍODO</Text>
+          <View style={styles.periodRow}>
+            {PERIOD_OPTIONS.map(p => {
+              const active = periodKey === p.key;
+              return (
+                <TouchableOpacity
+                  key={p.key}
+                  style={[styles.periodChip, active && styles.periodChipActive]}
+                  onPress={() => { setPeriodKey(p.key); setGenerated(false); setReport(null); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.periodChipText, active && styles.periodChipTextActive]}>{p.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {loadingProposals ? (
+            <ActivityIndicator color={COLORS.accent} style={{ marginTop: 20 }} />
+          ) : (
+            <TouchableOpacity style={styles.generateBtn} onPress={handleGenerate} activeOpacity={0.85}>
+              <Text style={styles.generateBtnText}>▶  Generar reporte</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* ── Resultado generado ── */}
+        {generated && report && (
+          <View style={styles.resultBlock}>
+            {/* Totales */}
+            <View style={styles.totalsRow}>
+              <View style={styles.totalCard}>
+                <Text style={styles.totalVal}>{report.totals.created}</Text>
+                <Text style={styles.totalLbl}>Creadas</Text>
+              </View>
+              <View style={[styles.totalCard, { borderColor: COLORS.success + '60' }]}>
+                <Text style={[styles.totalVal, { color: COLORS.success }]}>{report.totals.approved}</Text>
+                <Text style={styles.totalLbl}>Aprobadas</Text>
+              </View>
+              <View style={[styles.totalCard, { borderColor: COLORS.error + '60' }]}>
+                <Text style={[styles.totalVal, { color: COLORS.error }]}>{report.totals.denied}</Text>
+                <Text style={styles.totalLbl}>Negadas</Text>
+              </View>
+              <View style={[styles.totalCard, { borderColor: COLORS.accent + '60' }]}>
+                <Text style={[styles.totalVal, { color: COLORS.accent }]}>
+                  {report.totals.conversion !== null ? `${report.totals.conversion}%` : '—'}
+                </Text>
+                <Text style={styles.totalLbl}>Conversión</Text>
+              </View>
+            </View>
+
+            {report.totals.approvedAmt > 0 && (
+              <View style={styles.amtTotalCard}>
+                <Text style={styles.amtTotalLbl}>Total aprobado en el período</Text>
+                <Text style={styles.amtTotalVal}>{fmtAmount(report.totals.approvedAmt)}</Text>
+              </View>
+            )}
+
+            {/* Períodos */}
+            <Text style={styles.periodsTitle}>
+              {report.periods.length} período{report.periods.length !== 1 ? 's' : ''} · {PERIOD_OPTIONS.find(p => p.key === periodKey)?.label}
+            </Text>
+            {report.periods.length === 0 ? (
+              <Text style={styles.emptyHint}>Sin propuestas en este rango de fechas.</Text>
+            ) : (
+              report.periods.map(p => renderPeriod(p, report.maxCreated)).reverse()
+            )}
+          </View>
+        )}
+
+        {/* ── Reportes servidor (solo admin) ── */}
+        {isAdmin && (
+          <View style={styles.serverBlock}>
+            <Text style={styles.serverTitle}>REPORTES CONFIGURADOS (admin)</Text>
+            {serverLoading ? (
+              <ActivityIndicator color={COLORS.accent} style={{ marginVertical: 16 }} />
+            ) : serverReports.length === 0 ? (
+              <Text style={styles.emptyHint}>No hay reportes configurados en la cuenta.</Text>
+            ) : (
+              serverReports.map(item => {
+                const id = item.id || item._id;
+                const isRunning     = running === id;
+                const isDownloading = downloading === id;
+                const busy = isRunning || isDownloading;
+                const currencyCode = typeof item.currency === 'object'
+                  ? (item.currency?.code || '') : (item.currency || '');
+                return (
+                  <View key={id} style={styles.serverCard}>
+                    <Text style={styles.serverCardTitle}>{item.title || 'Sin título'}</Text>
+                    <View style={styles.chipRowSmall}>
+                      {item.periodRange && (
+                        <View style={styles.tagChip}>
+                          <Text style={styles.tagChipText}>{PERIOD_LABELS_SERVER[item.periodRange] || item.periodRange}</Text>
+                        </View>
+                      )}
+                      {currencyCode ? <View style={styles.tagChip}><Text style={styles.tagChipText}>{currencyCode}</Text></View> : null}
+                      {item.country ? <View style={styles.tagChip}><Text style={styles.tagChipText}>{item.country}</Text></View> : null}
+                    </View>
+                    {(item.startDate || item.endDate) && (
+                      <Text style={styles.serverCardDates}>{fmtDate(item.startDate)} — {fmtDate(item.endDate)}</Text>
+                    )}
+                    <View style={styles.serverCardBtns}>
+                      <TouchableOpacity
+                        style={[styles.runBtn, busy && styles.btnDisabled]}
+                        onPress={() => handleRunServer(item)}
+                        activeOpacity={0.7}
+                        disabled={busy}
+                      >
+                        {isRunning
+                          ? <ActivityIndicator size="small" color="#fff" />
+                          : <Text style={styles.runBtnText}>▶  Ejecutar</Text>
+                        }
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.dlBtn, busy && styles.btnDisabled]}
+                        onPress={() => handleDownloadServer(item)}
+                        activeOpacity={0.7}
+                        disabled={busy}
+                      >
+                        {isDownloading
+                          ? <ActivityIndicator size="small" color={COLORS.accent} />
+                          : <Text style={styles.dlBtnText}>⬇  Excel</Text>
+                        }
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        )}
+
+        <View style={{ height: 48 }} />
+      </ScrollView>
+
+      {/* ── Modal rango personalizado ── */}
+      <Modal visible={dateModal} animationType="slide" transparent onRequestClose={() => setDateModal(false)}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={() => setDateModal(false)} />
+          <View style={styles.modalSheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Rango personalizado</Text>
+            <Text style={styles.dateInputLabel}>Desde (DD/MM/AAAA)</Text>
+            <TextInput
+              style={styles.dateInput}
+              value={inputFrom}
+              onChangeText={setInputFrom}
+              placeholder="01/01/2025"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="numeric"
+            />
+            <Text style={styles.dateInputLabel}>Hasta (DD/MM/AAAA)</Text>
+            <TextInput
+              style={styles.dateInput}
+              value={inputTo}
+              onChangeText={setInputTo}
+              placeholder="31/12/2025"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="numeric"
+              onSubmitEditing={applyCustomDates}
+            />
+            <TouchableOpacity style={styles.applyBtn} onPress={applyCustomDates} activeOpacity={0.85}>
+              <Text style={styles.applyBtnText}>Aplicar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setDateModal(false)} activeOpacity={0.7}>
+              <Text style={styles.cancelBtnText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Modal resultado servidor ── */}
+      <Modal
+        visible={resultModal.visible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setResultModal({ visible: false, report: null, data: null })}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => setResultModal({ visible: false, report: null, data: null })}
+          />
+          <View style={styles.modalSheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>{resultModal.report?.title || 'Resultados'}</Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 8 }}>
+              {renderServerResult(resultModal.data)}
+              <View style={{ height: 20 }} />
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => setResultModal({ visible: false, report: null, data: null })}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelBtnText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+// ─── Estilos ──────────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: COLORS.bg },
+  header: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 16,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 12,
+  },
+  backBtn: { paddingRight: 4 },
+  backText: { color: COLORS.accent, fontWeight: '600', fontSize: 14 },
+  headerTitle: { color: COLORS.text, fontSize: 20, fontWeight: '800' },
+  headerSub: { color: COLORS.textMuted, fontSize: 11, marginTop: 1 },
+  scroll: { paddingBottom: 20 },
+
+  // Config
+  configBlock: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  configLabel: {
+    color: COLORS.textMuted, fontSize: 10, fontWeight: '700',
+    textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 10,
+  },
+  chipScroll: { gap: 8 },
+  chip: {
+    paddingHorizontal: 16, paddingVertical: 8,
+    borderRadius: 20, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card,
+  },
+  chipActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
+  chipText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '600' },
+  chipTextActive: { color: '#fff' },
+
+  periodRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  periodChip: {
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card,
+  },
+  periodChipActive: { backgroundColor: COLORS.text, borderColor: COLORS.text },
+  periodChipText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '600' },
+  periodChipTextActive: { color: '#fff' },
+
+  generateBtn: {
+    backgroundColor: COLORS.accent, borderRadius: 14,
+    padding: 16, alignItems: 'center', marginTop: 20,
+  },
+  generateBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+
+  // Resultado
+  resultBlock: { padding: 20 },
+  totalsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  totalCard: {
+    flex: 1, backgroundColor: COLORS.card,
+    borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
+    padding: 10, alignItems: 'center',
+  },
+  totalVal: { color: COLORS.text, fontSize: 20, fontWeight: '800' },
+  totalLbl: { color: COLORS.textMuted, fontSize: 10, marginTop: 2, fontWeight: '600' },
+
+  amtTotalCard: {
+    backgroundColor: COLORS.success + '12',
+    borderRadius: 12, borderWidth: 1, borderColor: COLORS.success + '40',
+    padding: 14, marginBottom: 16, flexDirection: 'row',
+    justifyContent: 'space-between', alignItems: 'center',
+  },
+  amtTotalLbl: { color: COLORS.textMuted, fontSize: 12 },
+  amtTotalVal: { color: COLORS.success, fontSize: 20, fontWeight: '800' },
+
+  periodsTitle: {
+    color: COLORS.textMuted, fontSize: 11, fontWeight: '700',
+    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12,
+  },
+
+  // Tarjeta de período
+  periodCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 14, borderWidth: 1, borderColor: COLORS.border,
+    padding: 14, marginBottom: 10,
+  },
+  periodCardHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
+  periodCardLabel: { color: COLORS.text, fontWeight: '700', fontSize: 15 },
+  periodCardDates: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
+  convBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, marginLeft: 8 },
+  convBadgeText: { fontWeight: '800', fontSize: 14 },
+  activityBarTrack: {
+    flexDirection: 'row', height: 5,
+    backgroundColor: COLORS.border, borderRadius: 3,
+    overflow: 'hidden', marginBottom: 12,
+  },
+  activityBarFill: { backgroundColor: COLORS.accent, borderRadius: 3 },
+  periodCardStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 0 },
+  pStat: { flex: 1, alignItems: 'center', minWidth: 52 },
+  pStatVal: { color: COLORS.text, fontWeight: '800', fontSize: 18 },
+  pStatLbl: { color: COLORS.textMuted, fontSize: 10, marginTop: 2, fontWeight: '600' },
+  pStatDivider: { width: 1, backgroundColor: COLORS.border, alignSelf: 'stretch' },
+
+  emptyHint: { color: COLORS.textMuted, fontSize: 13, textAlign: 'center', marginVertical: 16 },
+
+  // Servidor admin
+  serverBlock: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  serverTitle: {
+    color: COLORS.textMuted, fontSize: 10, fontWeight: '700',
+    textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12,
+  },
+  serverCard: {
+    backgroundColor: COLORS.card, borderRadius: 14,
+    borderWidth: 1, borderColor: COLORS.border, padding: 16, marginBottom: 12,
+  },
+  serverCardTitle: { color: COLORS.text, fontSize: 15, fontWeight: '700', marginBottom: 6 },
+  chipRowSmall: { flexDirection: 'row', gap: 6, marginBottom: 6, flexWrap: 'wrap' },
+  tagChip: {
+    backgroundColor: COLORS.accent + '18', borderRadius: 20,
+    paddingHorizontal: 8, paddingVertical: 2,
+    borderWidth: 1, borderColor: COLORS.accent + '40',
+  },
+  tagChipText: { color: COLORS.accent, fontSize: 10, fontWeight: '700' },
+  serverCardDates: { color: COLORS.textMuted, fontSize: 11, marginBottom: 10 },
+  serverCardBtns: { flexDirection: 'row', gap: 10 },
+  runBtn: {
+    flex: 1, backgroundColor: COLORS.accent, borderRadius: 10,
+    paddingVertical: 11, alignItems: 'center', justifyContent: 'center',
+  },
+  runBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  dlBtn: {
+    flex: 1, borderRadius: 10, borderWidth: 1, borderColor: COLORS.accent,
+    paddingVertical: 11, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.accent + '15',
+  },
+  dlBtnText: { color: COLORS.accent, fontWeight: '700', fontSize: 13 },
+  btnDisabled: { opacity: 0.45 },
+
+  // Modales
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  modalSheet: {
+    backgroundColor: COLORS.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 24, paddingBottom: 40, maxHeight: '85%',
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  sheetHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: COLORS.border, alignSelf: 'center', marginBottom: 20,
+  },
+  sheetTitle: { color: COLORS.text, fontSize: 18, fontWeight: '800', marginBottom: 12 },
+  dateInputLabel: { color: COLORS.textMuted, fontSize: 12, fontWeight: '600', marginTop: 14, marginBottom: 6 },
+  dateInput: {
+    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 10, padding: 12, fontSize: 16, color: COLORS.text,
+  },
+  applyBtn: {
+    backgroundColor: COLORS.accent, borderRadius: 12,
+    padding: 15, alignItems: 'center', marginTop: 18,
+  },
+  applyBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  cancelBtn: {
+    borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
+    padding: 15, alignItems: 'center', marginTop: 10,
+  },
+  cancelBtnText: { color: COLORS.textMuted, fontWeight: '600', fontSize: 15 },
+});

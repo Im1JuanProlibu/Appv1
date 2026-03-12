@@ -11,6 +11,8 @@ import AgentsScreen from './src/screens/AgentsScreen';
 import ProposalsScreen from './src/screens/ProposalsScreen';
 import EditorScreen from './src/screens/EditorScreen';
 import CreateProposalScreen from './src/screens/CreateProposalScreen';
+import DashboardScreen from './src/screens/DashboardScreen';
+import ReportsScreen from './src/screens/ReportsScreen';
 import { COLORS } from './src/theme';
 import { setApiDomain } from './src/api';
 
@@ -54,6 +56,8 @@ export default function App() {
           <Stack.Screen name="Proposals" component={ProposalsScreen} />
           <Stack.Screen name="Editor" component={EditorScreen} />
           <Stack.Screen name="CreateProposal" component={CreateProposalScreen} />
+          <Stack.Screen name="Dashboard" component={DashboardScreen} />
+          <Stack.Screen name="Reports" component={ReportsScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
