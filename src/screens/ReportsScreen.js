@@ -18,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../theme';
 import { getProposals, getReports, runReport, downloadReport } from '../api';
 import BottomTabBar from '../components/BottomTabBar';
+import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const RANGE_OPTIONS = [
@@ -403,12 +404,11 @@ export default function ReportsScreen({ navigation }) {
 
       {/* Header */}
       <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Generador de reportes</Text>
-          {generated && report && (
-            <Text style={styles.headerSub}>{activRangeLabel()} · {PERIOD_OPTIONS.find(p => p.key === periodKey)?.label}</Text>
-          )}
-        </View>
+        <ProlibuLogoHorizontal scale={1} />
+        <View style={{ flex: 1 }} />
+        {generated && report && (
+          <Text style={styles.headerSub}>{activRangeLabel()} · {PERIOD_OPTIONS.find(p => p.key === periodKey)?.label}</Text>
+        )}
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>

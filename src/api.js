@@ -211,6 +211,13 @@ export function getProposalStats(agentId, token) {
   });
 }
 
+// GET /v1/package?sort=updatedAt DESC
+export function getPackages(token) {
+  return request('/package?sort=updatedAt%20DESC&limit=200', {
+    headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
+  });
+}
+
 // GET /v1/report?limit=50
 export function getReports(token) {
   return request('/report?limit=50&sort=createdAt DESC', {

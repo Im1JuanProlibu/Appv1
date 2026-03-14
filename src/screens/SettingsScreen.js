@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../theme';
 import { getApiBase } from '../api';
 import BottomTabBar from '../components/BottomTabBar';
+import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
 export const DEFAULT_TEMPLATES = {
@@ -170,7 +171,8 @@ export default function SettingsScreen({ navigation }) {
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Ajustes</Text>
+        <ProlibuLogoHorizontal scale={1} />
+        <View style={{ flex: 1 }} />
         {dirty && (
           <TouchableOpacity
             style={styles.saveBtn}
@@ -183,7 +185,7 @@ export default function SettingsScreen({ navigation }) {
         )}
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
 
         {/* ── Cuenta ── */}
         <Text style={styles.sectionLabel}>CUENTA</Text>

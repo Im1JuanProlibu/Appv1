@@ -11,10 +11,12 @@ import {
   StatusBar,
   FlatList,
   Modal,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
-import { checkLeadByEmail, searchLeadByEmail, createLead, createProposal, getProducts, getCurrencies, searchCurrencies } from '../api';
+import { checkLeadByEmail, searchLeadByEmail, createLead, createProposal, getProducts, getPackages, getCurrencies, searchCurrencies } from '../api';
 
 const COUNTRY_CODES = [
   { code: '+57',  flag: '🇨🇴', name: 'CO' },
@@ -55,11 +57,13 @@ export default function CreateProposalScreen({ navigation, route }) {
   const [countryCode, setCountryCode] = useState('+57');
   const [phone, setPhone] = useState('');
 
-  // Products
+  // Products & Packages
   const [products, setProducts] = useState([]);
   const [catalog, setCatalog] = useState([]);
+  const [packages, setPackages] = useState([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [showCatalog, setShowCatalog] = useState(false);
+  const [catalogTab, setCatalogTab] = useState('products'); // 'products' | 'packages'
   const [catalogSearch, setCatalogSearch] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [addQty, setAddQty] = useState('1');
@@ -81,6 +85,10 @@ export default function CreateProposalScreen({ navigation, route }) {
         const raw = Array.isArray(res) ? res : (res.docs || res.data || res.records || []);
         const all = Array.isArray(raw) ? raw : [];
         setCatalog(all.filter((p) => !p.disabled));
+      }).catch(() => {}),
+      getPackages(auth.token).then((res) => {
+        const raw = Array.isArray(res) ? res : (res.docs || res.data || res.records || []);
+        setPackages(Array.isArray(raw) ? raw : []);
       }).catch(() => {}),
       getCurrencies(auth.token).then((res) => {
         const raw = Array.isArray(res) ? res : (res.data || res.docs || res.records || []);
@@ -242,7 +250,8 @@ export default function CreateProposalScreen({ navigation, route }) {
     };
   }, { subtotal: 0, discount: 0, tax: 0, total: 0 });
 
-  const filteredCatalog = catalog.filter((p) =>
+  const activeCatalog = catalogTab === 'packages' ? packages : catalog;
+  const filteredCatalog = activeCatalog.filter((p) =>
     (p.name || '').toLowerCase().includes(catalogSearch.toLowerCase()) ||
     (p.sku || '').toLowerCase().includes(catalogSearch.toLowerCase())
   );
@@ -281,7 +290,7 @@ export default function CreateProposalScreen({ navigation, route }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
 
         {/* Número */}
         <Text style={styles.label}>Número de propuesta</Text>
@@ -479,7 +488,7 @@ export default function CreateProposalScreen({ navigation, route }) {
 
         <TouchableOpacity
           style={styles.addCatalogBtn}
-          onPress={() => { setCatalogSearch(''); setSelectedItem(null); setShowCatalog(true); }}
+          onPress={() => { setCatalogSearch(''); setSelectedItem(null); setCatalogTab('products'); setShowCatalog(true); }}
           activeOpacity={0.7}
         >
           {catalogLoading
@@ -589,9 +598,30 @@ export default function CreateProposalScreen({ navigation, route }) {
       <Modal visible={showCatalog} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCatalog(false)}>
         <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Catálogo de productos</Text>
+            <Text style={styles.modalTitle}>Catálogo</Text>
             <TouchableOpacity onPress={() => setShowCatalog(false)} style={styles.modalCloseBtn}>
               <Text style={styles.modalCloseText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          {/* Productos / Paquetes toggle */}
+          <View style={styles.catalogTabRow}>
+            <TouchableOpacity
+              style={[styles.catalogTabBtn, catalogTab === 'products' && styles.catalogTabBtnActive]}
+              onPress={() => { setCatalogTab('products'); setSelectedItem(null); }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.catalogTabText, catalogTab === 'products' && styles.catalogTabTextActive]}>
+                Productos {catalog.length > 0 ? `(${catalog.length})` : ''}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.catalogTabBtn, catalogTab === 'packages' && styles.catalogTabBtnActive]}
+              onPress={() => { setCatalogTab('packages'); setSelectedItem(null); }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.catalogTabText, catalogTab === 'packages' && styles.catalogTabTextActive]}>
+                Paquetes {packages.length > 0 ? `(${packages.length})` : ''}
+              </Text>
             </TouchableOpacity>
           </View>
           <TextInput
@@ -846,6 +876,19 @@ const styles = StyleSheet.create({
   },
   modeChipText:       { color: COLORS.textMuted, fontWeight: '600', fontSize: 14 },
   modeChipTextActive: { color: '#fff', fontWeight: '700' },
+
+  // Tabs catálogo
+  catalogTabRow: {
+    flexDirection: 'row', marginHorizontal: 16, marginBottom: 4,
+    backgroundColor: COLORS.card, borderRadius: 10,
+    borderWidth: 1, borderColor: COLORS.border, padding: 3,
+  },
+  catalogTabBtn: {
+    flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center',
+  },
+  catalogTabBtnActive: { backgroundColor: COLORS.accent },
+  catalogTabText: { color: COLORS.textMuted, fontWeight: '600', fontSize: 13 },
+  catalogTabTextActive: { color: '#fff', fontWeight: '700' },
 
   // Bloque avanzado
   advBlock: {

@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../theme';
 import { getProposals } from '../api';
 import BottomTabBar from '../components/BottomTabBar';
+import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const STATUS_CONFIG = [
@@ -194,10 +195,9 @@ export default function DashboardScreen({ navigation }) {
 
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>Dashboard</Text>
-          <Text style={styles.headerSub} numberOfLines={1}>{userName}</Text>
-        </View>
+        <ProlibuLogoHorizontal scale={1} />
+        <View style={{ flex: 1 }} />
+        {userName ? <Text style={styles.headerSub} numberOfLines={1}>{userName}</Text> : null}
         <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn} activeOpacity={0.7}>
           <Text style={styles.refreshText}>↻</Text>
         </TouchableOpacity>
