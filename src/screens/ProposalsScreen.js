@@ -23,6 +23,7 @@ import { COLORS } from '../theme';
 import { getProposals, getApiBase, generateShortUrl } from '../api';
 import { useNotifications } from '../useNotifications';
 import BottomTabBar from '../components/BottomTabBar';
+import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
 
 const STATUS_COLOR = {
   Ready: COLORS.ready,
@@ -454,17 +455,35 @@ export default function ProposalsScreen({ navigation, route }) {
           </View>
         )}
         <View style={styles.cardTop}>
-          <Text style={styles.cardTitle} numberOfLines={2}>{title}</Text>
-          <View style={[styles.badge, { backgroundColor: color + '25', borderColor: color }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardTitle} numberOfLines={2}>{title}</Text>
+            {(() => {
+              const lead = item.relatedLead;
+              const leadName = typeof lead === 'object' ? (lead?.firstName ? `${lead.firstName}${lead.lastName ? ' ' + lead.lastName : ''}` : lead?.name || '') : '';
+              const leadEmail = typeof lead === 'object' ? (lead?.email || '') : '';
+              const display = leadName || leadEmail;
+              return display ? <Text style={styles.cardLead} numberOfLines={1}>{display}</Text> : null;
+            })()}
+          </View>
+          <View style={[styles.badge, { backgroundColor: color + '18', borderColor: color + '60' }]}>
+            <View style={[styles.badgeDot, { backgroundColor: color }]} />
             <Text style={[styles.badgeText, { color }]}>{STATUS_LABEL[item.status] || item.status}</Text>
           </View>
         </View>
         <View style={styles.cardMeta}>
-          {item.number ? <Text style={styles.metaItem}>#{item.number}</Text> : null}
+          {item.number ? (
+            <View style={styles.metaChip}>
+              <Text style={styles.metaChipText}>#{item.number}</Text>
+            </View>
+          ) : null}
           {item.updatedAt ? <Text style={styles.metaItem}>{formatDate(item.updatedAt)}</Text> : null}
-          {item.currency ? <Text style={styles.metaItem}>{typeof item.currency === 'object' ? item.currency.code : item.currency}</Text> : null}
+          {item.currency ? (
+            <View style={styles.metaChip}>
+              <Text style={styles.metaChipText}>{typeof item.currency === 'object' ? item.currency.code : item.currency}</Text>
+            </View>
+          ) : null}
           {TEMP_CONFIG[item.rating] && (
-            <View style={[styles.tempBadge, { borderColor: TEMP_CONFIG[item.rating].color }]}>
+            <View style={[styles.tempBadge, { backgroundColor: TEMP_CONFIG[item.rating].color + '15', borderColor: TEMP_CONFIG[item.rating].color + '50' }]}>
               <Text style={[styles.tempText, { color: TEMP_CONFIG[item.rating].color }]}>
                 {TEMP_CONFIG[item.rating].label}
               </Text>
@@ -475,23 +494,16 @@ export default function ProposalsScreen({ navigation, route }) {
             if (v == null) return null;
             return (
               <View style={styles.viewsBadge}>
-                <Text style={styles.viewsText}>◎ {v}</Text>
+                <Text style={styles.viewsText}>👁 {v}</Text>
               </View>
             );
           })()}
         </View>
         <View style={styles.cardFooter}>
-          <Text style={styles.cardArrow}>Editar →</Text>
+          <View style={styles.editHint}>
+            <Text style={styles.editHintText}>Toca para editar</Text>
+          </View>
           <View style={styles.cardFooterRight}>
-            {getLeadPhone(item) ? (
-              <TouchableOpacity
-                style={styles.phoneBtn}
-                onPress={() => Linking.openURL(`tel:${getLeadPhone(item)}`)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.phoneBtnIcon}>✆</Text>
-              </TouchableOpacity>
-            ) : null}
             <TouchableOpacity
               style={styles.sendBtn}
               onPress={async () => {
@@ -521,13 +533,17 @@ export default function ProposalsScreen({ navigation, route }) {
             </TouchableOpacity>
           </View>
         </View>
+        {(isRecentlyViewed || (!isRecentlyViewed && isNeverViewedOld)) && (
+          <View style={styles.cardDivider} />
+        )}
         {isRecentlyViewed && (
           <TouchableOpacity
             style={styles.urgentBtn}
             onPress={() => setSeguimientoModal({ visible: true, proposal: item, type: 'urgente' })}
             activeOpacity={0.8}
           >
-            <Text style={styles.urgentBtnText}>🔥 Seguimiento urgente →</Text>
+            <Text style={styles.urgentBtnText}>🔥  Seguimiento urgente</Text>
+            <Text style={styles.seguimientoArrow}>→</Text>
           </TouchableOpacity>
         )}
         {!isRecentlyViewed && isNeverViewedOld && (
@@ -536,7 +552,8 @@ export default function ProposalsScreen({ navigation, route }) {
             onPress={() => setSeguimientoModal({ visible: true, proposal: item, type: 'novista' })}
             activeOpacity={0.8}
           >
-            <Text style={styles.noVistaBtnText}>📞 Sin vistas — Contactar →</Text>
+            <Text style={styles.noVistaBtnText}>📞  Sin vistas — Contactar</Text>
+            <Text style={styles.seguimientoArrow}>→</Text>
           </TouchableOpacity>
         )}
       </TouchableOpacity>
@@ -564,12 +581,12 @@ export default function ProposalsScreen({ navigation, route }) {
 
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>Mis propuestas</Text>
+        <View style={styles.headerLeft}>
+          <ProlibuLogoHorizontal size={0.7} />
           <Text style={styles.headerSub} numberOfLines={1}>{userName}</Text>
         </View>
         <View style={styles.headerRight}>
-          {!loading && (
+          {!loading && totalCount > 0 && (
             <View style={styles.countBadge}>
               <Text style={styles.countText}>{totalCount}</Text>
             </View>
@@ -1126,17 +1143,6 @@ export default function ProposalsScreen({ navigation, route }) {
         </SafeAreaView>
       </Modal>
 
-      {/* FAB — nueva propuesta */}
-      {auth && (
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => navigation.navigate('CreateProposal', { auth })}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.fabText}>+</Text>
-        </TouchableOpacity>
-      )}
-
       <BottomTabBar active="Proposals" navigation={navigation} />
     </SafeAreaView>
   );
@@ -1366,19 +1372,24 @@ function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
+  safe: { flex: 1, backgroundColor: '#F8F8F8' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  headerInfo: { flex: 1, marginRight: 12 },
-  headerTitle: { color: COLORS.text, fontSize: 22, fontWeight: '800' },
-  headerSub: { color: COLORS.textMuted, fontSize: 12, marginTop: 2 },
+  headerLeft: { flex: 1, marginRight: 12 },
+  headerSub: { color: COLORS.textMuted, fontSize: 11, marginTop: 4 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   countBadge: {
     backgroundColor: COLORS.accent,
@@ -1424,7 +1435,7 @@ const styles = StyleSheet.create({
   filterBar: {
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.bg,
+    backgroundColor: '#FFFFFF',
   },
   filterScroll: {
     paddingHorizontal: 16,
@@ -1461,7 +1472,7 @@ const styles = StyleSheet.create({
   },
 
   loader: { marginTop: 60 },
-  list: { padding: 16, paddingBottom: 100 },
+  list: { padding: 16, paddingBottom: 20 },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1482,17 +1493,24 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   card: {
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: '#EBEBEB',
     padding: 16,
     marginBottom: 10,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   cardLive: {
     borderColor: '#39B54A',
     borderWidth: 1.5,
+    shadowColor: '#39B54A',
+    shadowOpacity: 0.15,
   },
   liveBanner: {
     backgroundColor: '#39B54A18',
@@ -1527,17 +1545,25 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 10,
   },
-  cardTitle: { color: COLORS.text, fontWeight: '600', fontSize: 15, flex: 1 },
+  cardTitle: { color: COLORS.text, fontWeight: '700', fontSize: 15 },
+  cardLead: { color: COLORS.textMuted, fontSize: 12, marginTop: 3 },
   badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 9, paddingVertical: 4,
+    borderRadius: 20, borderWidth: 1,
   },
+  badgeDot: { width: 6, height: 6, borderRadius: 3 },
   badgeText: { fontSize: 11, fontWeight: '700' },
-  cardMeta: { flexDirection: 'row', gap: 12, marginBottom: 10 },
+  cardMeta: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
   metaItem: { color: COLORS.textMuted, fontSize: 12 },
-  cardArrow: { color: COLORS.accent, fontSize: 13, fontWeight: '600' },
+  metaChip: {
+    backgroundColor: '#F0F0F0', borderRadius: 6,
+    paddingHorizontal: 7, paddingVertical: 2,
+  },
+  metaChipText: { color: '#555555', fontSize: 11, fontWeight: '600' },
+  cardDivider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 10 },
+  editHint: { flex: 1 },
+  editHintText: { color: '#BBBBBB', fontSize: 11 },
   emptyContainer: { alignItems: 'center', marginTop: 80 },
   emptyIcon: { fontSize: 40, marginBottom: 12 },
   emptyText: { color: COLORS.text, fontSize: 16, fontWeight: '600', marginBottom: 6 },
@@ -1545,7 +1571,7 @@ const styles = StyleSheet.create({
   sortBar: {
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.bg,
+    backgroundColor: '#FFFFFF',
   },
   sortScroll: {
     paddingHorizontal: 16,
@@ -1655,27 +1681,23 @@ const styles = StyleSheet.create({
   },
   tempText: { fontSize: 10, fontWeight: '700' },
   viewsBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.card,
+    paddingHorizontal: 7, paddingVertical: 2,
+    borderRadius: 20, borderWidth: 1,
+    borderColor: '#E0E0E0', backgroundColor: '#F5F5F5',
   },
-  viewsText: { fontSize: 10, fontWeight: '600', color: COLORS.textMuted },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+  viewsText: { fontSize: 10, fontWeight: '600', color: '#888888' },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
   cardFooterRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  phoneBtn: {
-    width: 34, height: 34, borderRadius: 17,
-    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  phoneBtnIcon: { fontSize: 15, color: COLORS.textMuted },
   sendBtn: {
-    backgroundColor: COLORS.accent + '20', borderWidth: 1, borderColor: COLORS.accent,
-    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6,
+    backgroundColor: COLORS.accent, borderRadius: 10,
+    paddingHorizontal: 16, paddingVertical: 8,
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  sendBtnText: { color: COLORS.accent, fontSize: 12, fontWeight: '700' },
+  sendBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
   modalOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'flex-end',
@@ -1806,25 +1828,30 @@ const styles = StyleSheet.create({
 
   // Seguimiento urgente
   urgentBtn: {
-    marginTop: 10,
-    backgroundColor: '#FF5722',
-    borderRadius: 8,
-    paddingVertical: 9,
-    paddingHorizontal: 14,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFF3F0',
+    borderWidth: 1,
+    borderColor: '#FF5722',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
-  urgentBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  urgentBtnText: { color: '#FF5722', fontSize: 13, fontWeight: '700' },
   noVistaBtn: {
-    marginTop: 10,
-    backgroundColor: '#3B82F620',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#EFF6FF',
     borderWidth: 1,
     borderColor: '#3B82F6',
-    borderRadius: 8,
-    paddingVertical: 9,
+    borderRadius: 10,
+    paddingVertical: 10,
     paddingHorizontal: 14,
-    alignItems: 'center',
   },
   noVistaBtnText: { color: '#3B82F6', fontSize: 13, fontWeight: '700' },
+  seguimientoArrow: { color: '#AAAAAA', fontSize: 16, fontWeight: '400' },
   seguimientoBtn: {
     marginTop: 16,
     borderRadius: 12,
@@ -1832,4 +1859,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   seguimientoBtnText: { fontSize: 16, fontWeight: '700' },
+  fab: {},
+  fabText: {},
 });
