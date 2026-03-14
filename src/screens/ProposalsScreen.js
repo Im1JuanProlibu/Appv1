@@ -582,7 +582,7 @@ export default function ProposalsScreen({ navigation, route }) {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <ProlibuLogoHorizontal size={0.7} />
+          <ProlibuLogoHorizontal width={140} />
           <Text style={styles.headerSub} numberOfLines={1}>{userName}</Text>
         </View>
         <View style={styles.headerRight}>
