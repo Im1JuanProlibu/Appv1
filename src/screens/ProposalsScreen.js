@@ -603,6 +603,15 @@ export default function ProposalsScreen({ navigation, route }) {
               </View>
             )}
           </TouchableOpacity>
+          {auth && (
+            <TouchableOpacity
+              style={styles.newBtn}
+              onPress={() => navigation.navigate('CreateProposal', { auth })}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.newBtnText}>+ Nueva</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
             <Text style={styles.logoutText}>Salir</Text>
           </TouchableOpacity>
@@ -1398,14 +1407,21 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   countText: { color: COLORS.accentFg, fontWeight: '700', fontSize: 13 },
+  newBtn: {
+    backgroundColor: COLORS.accent,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  newBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   logoutBtn: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  logoutText: { color: COLORS.accent, fontWeight: '600', fontSize: 13 },
+  logoutText: { color: COLORS.textMuted, fontWeight: '600', fontSize: 13 },
 
   // Barra de acceso rapido
   quickNav: {
