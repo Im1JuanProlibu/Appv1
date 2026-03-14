@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../theme';
 import { setApiDomain } from '../api';
+import { ProlibuLogoVertical } from '../components/ProlibuLogo';
 
 const SUFFIXES = ['.prolibu.com', '.nodriza.io'];
 
@@ -46,13 +47,7 @@ export default function DomainScreen({ navigation }) {
         <View style={styles.inner}>
           {/* Logo area */}
           <View style={styles.logoArea}>
-            <View style={styles.logoMark}>
-              <Text style={styles.logoO}>O</Text>
-              <Text style={styles.logoII}>II</Text>
-              <Text style={styles.logoArrow}>{'>'}</Text>
-            </View>
-            <Text style={styles.logoText}>PROLIBU</Text>
-            <Text style={styles.logoSub}>Gestión de propuestas</Text>
+            <ProlibuLogoVertical scale={0.85} tagline="Gestión de propuestas" />
           </View>
 
           <Text style={styles.title}>Configura tu cuenta</Text>
