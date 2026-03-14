@@ -302,7 +302,6 @@ export default function CreateProposalScreen({ navigation, route }) {
           autoCapitalize="characters"
           maxLength={10}
           returnKeyType="next"
-          autoFocus
         />
 
         {/* Título */}

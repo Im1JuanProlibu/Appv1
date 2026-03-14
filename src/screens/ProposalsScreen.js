@@ -586,20 +586,17 @@ export default function ProposalsScreen({ navigation, route }) {
           <Text style={styles.headerSub} numberOfLines={1}>{userName}</Text>
         </View>
         <View style={styles.headerRight}>
-          {!loading && totalCount > 0 && (
-            <View style={styles.countBadge}>
-              <Text style={styles.countText}>{totalCount}</Text>
-            </View>
-          )}
           <TouchableOpacity
             style={styles.bellBtn}
             onPress={() => { setShowNotifications(true); markAllRead(); }}
             activeOpacity={0.7}
           >
             <Text style={styles.bellIcon}>🔔</Text>
-            {unread > 0 && (
+            {(unread > 0 || (!loading && totalCount > 0)) && (
               <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>{unread > 99 ? '99+' : unread}</Text>
+                <Text style={styles.bellBadgeText}>
+                  {unread > 0 ? (unread > 99 ? '99+' : String(unread)) : String(totalCount)}
+                </Text>
               </View>
             )}
           </TouchableOpacity>
@@ -612,9 +609,6 @@ export default function ProposalsScreen({ navigation, route }) {
               <Text style={styles.newBtnText}>+ Nueva</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-            <Text style={styles.logoutText}>Salir</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -644,25 +638,6 @@ export default function ProposalsScreen({ navigation, route }) {
                     <Text style={[styles.filterBadgeText, active && { color: f.fg }]}>{count}</Text>
                   </View>
                 )}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* Barra de ordenamiento */}
-      <View style={styles.sortBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortScroll}>
-          {SORT_OPTIONS.map((s) => {
-            const active = activeSort === s.key;
-            return (
-              <TouchableOpacity
-                key={s.key}
-                style={[styles.sortChip, active && styles.sortChipActive]}
-                onPress={() => handleSort(s.key)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>{s.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -881,7 +856,7 @@ export default function ProposalsScreen({ navigation, route }) {
                       activeOpacity={canClient ? 0.7 : 1}
                     >
                       <Text style={[styles.urlTypeBtnTitle, sendModal.urlType === 'client' && canClient && { color: COLORS.accent }]}>URL Cliente</Text>
-                      <Text style={styles.urlTypeBtnDesc}>{canClient ? 'Contabiliza vistas' : 'Solo propuestas Lista'}</Text>
+                      <Text style={styles.urlTypeBtnDesc}>{canClient ? 'URL corta · Con seguimiento' : 'Solo propuestas Lista'}</Text>
                     </TouchableOpacity>
                   );
                 })()}
@@ -899,7 +874,7 @@ export default function ProposalsScreen({ navigation, route }) {
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.urlTypeBtnTitle, sendModal.urlType === 'anonymous' && { color: COLORS.accent }]}>URL Anónima</Text>
-                  <Text style={styles.urlTypeBtnDesc}>Sin seguimiento</Text>
+                  <Text style={styles.urlTypeBtnDesc}>URL larga · Sin seguimiento</Text>
                 </TouchableOpacity>
               </View>
 
@@ -975,10 +950,13 @@ export default function ProposalsScreen({ navigation, route }) {
                     setSendModal({ ...sendModal, visible: false });
                   } else {
                     // Share: mantener modal visible, abrir sheet encima, cerrar después
-                    const url = buildProposalUrl(sendModal.proposal, sendModal.urlType);
+                    const url = sendModal.urlType === 'client'
+                      ? await buildClientShortUrl(sendModal.proposal)
+                      : buildProposalUrl(sendModal.proposal, sendModal.urlType);
                     try {
                       await Share.share({
                         message: url,
+                        url,
                         title: sendModal.proposal?.title || sendModal.proposal?.name || 'Propuesta',
                       });
                     } catch {}

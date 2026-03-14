@@ -352,8 +352,13 @@ export default function ReportsScreen({ navigation }) {
           </View>
           <View style={styles.pStatDivider} />
           <View style={styles.pStat}>
-            <Text style={styles.pStatVal}>{p.ready + p.draft}</Text>
-            <Text style={styles.pStatLbl}>Activas</Text>
+            <Text style={[styles.pStatVal, { color: '#10B981' }]}>{p.ready}</Text>
+            <Text style={styles.pStatLbl}>Lista</Text>
+          </View>
+          <View style={styles.pStatDivider} />
+          <View style={styles.pStat}>
+            <Text style={[styles.pStatVal, { color: '#F59E0B' }]}>{p.draft}</Text>
+            <Text style={styles.pStatLbl}>Borrador</Text>
           </View>
           {hasAmt && (
             <>
@@ -469,26 +474,40 @@ export default function ReportsScreen({ navigation }) {
         {generated && report && (
           <View style={styles.resultBlock}>
             {/* Totales */}
-            <View style={styles.totalsRow}>
-              <View style={styles.totalCard}>
-                <Text style={styles.totalVal}>{report.totals.created}</Text>
-                <Text style={styles.totalLbl}>Creadas</Text>
-              </View>
-              <View style={[styles.totalCard, { borderColor: COLORS.success + '60' }]}>
-                <Text style={[styles.totalVal, { color: COLORS.success }]}>{report.totals.approved}</Text>
-                <Text style={styles.totalLbl}>Aprobadas</Text>
-              </View>
-              <View style={[styles.totalCard, { borderColor: COLORS.error + '60' }]}>
-                <Text style={[styles.totalVal, { color: COLORS.error }]}>{report.totals.denied}</Text>
-                <Text style={styles.totalLbl}>Negadas</Text>
-              </View>
-              <View style={[styles.totalCard, { borderColor: COLORS.accent + '60' }]}>
-                <Text style={[styles.totalVal, { color: COLORS.accent }]}>
-                  {report.totals.conversion !== null ? `${report.totals.conversion}%` : '—'}
-                </Text>
-                <Text style={styles.totalLbl}>Conversión</Text>
-              </View>
-            </View>
+            {(() => {
+              const totReady = report.periods.reduce((a, p) => a + p.ready, 0);
+              const totDraft = report.periods.reduce((a, p) => a + p.draft, 0);
+              return (
+                <View style={styles.totalsRow}>
+                  <View style={styles.totalCard}>
+                    <Text style={styles.totalVal}>{report.totals.created}</Text>
+                    <Text style={styles.totalLbl}>Creadas</Text>
+                  </View>
+                  <View style={[styles.totalCard, { borderColor: COLORS.success + '60' }]}>
+                    <Text style={[styles.totalVal, { color: COLORS.success }]}>{report.totals.approved}</Text>
+                    <Text style={styles.totalLbl}>Aprobadas</Text>
+                  </View>
+                  <View style={[styles.totalCard, { borderColor: COLORS.error + '60' }]}>
+                    <Text style={[styles.totalVal, { color: COLORS.error }]}>{report.totals.denied}</Text>
+                    <Text style={styles.totalLbl}>Negadas</Text>
+                  </View>
+                  <View style={[styles.totalCard, { borderColor: '#10B98160' }]}>
+                    <Text style={[styles.totalVal, { color: '#10B981' }]}>{totReady}</Text>
+                    <Text style={styles.totalLbl}>Lista</Text>
+                  </View>
+                  <View style={[styles.totalCard, { borderColor: '#F59E0B60' }]}>
+                    <Text style={[styles.totalVal, { color: '#F59E0B' }]}>{totDraft}</Text>
+                    <Text style={styles.totalLbl}>Borrador</Text>
+                  </View>
+                  <View style={[styles.totalCard, { borderColor: COLORS.accent + '60' }]}>
+                    <Text style={[styles.totalVal, { color: COLORS.accent }]}>
+                      {report.totals.conversion !== null ? `${report.totals.conversion}%` : '—'}
+                    </Text>
+                    <Text style={styles.totalLbl}>Conversión</Text>
+                  </View>
+                </View>
+              );
+            })()}
 
             {report.totals.approvedAmt > 0 && (
               <View style={styles.amtTotalCard}>
