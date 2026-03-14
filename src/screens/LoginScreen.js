@@ -14,11 +14,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { COLORS } from '../theme';
+import { useTheme } from '../ThemeContext';
 import { login, getApiBase } from '../api';
 import { ProlibuLogoVertical } from '../components/ProlibuLogo';
 
 export default function LoginScreen({ navigation }) {
+  const { colors: COLORS, isDark } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -73,9 +74,11 @@ export default function LoginScreen({ navigation }) {
     }
   }
 
+  const styles = makeStyles(COLORS);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={COLORS.bg} />
       <KeyboardAvoidingView
         style={styles.kav}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -148,72 +151,74 @@ export default function LoginScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
-  kav: { flex: 1 },
-  scroll: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 36,
-  },
-  card: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 28,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  cardTitle: {
-    color: COLORS.text,
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 20,
-  },
-  label: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: COLORS.bg,
-    color: COLORS.text,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    padding: 14,
-    fontSize: 15,
-    marginBottom: 16,
-  },
-  btn: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 10,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 28,
-    gap: 12,
-  },
-  footer: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-  },
-  footerLink: {
-    color: COLORS.accent,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-});
+function makeStyles(C) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: C.bg },
+    kav: { flex: 1 },
+    scroll: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      padding: 24,
+    },
+    logoContainer: {
+      alignItems: 'center',
+      marginBottom: 36,
+    },
+    card: {
+      backgroundColor: C.card,
+      borderRadius: 16,
+      padding: 28,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    cardTitle: {
+      color: C.text,
+      fontSize: 18,
+      fontWeight: '700',
+      marginBottom: 20,
+    },
+    label: {
+      color: C.textMuted,
+      fontSize: 12,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+      marginBottom: 6,
+    },
+    input: {
+      backgroundColor: C.bg,
+      color: C.text,
+      borderWidth: 1,
+      borderColor: C.border,
+      borderRadius: 10,
+      padding: 14,
+      fontSize: 15,
+      marginBottom: 16,
+    },
+    btn: {
+      backgroundColor: C.accent,
+      borderRadius: 10,
+      padding: 16,
+      alignItems: 'center',
+      marginTop: 4,
+    },
+    btnDisabled: { opacity: 0.6 },
+    btnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+    footerRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: 28,
+      gap: 12,
+    },
+    footer: {
+      color: C.textMuted,
+      fontSize: 11,
+    },
+    footerLink: {
+      color: C.accent,
+      fontSize: 11,
+      fontWeight: '600',
+    },
+  });
+}

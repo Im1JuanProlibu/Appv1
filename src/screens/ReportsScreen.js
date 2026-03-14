@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { COLORS } from '../theme';
+import { useTheme } from '../ThemeContext';
 import { getProposals, getReports, runReport, downloadReport } from '../api';
 import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
@@ -184,6 +184,7 @@ function generateReport(proposals, rangeKey, periodKey, customStart, customEnd) 
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 export default function ReportsScreen({ navigation }) {
+  const { colors: COLORS, isDark } = useTheme();
   const [auth, setAuth]           = useState(null);
   const [isAdmin, setIsAdmin]     = useState(false);
   const [proposals, setProposals] = useState([]);
@@ -396,9 +397,11 @@ export default function ReportsScreen({ navigation }) {
     return <Text style={styles.emptyHint}>Sin datos para mostrar.</Text>;
   }
 
+  const styles = makeStyles(COLORS);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={COLORS.bg} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -662,163 +665,165 @@ export default function ReportsScreen({ navigation }) {
 }
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 16,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 12,
-  },
-  backBtn: { paddingRight: 4 },
-  backText: { color: COLORS.accent, fontWeight: '600', fontSize: 14 },
-  headerTitle: { color: COLORS.text, fontSize: 20, fontWeight: '800' },
-  headerSub: { color: COLORS.textMuted, fontSize: 11, marginTop: 1 },
-  scroll: { paddingBottom: 20 },
+function makeStyles(C) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: C.bg },
+    header: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 20, paddingVertical: 16,
+      borderBottomWidth: 1, borderBottomColor: C.border, gap: 12,
+    },
+    backBtn: { paddingRight: 4 },
+    backText: { color: C.accent, fontWeight: '600', fontSize: 14 },
+    headerTitle: { color: C.text, fontSize: 20, fontWeight: '800' },
+    headerSub: { color: C.textMuted, fontSize: 11, marginTop: 1 },
+    scroll: { paddingBottom: 20 },
 
-  // Config
-  configBlock: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  configLabel: {
-    color: COLORS.textMuted, fontSize: 10, fontWeight: '700',
-    textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 10,
-  },
-  chipScroll: { gap: 8 },
-  chip: {
-    paddingHorizontal: 16, paddingVertical: 8,
-    borderRadius: 20, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card,
-  },
-  chipActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
-  chipText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '600' },
-  chipTextActive: { color: '#fff' },
+    // Config
+    configBlock: {
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: C.border,
+    },
+    configLabel: {
+      color: C.textMuted, fontSize: 10, fontWeight: '700',
+      textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 10,
+    },
+    chipScroll: { gap: 8 },
+    chip: {
+      paddingHorizontal: 16, paddingVertical: 8,
+      borderRadius: 20, borderWidth: 1, borderColor: C.border, backgroundColor: C.card,
+    },
+    chipActive: { backgroundColor: C.accent, borderColor: C.accent },
+    chipText: { color: C.textMuted, fontSize: 13, fontWeight: '600' },
+    chipTextActive: { color: '#fff' },
 
-  periodRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  periodChip: {
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card,
-  },
-  periodChipActive: { backgroundColor: COLORS.text, borderColor: COLORS.text },
-  periodChipText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '600' },
-  periodChipTextActive: { color: '#fff' },
+    periodRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+    periodChip: {
+      paddingHorizontal: 14, paddingVertical: 8,
+      borderRadius: 10, borderWidth: 1, borderColor: C.border, backgroundColor: C.card,
+    },
+    periodChipActive: { backgroundColor: C.text, borderColor: C.text },
+    periodChipText: { color: C.textMuted, fontSize: 13, fontWeight: '600' },
+    periodChipTextActive: { color: '#fff' },
 
-  generateBtn: {
-    backgroundColor: COLORS.accent, borderRadius: 14,
-    padding: 16, alignItems: 'center', marginTop: 20,
-  },
-  generateBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+    generateBtn: {
+      backgroundColor: C.accent, borderRadius: 14,
+      padding: 16, alignItems: 'center', marginTop: 20,
+    },
+    generateBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
 
-  // Resultado
-  resultBlock: { padding: 20 },
-  totalsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  totalCard: {
-    flex: 1, backgroundColor: COLORS.card,
-    borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
-    padding: 10, alignItems: 'center',
-  },
-  totalVal: { color: COLORS.text, fontSize: 20, fontWeight: '800' },
-  totalLbl: { color: COLORS.textMuted, fontSize: 10, marginTop: 2, fontWeight: '600' },
+    // Resultado
+    resultBlock: { padding: 20 },
+    totalsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+    totalCard: {
+      flex: 1, backgroundColor: C.card,
+      borderRadius: 12, borderWidth: 1, borderColor: C.border,
+      padding: 10, alignItems: 'center',
+    },
+    totalVal: { color: C.text, fontSize: 20, fontWeight: '800' },
+    totalLbl: { color: C.textMuted, fontSize: 10, marginTop: 2, fontWeight: '600' },
 
-  amtTotalCard: {
-    backgroundColor: COLORS.success + '12',
-    borderRadius: 12, borderWidth: 1, borderColor: COLORS.success + '40',
-    padding: 14, marginBottom: 16, flexDirection: 'row',
-    justifyContent: 'space-between', alignItems: 'center',
-  },
-  amtTotalLbl: { color: COLORS.textMuted, fontSize: 12 },
-  amtTotalVal: { color: COLORS.success, fontSize: 20, fontWeight: '800' },
+    amtTotalCard: {
+      backgroundColor: C.success + '12',
+      borderRadius: 12, borderWidth: 1, borderColor: C.success + '40',
+      padding: 14, marginBottom: 16, flexDirection: 'row',
+      justifyContent: 'space-between', alignItems: 'center',
+    },
+    amtTotalLbl: { color: C.textMuted, fontSize: 12 },
+    amtTotalVal: { color: C.success, fontSize: 20, fontWeight: '800' },
 
-  periodsTitle: {
-    color: COLORS.textMuted, fontSize: 11, fontWeight: '700',
-    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12,
-  },
+    periodsTitle: {
+      color: C.textMuted, fontSize: 11, fontWeight: '700',
+      textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12,
+    },
 
-  // Tarjeta de período
-  periodCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 14, borderWidth: 1, borderColor: COLORS.border,
-    padding: 14, marginBottom: 10,
-  },
-  periodCardHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
-  periodCardLabel: { color: COLORS.text, fontWeight: '700', fontSize: 15 },
-  periodCardDates: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
-  activityBarTrack: {
-    flexDirection: 'row', height: 5,
-    backgroundColor: COLORS.border, borderRadius: 3,
-    overflow: 'hidden', marginBottom: 12,
-  },
-  activityBarFill: { backgroundColor: COLORS.accent, borderRadius: 3 },
-  periodCardStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 0 },
-  pStat: { flex: 1, alignItems: 'center', minWidth: 52 },
-  pStatVal: { color: COLORS.text, fontWeight: '800', fontSize: 18 },
-  pStatLbl: { color: COLORS.textMuted, fontSize: 10, marginTop: 2, fontWeight: '600' },
-  pStatDivider: { width: 1, backgroundColor: COLORS.border, alignSelf: 'stretch' },
+    // Tarjeta de período
+    periodCard: {
+      backgroundColor: C.card,
+      borderRadius: 14, borderWidth: 1, borderColor: C.border,
+      padding: 14, marginBottom: 10,
+    },
+    periodCardHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
+    periodCardLabel: { color: C.text, fontWeight: '700', fontSize: 15 },
+    periodCardDates: { color: C.textMuted, fontSize: 11, marginTop: 2 },
+    activityBarTrack: {
+      flexDirection: 'row', height: 5,
+      backgroundColor: C.border, borderRadius: 3,
+      overflow: 'hidden', marginBottom: 12,
+    },
+    activityBarFill: { backgroundColor: C.accent, borderRadius: 3 },
+    periodCardStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 0 },
+    pStat: { flex: 1, alignItems: 'center', minWidth: 52 },
+    pStatVal: { color: C.text, fontWeight: '800', fontSize: 18 },
+    pStatLbl: { color: C.textMuted, fontSize: 10, marginTop: 2, fontWeight: '600' },
+    pStatDivider: { width: 1, backgroundColor: C.border, alignSelf: 'stretch' },
 
-  emptyHint: { color: COLORS.textMuted, fontSize: 13, textAlign: 'center', marginVertical: 16 },
+    emptyHint: { color: C.textMuted, fontSize: 13, textAlign: 'center', marginVertical: 16 },
 
-  // Servidor admin
-  serverBlock: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  serverTitle: {
-    color: COLORS.textMuted, fontSize: 10, fontWeight: '700',
-    textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12,
-  },
-  serverCard: {
-    backgroundColor: COLORS.card, borderRadius: 14,
-    borderWidth: 1, borderColor: COLORS.border, padding: 16, marginBottom: 12,
-  },
-  serverCardTitle: { color: COLORS.text, fontSize: 15, fontWeight: '700', marginBottom: 6 },
-  chipRowSmall: { flexDirection: 'row', gap: 6, marginBottom: 6, flexWrap: 'wrap' },
-  tagChip: {
-    backgroundColor: COLORS.accent + '18', borderRadius: 20,
-    paddingHorizontal: 8, paddingVertical: 2,
-    borderWidth: 1, borderColor: COLORS.accent + '40',
-  },
-  tagChipText: { color: COLORS.accent, fontSize: 10, fontWeight: '700' },
-  serverCardDates: { color: COLORS.textMuted, fontSize: 11, marginBottom: 10 },
-  serverCardBtns: { flexDirection: 'row', gap: 10 },
-  runBtn: {
-    flex: 1, backgroundColor: COLORS.accent, borderRadius: 10,
-    paddingVertical: 11, alignItems: 'center', justifyContent: 'center',
-  },
-  runBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  dlBtn: {
-    flex: 1, borderRadius: 10, borderWidth: 1, borderColor: COLORS.accent,
-    paddingVertical: 11, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: COLORS.accent + '15',
-  },
-  dlBtnText: { color: COLORS.accent, fontWeight: '700', fontSize: 13 },
-  btnDisabled: { opacity: 0.45 },
+    // Servidor admin
+    serverBlock: {
+      padding: 20,
+      borderTopWidth: 1,
+      borderTopColor: C.border,
+    },
+    serverTitle: {
+      color: C.textMuted, fontSize: 10, fontWeight: '700',
+      textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12,
+    },
+    serverCard: {
+      backgroundColor: C.card, borderRadius: 14,
+      borderWidth: 1, borderColor: C.border, padding: 16, marginBottom: 12,
+    },
+    serverCardTitle: { color: C.text, fontSize: 15, fontWeight: '700', marginBottom: 6 },
+    chipRowSmall: { flexDirection: 'row', gap: 6, marginBottom: 6, flexWrap: 'wrap' },
+    tagChip: {
+      backgroundColor: C.accent + '18', borderRadius: 20,
+      paddingHorizontal: 8, paddingVertical: 2,
+      borderWidth: 1, borderColor: C.accent + '40',
+    },
+    tagChipText: { color: C.accent, fontSize: 10, fontWeight: '700' },
+    serverCardDates: { color: C.textMuted, fontSize: 11, marginBottom: 10 },
+    serverCardBtns: { flexDirection: 'row', gap: 10 },
+    runBtn: {
+      flex: 1, backgroundColor: C.accent, borderRadius: 10,
+      paddingVertical: 11, alignItems: 'center', justifyContent: 'center',
+    },
+    runBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+    dlBtn: {
+      flex: 1, borderRadius: 10, borderWidth: 1, borderColor: C.accent,
+      paddingVertical: 11, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: C.accent + '15',
+    },
+    dlBtnText: { color: C.accent, fontWeight: '700', fontSize: 13 },
+    btnDisabled: { opacity: 0.45 },
 
-  // Modales
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
-  modalSheet: {
-    backgroundColor: COLORS.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: 24, paddingBottom: 40, maxHeight: '85%',
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  sheetHandle: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: COLORS.border, alignSelf: 'center', marginBottom: 20,
-  },
-  sheetTitle: { color: COLORS.text, fontSize: 18, fontWeight: '800', marginBottom: 12 },
-  dateInputLabel: { color: COLORS.textMuted, fontSize: 12, fontWeight: '600', marginTop: 14, marginBottom: 6 },
-  dateInput: {
-    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
-    borderRadius: 10, padding: 12, fontSize: 16, color: COLORS.text,
-  },
-  applyBtn: {
-    backgroundColor: COLORS.accent, borderRadius: 12,
-    padding: 15, alignItems: 'center', marginTop: 18,
-  },
-  applyBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  cancelBtn: {
-    borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
-    padding: 15, alignItems: 'center', marginTop: 10,
-  },
-  cancelBtnText: { color: COLORS.textMuted, fontWeight: '600', fontSize: 15 },
-});
+    // Modales
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+    modalSheet: {
+      backgroundColor: C.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+      padding: 24, paddingBottom: 40, maxHeight: '85%',
+      borderWidth: 1, borderColor: C.border,
+    },
+    sheetHandle: {
+      width: 40, height: 4, borderRadius: 2,
+      backgroundColor: C.border, alignSelf: 'center', marginBottom: 20,
+    },
+    sheetTitle: { color: C.text, fontSize: 18, fontWeight: '800', marginBottom: 12 },
+    dateInputLabel: { color: C.textMuted, fontSize: 12, fontWeight: '600', marginTop: 14, marginBottom: 6 },
+    dateInput: {
+      backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
+      borderRadius: 10, padding: 12, fontSize: 16, color: C.text,
+    },
+    applyBtn: {
+      backgroundColor: C.accent, borderRadius: 12,
+      padding: 15, alignItems: 'center', marginTop: 18,
+    },
+    applyBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    cancelBtn: {
+      borderRadius: 12, borderWidth: 1, borderColor: C.border,
+      padding: 15, alignItems: 'center', marginTop: 10,
+    },
+    cancelBtnText: { color: C.textMuted, fontWeight: '600', fontSize: 15 },
+  });
+}

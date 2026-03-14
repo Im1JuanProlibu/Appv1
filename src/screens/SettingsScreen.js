@@ -5,7 +5,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { COLORS } from '../theme';
 import { getApiBase } from '../api';
 import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
@@ -167,9 +166,11 @@ export default function SettingsScreen({ navigation }) {
     ? `${user.firstName} ${user.lastName || ''}`.trim()
     : (user.name || user.email || '');
 
+  const styles = makeStyles(COLORS);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={COLORS.bg} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -301,110 +302,112 @@ export default function SettingsScreen({ navigation }) {
 }
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: COLORS.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 16,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  headerTitle: { color: COLORS.text, fontSize: 22, fontWeight: '800' },
-  saveBtn: {
-    backgroundColor: COLORS.accent, borderRadius: 10,
-    paddingHorizontal: 18, paddingVertical: 9,
-  },
-  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  scroll: { padding: 20, paddingBottom: 16 },
-  sectionLabel: {
-    color: COLORS.textMuted, fontSize: 10, fontWeight: '700',
-    textTransform: 'uppercase', letterSpacing: 1.5,
-    marginBottom: 10, marginTop: 6,
-  },
+function makeStyles(C) {
+  return StyleSheet.create({
+    safe:   { flex: 1, backgroundColor: C.bg },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 20, paddingVertical: 16,
+      borderBottomWidth: 1, borderBottomColor: C.border,
+    },
+    headerTitle: { color: C.text, fontSize: 22, fontWeight: '800' },
+    saveBtn: {
+      backgroundColor: C.accent, borderRadius: 10,
+      paddingHorizontal: 18, paddingVertical: 9,
+    },
+    saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    scroll: { padding: 20, paddingBottom: 16 },
+    sectionLabel: {
+      color: C.textMuted, fontSize: 10, fontWeight: '700',
+      textTransform: 'uppercase', letterSpacing: 1.5,
+      marginBottom: 10, marginTop: 6,
+    },
 
-  // Cuenta
-  card: {
-    backgroundColor: COLORS.card, borderRadius: 16,
-    borderWidth: 1, borderColor: COLORS.border,
-    padding: 16, marginBottom: 20,
-  },
-  accountRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  avatarCircle: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: COLORS.accent, justifyContent: 'center', alignItems: 'center',
-  },
-  avatarText:    { color: '#fff', fontSize: 20, fontWeight: '800' },
-  accountName:   { color: COLORS.text, fontSize: 16, fontWeight: '700' },
-  accountEmail:  { color: COLORS.textMuted, fontSize: 12, marginTop: 2 },
-  accountDomain: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
-  cardDivider:   { height: 1, backgroundColor: COLORS.border, marginVertical: 14 },
-  accountBtns:   { flexDirection: 'row', gap: 10 },
-  linkBtn: {
-    flex: 1, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border,
-    paddingVertical: 10, alignItems: 'center',
-  },
-  linkBtnText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '600' },
+    // Cuenta
+    card: {
+      backgroundColor: C.card, borderRadius: 16,
+      borderWidth: 1, borderColor: C.border,
+      padding: 16, marginBottom: 20,
+    },
+    accountRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    avatarCircle: {
+      width: 48, height: 48, borderRadius: 24,
+      backgroundColor: C.accent, justifyContent: 'center', alignItems: 'center',
+    },
+    avatarText:    { color: '#fff', fontSize: 20, fontWeight: '800' },
+    accountName:   { color: C.text, fontSize: 16, fontWeight: '700' },
+    accountEmail:  { color: C.textMuted, fontSize: 12, marginTop: 2 },
+    accountDomain: { color: C.textMuted, fontSize: 11, marginTop: 2 },
+    cardDivider:   { height: 1, backgroundColor: C.border, marginVertical: 14 },
+    accountBtns:   { flexDirection: 'row', gap: 10 },
+    linkBtn: {
+      flex: 1, borderRadius: 10, borderWidth: 1, borderColor: C.border,
+      paddingVertical: 10, alignItems: 'center',
+    },
+    linkBtnText: { color: C.textMuted, fontSize: 13, fontWeight: '600' },
 
-  // Variables
-  varsCard: {
-    backgroundColor: COLORS.card, borderRadius: 14,
-    borderWidth: 1, borderColor: COLORS.border,
-    padding: 14, marginBottom: 20, gap: 10,
-  },
-  varRow:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  varChip: {
-    backgroundColor: COLORS.accent + '15', borderRadius: 8,
-    borderWidth: 1, borderColor: COLORS.accent + '40',
-    paddingHorizontal: 8, paddingVertical: 4,
-  },
-  varCode: { color: COLORS.accent, fontWeight: '700', fontSize: 12, fontFamily: 'monospace' },
-  varDesc: { color: COLORS.textMuted, fontSize: 12 },
+    // Variables
+    varsCard: {
+      backgroundColor: C.card, borderRadius: 14,
+      borderWidth: 1, borderColor: C.border,
+      padding: 14, marginBottom: 20, gap: 10,
+    },
+    varRow:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    varChip: {
+      backgroundColor: C.accent + '15', borderRadius: 8,
+      borderWidth: 1, borderColor: C.accent + '40',
+      paddingHorizontal: 8, paddingVertical: 4,
+    },
+    varCode: { color: C.accent, fontWeight: '700', fontSize: 12, fontFamily: 'monospace' },
+    varDesc: { color: C.textMuted, fontSize: 12 },
 
-  // Plantillas
-  templateBlock: {
-    backgroundColor: COLORS.card, borderRadius: 14,
-    borderWidth: 1, borderColor: COLORS.border,
-    padding: 14, marginBottom: 12,
-  },
-  templateTitle: { color: COLORS.text, fontSize: 14, fontWeight: '700', marginBottom: 3 },
-  templateDesc:  { color: COLORS.textMuted, fontSize: 11, marginBottom: 10 },
-  templateInput: {
-    backgroundColor: COLORS.bg, borderWidth: 1, borderColor: COLORS.border,
-    borderRadius: 10, padding: 12, fontSize: 13, color: COLORS.text,
-    lineHeight: 19,
-  },
-  templateFooter: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'flex-start', marginTop: 6,
-  },
-  templateHint: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    marginTop: 4,
-    lineHeight: 16,
-    flexWrap: 'wrap',
-    flex: 1,
-    flexShrink: 1,
-  },
-  templateCounter: { color: COLORS.textMuted, fontSize: 11, fontWeight: '600', marginLeft: 8 },
+    // Plantillas
+    templateBlock: {
+      backgroundColor: C.card, borderRadius: 14,
+      borderWidth: 1, borderColor: C.border,
+      padding: 14, marginBottom: 12,
+    },
+    templateTitle: { color: C.text, fontSize: 14, fontWeight: '700', marginBottom: 3 },
+    templateDesc:  { color: C.textMuted, fontSize: 11, marginBottom: 10 },
+    templateInput: {
+      backgroundColor: C.bg, borderWidth: 1, borderColor: C.border,
+      borderRadius: 10, padding: 12, fontSize: 13, color: C.text,
+      lineHeight: 19,
+    },
+    templateFooter: {
+      flexDirection: 'row', justifyContent: 'space-between',
+      alignItems: 'flex-start', marginTop: 6,
+    },
+    templateHint: {
+      fontSize: 11,
+      color: C.textMuted,
+      marginTop: 4,
+      lineHeight: 16,
+      flexWrap: 'wrap',
+      flex: 1,
+      flexShrink: 1,
+    },
+    templateCounter: { color: C.textMuted, fontSize: 11, fontWeight: '600', marginLeft: 8 },
 
-  resetBtn: {
-    borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
-    padding: 14, alignItems: 'center', marginTop: 4,
-  },
-  resetBtnText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '600' },
+    resetBtn: {
+      borderRadius: 12, borderWidth: 1, borderColor: C.border,
+      padding: 14, alignItems: 'center', marginTop: 4,
+    },
+    resetBtnText: { color: C.textMuted, fontSize: 13, fontWeight: '600' },
 
-  themeRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-  themeLabel: { fontSize: 15, fontWeight: '600' },
-  themeDesc: { fontSize: 12, marginTop: 2 },
-  themeToggle: {
-    width: 50, height: 28, borderRadius: 14,
-    backgroundColor: COLORS.border, justifyContent: 'center',
-    paddingHorizontal: 2,
-  },
-  themeToggleOn: { backgroundColor: COLORS.accent },
-  themeThumb: {
-    width: 24, height: 24, borderRadius: 12, backgroundColor: '#fff',
-    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 2, elevation: 2,
-  },
-  themeThumbOn: { alignSelf: 'flex-end' },
-});
+    themeRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+    themeLabel: { fontSize: 15, fontWeight: '600' },
+    themeDesc: { fontSize: 12, marginTop: 2 },
+    themeToggle: {
+      width: 50, height: 28, borderRadius: 14,
+      backgroundColor: C.border, justifyContent: 'center',
+      paddingHorizontal: 2,
+    },
+    themeToggleOn: { backgroundColor: C.accent },
+    themeThumb: {
+      width: 24, height: 24, borderRadius: 12, backgroundColor: '#fff',
+      shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 2, elevation: 2,
+    },
+    themeThumbOn: { alignSelf: 'flex-end' },
+  });
+}

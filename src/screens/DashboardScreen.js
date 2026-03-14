@@ -12,17 +12,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { COLORS } from '../theme';
+import { useTheme } from '../ThemeContext';
 import { getProposals } from '../api';
 import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
+// Brand colors are the same in both themes — use hardcoded hex values
 const STATUS_CONFIG = [
-  { key: 'Draft',    label: 'Borrador', color: COLORS.draft  },
-  { key: 'Ready',    label: 'Lista',    color: COLORS.ready  },
-  { key: 'Approved', label: 'Aprobada', color: COLORS.sent   },
-  { key: 'Denied',   label: 'Negada',   color: COLORS.denied },
+  { key: 'Draft',    label: 'Borrador', color: '#FDBD00' },
+  { key: 'Ready',    label: 'Lista',    color: '#39B54A' },
+  { key: 'Approved', label: 'Aprobada', color: '#4285F4' },
+  { key: 'Denied',   label: 'Negada',   color: '#D4145A' },
 ];
 
 const TEMP_CONFIG = [
@@ -84,6 +85,7 @@ function formatAmount(n) {
 
 /** Barra segmentada multicolor */
 function SegmentedBar({ segments, total, height = 16 }) {
+  const { colors: COLORS } = useTheme();
   if (!total) return null;
   return (
     <View style={{ flexDirection: 'row', height, borderRadius: height / 2, overflow: 'hidden', backgroundColor: COLORS.border }}>
@@ -96,6 +98,7 @@ function SegmentedBar({ segments, total, height = 16 }) {
 
 /** Gráfica de columnas verticales */
 function ColumnChart({ bars, chartHeight = 110 }) {
+  const { colors: COLORS } = useTheme();
   const maxVal = Math.max(...bars.map(b => b.value), 1);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: chartHeight + 52, gap: 10 }}>
@@ -119,7 +122,7 @@ function ColumnChart({ bars, chartHeight = 110 }) {
 }
 
 /** Progress bar con etiquetas */
-function ProgressRow({ label, value, total, color, sub }) {
+function ProgressRow({ label, value, total, color, sub, styles }) {
   const pct     = total > 0 ? value / total : 0;
   const pctText = total > 0 ? `${Math.round(pct * 100)}%` : '—';
   return (
@@ -141,6 +144,7 @@ function ProgressRow({ label, value, total, color, sub }) {
 
 // ─── Pantalla ─────────────────────────────────────────────────────────────────
 export default function DashboardScreen({ navigation }) {
+  const { colors: COLORS, isDark } = useTheme();
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats]           = useState(null);
@@ -189,9 +193,11 @@ export default function DashboardScreen({ navigation }) {
     load(userId, auth.token);
   }
 
+  const styles = makeStyles(COLORS);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={COLORS.bg} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -268,10 +274,10 @@ export default function DashboardScreen({ navigation }) {
             {/* Pipeline rápido */}
             <View style={styles.pipeRow}>
               {[
-                { label: 'Borrador',    val: stats.byStatus.Draft,    color: COLORS.draft  },
-                { label: 'Lista',       val: stats.byStatus.Ready,    color: COLORS.ready  },
-                { label: 'Aprobada',    val: stats.byStatus.Approved, color: COLORS.sent   },
-                { label: 'Negada',      val: stats.byStatus.Denied,   color: COLORS.denied },
+                { label: 'Borrador',    val: stats.byStatus.Draft,    color: '#FDBD00' },
+                { label: 'Lista',       val: stats.byStatus.Ready,    color: '#39B54A' },
+                { label: 'Aprobada',    val: stats.byStatus.Approved, color: '#4285F4' },
+                { label: 'Negada',      val: stats.byStatus.Denied,   color: '#D4145A' },
               ].map(item => (
                 <View key={item.label} style={styles.pipeCard}>
                   <View style={[styles.pipeDot, { backgroundColor: item.color }]} />
@@ -354,6 +360,7 @@ export default function DashboardScreen({ navigation }) {
                     total={stats.byStatus.Approved + stats.byStatus.Denied}
                     color={COLORS.success}
                     sub={String(stats.byStatus.Approved)}
+                    styles={styles}
                   />
                   <ProgressRow
                     label="Negadas"
@@ -361,6 +368,7 @@ export default function DashboardScreen({ navigation }) {
                     total={stats.byStatus.Approved + stats.byStatus.Denied}
                     color={COLORS.error}
                     sub={String(stats.byStatus.Denied)}
+                    styles={styles}
                   />
                   <Text style={styles.funnelNote}>
                     {stats.byStatus.Approved + stats.byStatus.Denied} propuestas cerradas en total
@@ -393,6 +401,7 @@ export default function DashboardScreen({ navigation }) {
                     total={stats.totalAmount}
                     color={COLORS.success}
                     sub={formatAmount(stats.approvedAmount)}
+                    styles={styles}
                   />
                   <ProgressRow
                     label="En pipeline"
@@ -400,6 +409,7 @@ export default function DashboardScreen({ navigation }) {
                     total={stats.totalAmount}
                     color={COLORS.accent}
                     sub={formatAmount(stats.pipelineAmount)}
+                    styles={styles}
                   />
                 </View>
               </>
@@ -424,108 +434,110 @@ export default function DashboardScreen({ navigation }) {
 }
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: COLORS.bg },
-  loader: { marginTop: 80 },
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 16,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 12,
-  },
-  backBtn:    { paddingRight: 4 },
-  backText:   { color: COLORS.accent, fontWeight: '600', fontSize: 14 },
-  headerInfo: { flex: 1 },
-  headerTitle:{ color: COLORS.text, fontSize: 22, fontWeight: '800' },
-  headerSub:  { color: COLORS.textMuted, fontSize: 12, marginTop: 2 },
-  refreshBtn: { padding: 4 },
-  refreshText:{ color: COLORS.accent, fontSize: 22 },
-  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  errorText: { color: COLORS.textMuted, fontSize: 15, textAlign: 'center', marginBottom: 20 },
-  retryBtn:  { backgroundColor: COLORS.accent, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 },
-  retryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  scroll: { padding: 20, paddingBottom: 48 },
-  sectionLabel: {
-    color: COLORS.textMuted, fontSize: 10, fontWeight: '700',
-    textTransform: 'uppercase', letterSpacing: 1.5,
-    marginBottom: 10, marginTop: 6,
-  },
-  card: {
-    backgroundColor: COLORS.card, borderRadius: 16,
-    borderWidth: 1, borderColor: COLORS.border,
-    padding: 16, marginBottom: 20,
-  },
-  divider: { height: 1, backgroundColor: COLORS.border, marginBottom: 14 },
+function makeStyles(C) {
+  return StyleSheet.create({
+    safe:   { flex: 1, backgroundColor: C.bg },
+    loader: { marginTop: 80 },
+    header: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 20, paddingVertical: 16,
+      borderBottomWidth: 1, borderBottomColor: C.border, gap: 12,
+    },
+    backBtn:    { paddingRight: 4 },
+    backText:   { color: C.accent, fontWeight: '600', fontSize: 14 },
+    headerInfo: { flex: 1 },
+    headerTitle:{ color: C.text, fontSize: 22, fontWeight: '800' },
+    headerSub:  { color: C.textMuted, fontSize: 12, marginTop: 2 },
+    refreshBtn: { padding: 4 },
+    refreshText:{ color: C.accent, fontSize: 22 },
+    errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+    errorText: { color: C.textMuted, fontSize: 15, textAlign: 'center', marginBottom: 20 },
+    retryBtn:  { backgroundColor: C.accent, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 },
+    retryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    scroll: { padding: 20, paddingBottom: 48 },
+    sectionLabel: {
+      color: C.textMuted, fontSize: 10, fontWeight: '700',
+      textTransform: 'uppercase', letterSpacing: 1.5,
+      marginBottom: 10, marginTop: 6,
+    },
+    card: {
+      backgroundColor: C.card, borderRadius: 16,
+      borderWidth: 1, borderColor: C.border,
+      padding: 16, marginBottom: 20,
+    },
+    divider: { height: 1, backgroundColor: C.border, marginBottom: 14 },
 
-  // KPI grid
-  kpiGrid: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  kpiCard: {
-    flex: 1.15, backgroundColor: COLORS.card, borderRadius: 16,
-    borderWidth: 1, borderColor: COLORS.border, padding: 16,
-  },
-  kpiCardAccent: { borderColor: COLORS.accent + '40', backgroundColor: COLORS.accent + '06' },
-  kpiCardGreen:  { borderColor: COLORS.success + '40' },
-  kpiCardRed:    { borderColor: COLORS.error + '30' },
-  kpiValue:  { fontWeight: '900', letterSpacing: -0.5 },
-  kpiLabel:  { color: COLORS.textMuted, fontSize: 11, fontWeight: '600', marginTop: 4 },
-  kpiTagRow: { flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap' },
-  kpiTag:    { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
-  kpiTagText:{ fontSize: 10, fontWeight: '700' },
+    // KPI grid
+    kpiGrid: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+    kpiCard: {
+      flex: 1.15, backgroundColor: C.card, borderRadius: 16,
+      borderWidth: 1, borderColor: C.border, padding: 16,
+    },
+    kpiCardAccent: { borderColor: C.accent + '40', backgroundColor: C.accent + '06' },
+    kpiCardGreen:  { borderColor: C.success + '40' },
+    kpiCardRed:    { borderColor: C.error + '30' },
+    kpiValue:  { fontWeight: '900', letterSpacing: -0.5 },
+    kpiLabel:  { color: C.textMuted, fontSize: 11, fontWeight: '600', marginTop: 4 },
+    kpiTagRow: { flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap' },
+    kpiTag:    { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
+    kpiTagText:{ fontSize: 10, fontWeight: '700' },
 
-  // Pipeline rápido
-  pipeRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
-  pipeCard: {
-    flex: 1, backgroundColor: COLORS.card, borderRadius: 12,
-    borderWidth: 1, borderColor: COLORS.border,
-    padding: 10, alignItems: 'center', gap: 4,
-  },
-  pipeDot: { width: 8, height: 8, borderRadius: 4 },
-  pipeNum: { fontWeight: '800', fontSize: 20 },
-  pipeLbl: { color: COLORS.textMuted, fontSize: 9, fontWeight: '700', textAlign: 'center' },
+    // Pipeline rápido
+    pipeRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+    pipeCard: {
+      flex: 1, backgroundColor: C.card, borderRadius: 12,
+      borderWidth: 1, borderColor: C.border,
+      padding: 10, alignItems: 'center', gap: 4,
+    },
+    pipeDot: { width: 8, height: 8, borderRadius: 4 },
+    pipeNum: { fontWeight: '800', fontSize: 20 },
+    pipeLbl: { color: C.textMuted, fontSize: 9, fontWeight: '700', textAlign: 'center' },
 
-  // Leyenda de distribución
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  legendDot:  { width: 10, height: 10, borderRadius: 5 },
-  legendLabel:{ color: COLORS.text, fontWeight: '600', fontSize: 13, width: 68 },
-  legendTrack:{ flexDirection: 'row', height: 7, backgroundColor: COLORS.border, borderRadius: 3.5, overflow: 'hidden' },
-  legendCount:{ fontWeight: '800', fontSize: 14, minWidth: 24, textAlign: 'right' },
-  legendPct:  { color: COLORS.textMuted, fontSize: 11, fontWeight: '600', width: 36, textAlign: 'right' },
+    // Leyenda de distribución
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    legendDot:  { width: 10, height: 10, borderRadius: 5 },
+    legendLabel:{ color: C.text, fontWeight: '600', fontSize: 13, width: 68 },
+    legendTrack:{ flexDirection: 'row', height: 7, backgroundColor: C.border, borderRadius: 3.5, overflow: 'hidden' },
+    legendCount:{ fontWeight: '800', fontSize: 14, minWidth: 24, textAlign: 'right' },
+    legendPct:  { color: C.textMuted, fontSize: 11, fontWeight: '600', width: 36, textAlign: 'right' },
 
-  // Temperatura
-  tempRow:  { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  tempCard: {
-    flex: 1, backgroundColor: COLORS.card, borderRadius: 16,
-    borderWidth: 1.5, padding: 14, alignItems: 'center', gap: 4,
-  },
-  tempEmoji:{ fontSize: 20, marginBottom: 2 },
-  tempNum:  { fontWeight: '900', fontSize: 28, letterSpacing: -0.5 },
-  tempLabel:{ color: COLORS.textMuted, fontSize: 10, fontWeight: '700' },
-  tempPill: { marginTop: 4, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
-  tempPct:  { fontWeight: '800', fontSize: 12 },
+    // Temperatura
+    tempRow:  { flexDirection: 'row', gap: 10, marginBottom: 20 },
+    tempCard: {
+      flex: 1, backgroundColor: C.card, borderRadius: 16,
+      borderWidth: 1.5, padding: 14, alignItems: 'center', gap: 4,
+    },
+    tempEmoji:{ fontSize: 20, marginBottom: 2 },
+    tempNum:  { fontWeight: '900', fontSize: 28, letterSpacing: -0.5 },
+    tempLabel:{ color: C.textMuted, fontSize: 10, fontWeight: '700' },
+    tempPill: { marginTop: 4, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
+    tempPct:  { fontWeight: '800', fontSize: 12 },
 
-  // Progress
-  progressLabel: { color: COLORS.text, fontWeight: '600', fontSize: 13 },
-  progressSub:   { color: COLORS.textMuted, fontSize: 12 },
-  progressPct:   { fontWeight: '800', fontSize: 13, minWidth: 38, textAlign: 'right' },
-  progressTrack: {
-    flexDirection: 'row', height: 10,
-    backgroundColor: COLORS.border, borderRadius: 5, overflow: 'hidden',
-  },
-  progressFill: { borderRadius: 5 },
+    // Progress
+    progressLabel: { color: C.text, fontWeight: '600', fontSize: 13 },
+    progressSub:   { color: C.textMuted, fontSize: 12 },
+    progressPct:   { fontWeight: '800', fontSize: 13, minWidth: 38, textAlign: 'right' },
+    progressTrack: {
+      flexDirection: 'row', height: 10,
+      backgroundColor: C.border, borderRadius: 5, overflow: 'hidden',
+    },
+    progressFill: { borderRadius: 5 },
 
-  funnelNote: { color: COLORS.textMuted, fontSize: 11, textAlign: 'center', marginTop: 2 },
+    funnelNote: { color: C.textMuted, fontSize: 11, textAlign: 'center', marginTop: 2 },
 
-  // Cartera
-  carteraTop:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  carteraLbl:     { color: COLORS.textMuted, fontSize: 11, fontWeight: '600', marginBottom: 4 },
-  carteraBig:     { color: COLORS.text, fontSize: 34, fontWeight: '900', letterSpacing: -1 },
-  carteraBadge:   { borderRadius: 14, borderWidth: 1, padding: 12, alignItems: 'center' },
-  carteraBadgeNum:{ fontWeight: '900', fontSize: 20 },
-  carteraBadgeLbl:{ color: COLORS.textMuted, fontSize: 10, fontWeight: '600', marginTop: 2 },
+    // Cartera
+    carteraTop:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+    carteraLbl:     { color: C.textMuted, fontSize: 11, fontWeight: '600', marginBottom: 4 },
+    carteraBig:     { color: C.text, fontSize: 34, fontWeight: '900', letterSpacing: -1 },
+    carteraBadge:   { borderRadius: 14, borderWidth: 1, padding: 12, alignItems: 'center' },
+    carteraBadgeNum:{ fontWeight: '900', fontSize: 20 },
+    carteraBadgeLbl:{ color: C.textMuted, fontSize: 10, fontWeight: '600', marginTop: 2 },
 
-  // Botón reportes
-  reportsBtn: {
-    borderRadius: 14, borderWidth: 1, borderColor: COLORS.accent + '60',
-    backgroundColor: COLORS.accent + '10', padding: 16, alignItems: 'center',
-  },
-  reportsBtnText: { color: COLORS.accent, fontWeight: '700', fontSize: 14 },
-});
+    // Botón reportes
+    reportsBtn: {
+      borderRadius: 14, borderWidth: 1, borderColor: C.accent + '60',
+      backgroundColor: C.accent + '10', padding: 16, alignItems: 'center',
+    },
+    reportsBtnText: { color: C.accent, fontWeight: '700', fontSize: 14 },
+  });
+}

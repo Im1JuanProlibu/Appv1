@@ -19,17 +19,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { COLORS } from '../theme';
+import { useTheme } from '../ThemeContext';
 import { getProposals, getApiBase, generateShortUrl } from '../api';
 import { useNotifications } from '../useNotifications';
 import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
 
 const STATUS_COLOR = {
-  Ready: COLORS.ready,
-  Draft: COLORS.draft,
-  Approved: COLORS.sent,
-  Denied: COLORS.denied,
+  Ready: '#39B54A',
+  Draft: '#FDBD00',
+  Approved: '#4285F4',
+  Denied: '#D4145A',
 };
 const STATUS_LABEL = { Draft: 'Borrador', Ready: 'Lista', Approved: 'Aprobada', Denied: 'Negada' };
 
@@ -55,13 +55,15 @@ const ACTIVITY_FILTERS = [
   { key: 'ready_viewed',    label: '● Lista + vista'    },
 ];
 
-const FILTERS = [
-  { key: 'all',      label: 'Todas',    color: COLORS.accent, fg: COLORS.accentFg },
-  { key: 'Draft',    label: 'Borrador', color: COLORS.draft,  fg: '#000000' },
-  { key: 'Ready',    label: 'Lista',    color: COLORS.ready,  fg: '#ffffff' },
-  { key: 'Approved', label: 'Aprobada', color: COLORS.sent,   fg: '#ffffff' },
-  { key: 'Denied',   label: 'Negada',   color: COLORS.denied, fg: '#ffffff' },
-];
+function makeFilters(accent) {
+  return [
+    { key: 'all',      label: 'Todas',    color: accent,     fg: '#ffffff' },
+    { key: 'Draft',    label: 'Borrador', color: '#FDBD00',  fg: '#000000' },
+    { key: 'Ready',    label: 'Lista',    color: '#39B54A',  fg: '#ffffff' },
+    { key: 'Approved', label: 'Aprobada', color: '#4285F4',  fg: '#ffffff' },
+    { key: 'Denied',   label: 'Negada',   color: '#D4145A',  fg: '#ffffff' },
+  ];
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
@@ -85,6 +87,8 @@ function timeAgo(isoString) {
 }
 
 export default function ProposalsScreen({ navigation, route }) {
+  const { colors: COLORS, isDark } = useTheme();
+  const FILTERS = makeFilters(COLORS.accent);
   const [auth, setAuth] = useState(null);
   const [userId, setUserId] = useState(null);
   const authRef = React.useRef(null);
@@ -575,9 +579,11 @@ export default function ProposalsScreen({ navigation, route }) {
   const totalCount = allProposals.length;
   const visibleCount = sections.reduce((acc, s) => acc + s.data.length, 0);
 
+  const styles = makeStyles(COLORS);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={COLORS.bg} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -1135,6 +1141,7 @@ export default function ProposalsScreen({ navigation, route }) {
 
 // ─── Panel de filtros avanzados ───────────────────────────────────────────────
 function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
+  const { colors: COLORS } = useTheme();
   const [sort,  setSort]  = useState(initialValues.sort);
   const [af,    setAf]    = useState(initialValues.af);
   const [rf,    setRf]    = useState(initialValues.rf);
@@ -1239,6 +1246,8 @@ function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
       </View>
     );
   }
+
+  const styles = makeStyles(COLORS);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -1356,17 +1365,18 @@ function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F8F8F8' },
+function makeStyles(C) {
+  return StyleSheet.create({
+  safe: { flex: 1, backgroundColor: C.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.bg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: C.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
@@ -1374,17 +1384,17 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   headerLeft: { flex: 1, marginRight: 12 },
-  headerSub: { color: COLORS.textMuted, fontSize: 11, marginTop: 4 },
+  headerSub: { color: C.textMuted, fontSize: 11, marginTop: 4 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   countBadge: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: C.accent,
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  countText: { color: COLORS.accentFg, fontWeight: '700', fontSize: 13 },
+  countText: { color: C.accentFg, fontWeight: '700', fontSize: 13 },
   newBtn: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: C.accent,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
@@ -1395,17 +1405,17 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: C.border,
   },
-  logoutText: { color: COLORS.textMuted, fontWeight: '600', fontSize: 13 },
+  logoutText: { color: C.textMuted, fontWeight: '600', fontSize: 13 },
 
   // Barra de acceso rapido
   quickNav: {
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.card,
+    borderBottomColor: C.border,
+    backgroundColor: C.card,
   },
   quickNavBtn: {
     flex: 1,
@@ -1413,21 +1423,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   quickNavText: {
-    color: COLORS.accent,
+    color: C.accent,
     fontSize: 13,
     fontWeight: '600',
   },
   quickNavSep: {
     width: 1,
     alignSelf: 'stretch',
-    backgroundColor: COLORS.border,
+    backgroundColor: C.border,
   },
 
   // Barra de filtros
   filterBar: {
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: C.border,
+    backgroundColor: C.bg,
   },
   filterScroll: {
     paddingHorizontal: 16,
@@ -1443,22 +1453,22 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.card,
+    borderColor: C.border,
+    backgroundColor: C.card,
   },
   filterChipText: {
-    color: COLORS.textMuted,
+    color: C.textMuted,
     fontSize: 13,
     fontWeight: '600',
   },
   filterBadge: {
-    backgroundColor: COLORS.border,
+    backgroundColor: C.border,
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 1,
   },
   filterBadgeText: {
-    color: COLORS.textMuted,
+    color: C.textMuted,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -1475,20 +1485,20 @@ const styles = StyleSheet.create({
   sectionDot: { width: 8, height: 8, borderRadius: 4 },
   sectionTitle: { fontWeight: '700', fontSize: 14, flex: 1 },
   sectionCount: {
-    color: COLORS.textMuted,
+    color: C.textMuted,
     fontSize: 12,
-    backgroundColor: COLORS.card,
+    backgroundColor: C.card,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: C.border,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EBEBEB',
+    borderColor: C.border,
     padding: 16,
     marginBottom: 10,
     overflow: 'hidden',
@@ -1537,8 +1547,8 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 10,
   },
-  cardTitle: { color: COLORS.text, fontWeight: '700', fontSize: 15 },
-  cardLead: { color: COLORS.textMuted, fontSize: 12, marginTop: 3 },
+  cardTitle: { color: C.text, fontWeight: '700', fontSize: 15 },
+  cardLead: { color: C.textMuted, fontSize: 12, marginTop: 3 },
   badge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 9, paddingVertical: 4,
@@ -1547,23 +1557,24 @@ const styles = StyleSheet.create({
   badgeDot: { width: 6, height: 6, borderRadius: 3 },
   badgeText: { fontSize: 11, fontWeight: '700' },
   cardMeta: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
-  metaItem: { color: COLORS.textMuted, fontSize: 12 },
+  metaItem: { color: C.textMuted, fontSize: 12 },
   metaChip: {
-    backgroundColor: '#F0F0F0', borderRadius: 6,
+    backgroundColor: C.card, borderRadius: 6,
     paddingHorizontal: 7, paddingVertical: 2,
+    borderWidth: 1, borderColor: C.border,
   },
-  metaChipText: { color: '#555555', fontSize: 11, fontWeight: '600' },
-  cardDivider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 10 },
+  metaChipText: { color: C.textMuted, fontSize: 11, fontWeight: '600' },
+  cardDivider: { height: 1, backgroundColor: C.border, marginVertical: 10 },
   editHint: { flex: 1 },
-  editHintText: { color: '#BBBBBB', fontSize: 11 },
+  editHintText: { color: C.textMuted, fontSize: 11 },
   emptyContainer: { alignItems: 'center', marginTop: 80 },
   emptyIcon: { fontSize: 40, marginBottom: 12 },
-  emptyText: { color: COLORS.text, fontSize: 16, fontWeight: '600', marginBottom: 6 },
-  emptyHint: { color: COLORS.textMuted, fontSize: 13, textAlign: 'center', paddingHorizontal: 32 },
+  emptyText: { color: C.text, fontSize: 16, fontWeight: '600', marginBottom: 6 },
+  emptyHint: { color: C.textMuted, fontSize: 13, textAlign: 'center', paddingHorizontal: 32 },
   sortBar: {
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: C.border,
+    backgroundColor: C.bg,
   },
   sortScroll: {
     paddingHorizontal: 16,
@@ -1576,16 +1587,16 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.card,
+    borderColor: C.border,
+    backgroundColor: C.card,
   },
   sortChipActive: {
-    backgroundColor: COLORS.accent + '20',
-    borderColor: COLORS.accent,
+    backgroundColor: C.accent + '20',
+    borderColor: C.accent,
   },
-  sortChipText: { color: COLORS.textMuted, fontSize: 12, fontWeight: '600' },
-  sortChipTextActive: { color: COLORS.accent },
-  sortSep: { width: 1, backgroundColor: COLORS.border, marginHorizontal: 4, alignSelf: 'stretch' },
+  sortChipText: { color: C.textMuted, fontSize: 12, fontWeight: '600' },
+  sortChipTextActive: { color: C.accent },
+  sortSep: { width: 1, backgroundColor: C.border, marginHorizontal: 4, alignSelf: 'stretch' },
   filterPanelBtn: {},  // legacy, unused
   filterPanelBtnActive: {},
   filterPanelBtnText: {},
@@ -1600,71 +1611,71 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.card,
+    borderColor: C.border,
+    backgroundColor: C.card,
   },
   filterBarBtnActive: {
-    backgroundColor: COLORS.accent,
-    borderColor: COLORS.accent,
+    backgroundColor: C.accent,
+    borderColor: C.accent,
   },
-  filterBarBtnIcon: { fontSize: 15, color: COLORS.textMuted },
-  filterBarBtnText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '700' },
+  filterBarBtnIcon: { fontSize: 15, color: C.textMuted },
+  filterBarBtnText: { color: C.textMuted, fontSize: 13, fontWeight: '700' },
   dateRangeRow: {
     flexDirection: 'row', alignItems: 'center', marginTop: 10,
   },
   dateInputWrap: { flex: 1 },
-  dateInputLabel: { color: COLORS.textMuted, fontSize: 11, fontWeight: '700', marginBottom: 4 },
+  dateInputLabel: { color: C.textMuted, fontSize: 11, fontWeight: '700', marginBottom: 4 },
   dateInput: {
-    backgroundColor: COLORS.card, color: COLORS.text,
-    borderWidth: 1, borderColor: COLORS.border, borderRadius: 8,
+    backgroundColor: C.card, color: C.text,
+    borderWidth: 1, borderColor: C.border, borderRadius: 8,
     paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
   },
   // Panel styles
   panelSection: { marginBottom: 20 },
   panelSectionTitle: {
-    color: COLORS.textMuted, fontSize: 11, fontWeight: '800',
+    color: C.textMuted, fontSize: 11, fontWeight: '800',
     textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10,
   },
   panelChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   panelChip: {
     paddingHorizontal: 12, paddingVertical: 7,
-    borderRadius: 16, borderWidth: 1, borderColor: COLORS.border,
-    backgroundColor: COLORS.card,
+    borderRadius: 16, borderWidth: 1, borderColor: C.border,
+    backgroundColor: C.card,
   },
-  panelChipActive: { borderColor: COLORS.accent, backgroundColor: COLORS.accent + '15' },
-  panelChipText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '600' },
-  panelChipTextActive: { color: COLORS.accent, fontWeight: '700' },
+  panelChipActive: { borderColor: C.accent, backgroundColor: C.accent + '15' },
+  panelChipText: { color: C.textMuted, fontSize: 13, fontWeight: '600' },
+  panelChipTextActive: { color: C.accent, fontWeight: '700' },
   panelLeadBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderWidth: 1, borderColor: COLORS.border, borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 12, backgroundColor: COLORS.card,
+    borderWidth: 1, borderColor: C.border, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 12, backgroundColor: C.card,
   },
-  panelLeadBtnActive: { borderColor: COLORS.accent, backgroundColor: COLORS.accent + '10' },
-  panelLeadBtnText: { color: COLORS.textMuted, fontSize: 14 },
-  panelLeadBtnTextActive: { color: COLORS.accent, fontWeight: '600' },
+  panelLeadBtnActive: { borderColor: C.accent, backgroundColor: C.accent + '10' },
+  panelLeadBtnText: { color: C.textMuted, fontSize: 14 },
+  panelLeadBtnTextActive: { color: C.accent, fontWeight: '600' },
   panelApplyBtn: {
-    backgroundColor: COLORS.accent, borderRadius: 12,
+    backgroundColor: C.accent, borderRadius: 12,
     paddingVertical: 14, alignItems: 'center', marginTop: 8,
   },
-  panelApplyText: { color: COLORS.accentFg, fontWeight: '800', fontSize: 16 },
+  panelApplyText: { color: C.accentFg, fontWeight: '800', fontSize: 16 },
   panelClearBtn: {
-    borderWidth: 1, borderColor: COLORS.border, borderRadius: 12,
+    borderWidth: 1, borderColor: C.border, borderRadius: 12,
     paddingVertical: 12, alignItems: 'center', marginTop: 8,
   },
-  panelClearText: { color: COLORS.textMuted, fontWeight: '600', fontSize: 14 },
+  panelClearText: { color: C.textMuted, fontWeight: '600', fontSize: 14 },
   leadPickerItem: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 12, paddingHorizontal: 4,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    borderBottomWidth: 1, borderBottomColor: C.border,
   },
-  leadPickerItemActive: { backgroundColor: COLORS.accent + '10' },
-  leadPickerName: { color: COLORS.text, fontSize: 14, fontWeight: '600' },
-  leadPickerEmail: { color: COLORS.textMuted, fontSize: 12, marginTop: 2 },
+  leadPickerItemActive: { backgroundColor: C.accent + '10' },
+  leadPickerName: { color: C.text, fontSize: 14, fontWeight: '600' },
+  leadPickerEmail: { color: C.textMuted, fontSize: 12, marginTop: 2 },
   leadPickerCount: {
-    backgroundColor: COLORS.border, borderRadius: 10,
+    backgroundColor: C.border, borderRadius: 10,
     paddingHorizontal: 8, paddingVertical: 2, marginLeft: 8,
   },
-  leadPickerCountText: { color: COLORS.textMuted, fontSize: 12, fontWeight: '700' },
+  leadPickerCountText: { color: C.textMuted, fontSize: 12, fontWeight: '700' },
   tempBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -1675,15 +1686,15 @@ const styles = StyleSheet.create({
   viewsBadge: {
     paddingHorizontal: 7, paddingVertical: 2,
     borderRadius: 20, borderWidth: 1,
-    borderColor: '#E0E0E0', backgroundColor: '#F5F5F5',
+    borderColor: C.border, backgroundColor: C.card,
   },
-  viewsText: { fontSize: 10, fontWeight: '600', color: '#888888' },
+  viewsText: { fontSize: 10, fontWeight: '600', color: C.textMuted },
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
   cardFooterRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sendBtn: {
-    backgroundColor: COLORS.accent, borderRadius: 10,
+    backgroundColor: C.accent, borderRadius: 10,
     paddingHorizontal: 16, paddingVertical: 8,
-    shadowColor: COLORS.accent,
+    shadowColor: C.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -1695,61 +1706,61 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sendSheet: {
-    backgroundColor: COLORS.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    backgroundColor: C.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 24, paddingBottom: 40,
-    borderWidth: 1, borderColor: COLORS.border,
+    borderWidth: 1, borderColor: C.border,
   },
   sendSheetHandle: {
     width: 40, height: 4, borderRadius: 2,
-    backgroundColor: COLORS.border, alignSelf: 'center', marginBottom: 20,
+    backgroundColor: C.border, alignSelf: 'center', marginBottom: 20,
   },
-  sendSheetTitle: { color: COLORS.text, fontSize: 18, fontWeight: '800', marginBottom: 4 },
-  sendSheetSub: { color: COLORS.textMuted, fontSize: 13, marginBottom: 20 },
+  sendSheetTitle: { color: C.text, fontSize: 18, fontWeight: '800', marginBottom: 4 },
+  sendSheetSub: { color: C.textMuted, fontSize: 13, marginBottom: 20 },
   sendSheetLabel: {
-    color: COLORS.textMuted, fontSize: 11, fontWeight: '700',
+    color: C.textMuted, fontSize: 11, fontWeight: '700',
     textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, marginTop: 16,
   },
   urlTypeRow: { flexDirection: 'row', gap: 10 },
   urlTypeBtn: {
-    flex: 1, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
-    backgroundColor: COLORS.card, padding: 14,
+    flex: 1, borderRadius: 12, borderWidth: 1, borderColor: C.border,
+    backgroundColor: C.card, padding: 14,
   },
-  urlTypeBtnActive: { borderColor: COLORS.accent, backgroundColor: COLORS.accent + '15' },
-  urlTypeBtnTitle: { color: COLORS.text, fontWeight: '700', fontSize: 14, marginBottom: 4 },
-  urlTypeBtnDesc: { color: COLORS.textMuted, fontSize: 11 },
+  urlTypeBtnActive: { borderColor: C.accent, backgroundColor: C.accent + '15' },
+  urlTypeBtnTitle: { color: C.text, fontWeight: '700', fontSize: 14, marginBottom: 4 },
+  urlTypeBtnDesc: { color: C.textMuted, fontSize: 11 },
   waMsgInput: {
-    backgroundColor: COLORS.card, color: COLORS.text,
-    borderWidth: 1, borderColor: COLORS.border, borderRadius: 10,
+    backgroundColor: C.card, color: C.text,
+    borderWidth: 1, borderColor: C.border, borderRadius: 10,
     padding: 12, fontSize: 14, minHeight: 80, textAlignVertical: 'top',
   },
   emailSubjectInput: {
-    backgroundColor: COLORS.card, color: COLORS.text,
-    borderWidth: 1, borderColor: COLORS.border, borderRadius: 10,
+    backgroundColor: C.card, color: C.text,
+    borderWidth: 1, borderColor: C.border, borderRadius: 10,
     padding: 12, fontSize: 14,
   },
-  waMsgHint: { color: COLORS.textMuted, fontSize: 11, marginTop: 4, marginBottom: 4 },
+  waMsgHint: { color: C.textMuted, fontSize: 11, marginTop: 4, marginBottom: 4 },
   channelRow: { flexDirection: 'row', gap: 8 },
   channelBtn: {
-    flex: 1, borderRadius: 12, borderWidth: 1.5, borderColor: COLORS.border,
-    backgroundColor: COLORS.card, paddingVertical: 12, alignItems: 'center', gap: 4,
+    flex: 1, borderRadius: 12, borderWidth: 1.5, borderColor: C.border,
+    backgroundColor: C.card, paddingVertical: 12, alignItems: 'center', gap: 4,
   },
-  channelBtnIcon: { fontSize: 20, color: COLORS.textMuted },
-  channelBtnLabel: { color: COLORS.textMuted, fontSize: 12, fontWeight: '600' },
+  channelBtnIcon: { fontSize: 20, color: C.textMuted },
+  channelBtnLabel: { color: C.textMuted, fontSize: 12, fontWeight: '600' },
   shareInfo: {
-    marginTop: 12, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
-    backgroundColor: COLORS.card, padding: 16, alignItems: 'center', gap: 8,
+    marginTop: 12, borderRadius: 12, borderWidth: 1, borderColor: C.border,
+    backgroundColor: C.card, padding: 16, alignItems: 'center', gap: 8,
   },
-  shareInfoIcon: { fontSize: 28, color: COLORS.text },
-  shareInfoText: { color: COLORS.textMuted, fontSize: 13, textAlign: 'center' },
+  shareInfoIcon: { fontSize: 28, color: C.text },
+  shareInfoText: { color: C.textMuted, fontSize: 13, textAlign: 'center' },
   sendConfirmBtn: {
     marginTop: 20, borderRadius: 12, padding: 16, alignItems: 'center',
   },
   sendConfirmText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   sendCancelBtn: {
     marginTop: 20, padding: 16, borderRadius: 12,
-    borderWidth: 1, borderColor: COLORS.border, alignItems: 'center',
+    borderWidth: 1, borderColor: C.border, alignItems: 'center',
   },
-  sendCancelText: { color: COLORS.textMuted, fontWeight: '600', fontSize: 15 },
+  sendCancelText: { color: C.textMuted, fontWeight: '600', fontSize: 15 },
   fab: {
     position: 'absolute',
     bottom: 28,
@@ -1757,16 +1768,16 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: COLORS.accent,
+    backgroundColor: C.accent,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.accent,
+    shadowColor: C.accent,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 8,
     elevation: 8,
   },
-  fabText: { color: COLORS.accentFg, fontSize: 30, fontWeight: '300', lineHeight: 34 },
+  fabText: { color: C.accentFg, fontSize: 30, fontWeight: '300', lineHeight: 34 },
 
   // Bell
   bellBtn: { position: 'relative', padding: 4 },
@@ -1779,44 +1790,44 @@ const styles = StyleSheet.create({
   bellBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
 
   // Notification modal
-  notifSafe: { flex: 1, backgroundColor: COLORS.bg },
+  notifSafe: { flex: 1, backgroundColor: C.bg },
   notifHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 16,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    borderBottomWidth: 1, borderBottomColor: C.border,
   },
-  notifTitle: { color: COLORS.text, fontSize: 18, fontWeight: '800' },
+  notifTitle: { color: C.text, fontSize: 18, fontWeight: '800' },
   notifConnected: { color: '#22c55e', fontSize: 11, marginTop: 2 },
-  notifDisconnected: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
+  notifDisconnected: { color: C.textMuted, fontSize: 11, marginTop: 2 },
   notifHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   notifClearBtn: { paddingHorizontal: 10, paddingVertical: 6 },
-  notifClearText: { color: COLORS.textMuted, fontSize: 13 },
+  notifClearText: { color: C.textMuted, fontSize: 13 },
   notifCloseBtn: {
     width: 32, height: 32, borderRadius: 8,
-    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
     justifyContent: 'center', alignItems: 'center',
   },
-  notifCloseText: { color: COLORS.text, fontSize: 14, fontWeight: '700' },
+  notifCloseText: { color: C.text, fontSize: 14, fontWeight: '700' },
   notifList: { flex: 1 },
   notifItem: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    borderBottomWidth: 1, borderBottomColor: C.border,
   },
-  notifItemUnread: { backgroundColor: COLORS.accent + '10' },
+  notifItemUnread: { backgroundColor: C.accent + '10' },
   notifItemIcon: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
     justifyContent: 'center', alignItems: 'center',
   },
-  notifItemTitle: { color: COLORS.text, fontSize: 14, fontWeight: '700' },
-  notifItemSub: { color: COLORS.textMuted, fontSize: 13, marginTop: 2 },
-  notifItemEmail: { color: COLORS.accent, fontSize: 12, marginTop: 2 },
-  notifItemTime: { color: COLORS.textMuted, fontSize: 11, marginTop: 4 },
+  notifItemTitle: { color: C.text, fontSize: 14, fontWeight: '700' },
+  notifItemSub: { color: C.textMuted, fontSize: 13, marginTop: 2 },
+  notifItemEmail: { color: C.accent, fontSize: 12, marginTop: 2 },
+  notifItemTime: { color: C.textMuted, fontSize: 11, marginTop: 4 },
   notifEmpty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, gap: 12 },
   notifEmptyIcon: { fontSize: 48 },
-  notifEmptyText: { color: COLORS.text, fontSize: 16, fontWeight: '700' },
-  notifEmptyHint: { color: COLORS.textMuted, fontSize: 13, textAlign: 'center' },
+  notifEmptyText: { color: C.text, fontSize: 16, fontWeight: '700' },
+  notifEmptyHint: { color: C.textMuted, fontSize: 13, textAlign: 'center' },
 
   // Seguimiento urgente
   urgentBtn: {
@@ -1851,6 +1862,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   seguimientoBtnText: { fontSize: 16, fontWeight: '700' },
-  fab: {},
-  fabText: {},
-});
+  });
+}

@@ -15,7 +15,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS } from '../theme';
+import { useTheme } from '../ThemeContext';
 import { checkLeadByEmail, searchLeadByEmail, createLead, createProposal, getProducts, getPackages, getCurrencies, searchCurrencies } from '../api';
 
 const COUNTRY_CODES = [
@@ -37,6 +37,7 @@ function genProposalNumber() {
 }
 
 export default function CreateProposalScreen({ navigation, route }) {
+  const { colors: COLORS, isDark } = useTheme();
   const { auth } = route.params;
 
   const [proposalNumber, setProposalNumber] = useState(() => genProposalNumber());
@@ -266,9 +267,11 @@ export default function CreateProposalScreen({ navigation, route }) {
     title.trim().length > 0 &&
     (leadFound != null || (leadNotFound && firstName.trim().length > 0));
 
+  const styles = makeStyles(COLORS);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={COLORS.bg} />
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -698,239 +701,241 @@ export default function CreateProposalScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 12,
-  },
-  backBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  backText: { color: COLORS.text, fontSize: 18, fontWeight: '700' },
-  headerTitle: { color: COLORS.text, fontWeight: '700', fontSize: 18 },
-  scroll: { padding: 20, paddingBottom: 48 },
-  label: {
-    color: COLORS.textMuted, fontSize: 11, fontWeight: '700',
-    textTransform: 'uppercase', letterSpacing: 1,
-    marginTop: 24, marginBottom: 8,
-  },
-  input: {
-    backgroundColor: COLORS.card, color: COLORS.text,
-    borderWidth: 1, borderColor: COLORS.border,
-    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15,
-  },
-  currencySearchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  currencyInput: {
-    flex: 1, backgroundColor: COLORS.card, color: COLORS.text,
-    borderWidth: 1, borderColor: COLORS.border,
-    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15,
-  },
-  currencySpinner: { position: 'absolute', right: 80 },
-  currencyChip: {
-    backgroundColor: COLORS.accent + '20', borderWidth: 1, borderColor: COLORS.accent,
-    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
-  },
-  currencyChipText: { color: COLORS.accent, fontWeight: '700', fontSize: 14 },
-  currencyDropdown: {
-    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
-    borderRadius: 10, marginTop: 4, overflow: 'hidden',
-  },
-  currencyDropdownItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  currencyDropdownCode: { color: COLORS.text, fontWeight: '700', fontSize: 14, minWidth: 44 },
-  currencyDropdownName: { color: COLORS.textMuted, fontSize: 13, flex: 1 },
-  countryRow: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
-  countryChip: {
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
-    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
-  },
-  countryChipActive: { borderColor: COLORS.accent, backgroundColor: COLORS.accent + '20' },
-  countryChipText: { color: COLORS.textMuted, fontWeight: '600', fontSize: 13 },
-  searchRow: { flexDirection: 'row', gap: 8 },
-  searchBtn: {
-    backgroundColor: COLORS.accent, borderRadius: 10,
-    paddingHorizontal: 18, justifyContent: 'center', alignItems: 'center', minWidth: 80,
-  },
-  searchBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  leadCard: {
-    backgroundColor: COLORS.card, borderRadius: 10,
-    borderWidth: 1, borderColor: COLORS.success + '60',
-    padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12,
-  },
-  leadInfo: { flex: 1 },
-  leadBadge: { color: COLORS.success, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 },
-  leadName: { color: COLORS.text, fontWeight: '700', fontSize: 15 },
-  leadEmail: { color: COLORS.textMuted, fontSize: 12, marginTop: 2 },
-  changeBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border },
-  changeBtnText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '600' },
-  notFoundBox: {
-    backgroundColor: COLORS.card, borderRadius: 10,
-    borderWidth: 1, borderColor: COLORS.border, padding: 14, marginBottom: 16,
-  },
-  notFoundText: { color: COLORS.textMuted, fontSize: 13, marginBottom: 4 },
-  notFoundEmail: { color: COLORS.text, fontWeight: '600', fontSize: 14, marginBottom: 10 },
-  retryText: { color: COLORS.accent, fontSize: 13, fontWeight: '600' },
-  sectionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 24, marginBottom: 8 },
-  sectionCount: {
-    color: COLORS.accent, fontSize: 12, fontWeight: '700',
-    backgroundColor: COLORS.accent + '20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10,
-  },
-  productCard: {
-    backgroundColor: COLORS.card, borderRadius: 10,
-    borderWidth: 1, borderColor: COLORS.border, padding: 14, marginBottom: 8,
-  },
-  productHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 4 },
-  productName: { color: COLORS.text, fontWeight: '600', fontSize: 14 },
-  productSku: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
-  productPrice: { color: COLORS.textMuted, fontSize: 12, marginBottom: 10 },
-  productRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
-  fieldLabel: { color: COLORS.textMuted, fontSize: 13, fontWeight: '600' },
-  qtyPill: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden', backgroundColor: COLORS.bg },
-  qtyPillBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.card },
-  qtyPillBtnText: { color: COLORS.text, fontWeight: '700', fontSize: 22, lineHeight: 26 },
-  qtyPillInput: {
-    color: COLORS.text, fontWeight: '700', fontSize: 16, textAlign: 'center',
-    width: 56, height: 44, backgroundColor: COLORS.bg,
-    borderLeftWidth: 1, borderRightWidth: 1, borderColor: COLORS.border,
-  },
-  subtotalRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border,
-  },
-  subtotalLabel: { color: COLORS.textMuted, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  subtotalValue: { color: COLORS.text, fontSize: 15, fontWeight: '700' },
-  productComment: {
-    marginTop: 8,
-    backgroundColor: COLORS.bg,
-    color: COLORS.text,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 13,
-    minHeight: 44,
-    textAlignVertical: 'top',
-  },
-  removeBtn: { width: 34, height: 34, borderRadius: 8, backgroundColor: COLORS.error + '20', justifyContent: 'center', alignItems: 'center' },
-  removeBtnText: { color: COLORS.error, fontWeight: '700', fontSize: 14 },
-  addCatalogBtn: {
-    borderWidth: 1, borderColor: COLORS.accent, borderStyle: 'dashed',
-    borderRadius: 10, padding: 16, alignItems: 'center', marginTop: 4,
-  },
-  addCatalogBtnText: { color: COLORS.accent, fontWeight: '600', fontSize: 14 },
-  totalBox: {
-    backgroundColor: COLORS.card, borderRadius: 10,
-    borderWidth: 1, borderColor: COLORS.accent + '50', padding: 16, marginTop: 12,
-  },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  totalLabel: { color: COLORS.textMuted, fontSize: 13 },
-  totalVal: { color: COLORS.textMuted, fontSize: 13, fontWeight: '600' },
-  totalFinal: { marginTop: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border, marginBottom: 0 },
-  totalFinalLabel: { color: COLORS.textMuted, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
-  totalFinalVal: { color: COLORS.accent, fontSize: 22, fontWeight: '800' },
-  createBtn: { backgroundColor: COLORS.accent, borderRadius: 12, padding: 18, alignItems: 'center', marginTop: 28 },
-  createBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  modalSafe: { flex: 1, backgroundColor: COLORS.bg },
-  modalHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  modalTitle: { color: COLORS.text, fontSize: 18, fontWeight: '700' },
-  modalCloseBtn: {
-    width: 34, height: 34, borderRadius: 17, backgroundColor: COLORS.card,
-    borderWidth: 1, borderColor: COLORS.border, justifyContent: 'center', alignItems: 'center',
-  },
-  modalCloseText: { color: COLORS.textMuted, fontSize: 14, fontWeight: '700' },
-  modalSearch: {
-    margin: 16, backgroundColor: COLORS.card, color: COLORS.text,
-    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
-    borderWidth: 1, borderColor: COLORS.border, fontSize: 14,
-  },
-  catalogItem: {
-    flexDirection: 'row', alignItems: 'center', padding: 14,
-    marginHorizontal: 16, marginBottom: 8, backgroundColor: COLORS.card,
-    borderRadius: 10, borderWidth: 1, borderColor: COLORS.border,
-  },
-  catalogItemActive: { borderColor: COLORS.accent, backgroundColor: COLORS.accent + '15' },
-  catalogItemInfo: { flex: 1 },
-  catalogItemName: { color: COLORS.text, fontWeight: '600', fontSize: 14 },
-  catalogItemSku: { color: COLORS.textMuted, fontSize: 12, marginTop: 3 },
-  catalogCheck: { color: COLORS.accent, fontWeight: '900', fontSize: 18, marginLeft: 10 },
-  catalogEmpty: { color: COLORS.textMuted, textAlign: 'center', marginTop: 48, fontSize: 14, paddingHorizontal: 32 },
-  modalFooter: { padding: 20, backgroundColor: COLORS.card, borderTopWidth: 1, borderTopColor: COLORS.border },
-  modalSelectedText: { color: COLORS.text, fontWeight: '600', fontSize: 14, marginBottom: 12 },
-  modalQtyRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  modalQtyLabel: { color: COLORS.textMuted, fontSize: 14 },
-  modalQtyInput: {
-    backgroundColor: COLORS.bg, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border,
-    borderRadius: 8, padding: 10, width: 60, textAlign: 'center', fontSize: 16, fontWeight: '700',
-  },
-  modalAddBtn: { flex: 1, backgroundColor: COLORS.accent, borderRadius: 8, padding: 13, alignItems: 'center' },
-  modalAddBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+function makeStyles(C) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: C.bg },
+    header: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 16, paddingVertical: 14,
+      borderBottomWidth: 1, borderBottomColor: C.border, gap: 12,
+    },
+    backBtn: {
+      width: 36, height: 36, borderRadius: 10,
+      backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    backText: { color: C.text, fontSize: 18, fontWeight: '700' },
+    headerTitle: { color: C.text, fontWeight: '700', fontSize: 18 },
+    scroll: { padding: 20, paddingBottom: 48 },
+    label: {
+      color: C.textMuted, fontSize: 11, fontWeight: '700',
+      textTransform: 'uppercase', letterSpacing: 1,
+      marginTop: 24, marginBottom: 8,
+    },
+    input: {
+      backgroundColor: C.card, color: C.text,
+      borderWidth: 1, borderColor: C.border,
+      borderRadius: 10, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15,
+    },
+    currencySearchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    currencyInput: {
+      flex: 1, backgroundColor: C.card, color: C.text,
+      borderWidth: 1, borderColor: C.border,
+      borderRadius: 10, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15,
+    },
+    currencySpinner: { position: 'absolute', right: 80 },
+    currencyChip: {
+      backgroundColor: C.accent + '20', borderWidth: 1, borderColor: C.accent,
+      borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
+    },
+    currencyChipText: { color: C.accent, fontWeight: '700', fontSize: 14 },
+    currencyDropdown: {
+      backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
+      borderRadius: 10, marginTop: 4, overflow: 'hidden',
+    },
+    currencyDropdownItem: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      paddingHorizontal: 14, paddingVertical: 12,
+      borderBottomWidth: 1, borderBottomColor: C.border,
+    },
+    currencyDropdownCode: { color: C.text, fontWeight: '700', fontSize: 14, minWidth: 44 },
+    currencyDropdownName: { color: C.textMuted, fontSize: 13, flex: 1 },
+    countryRow: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
+    countryChip: {
+      paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
+      backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
+    },
+    countryChipActive: { borderColor: C.accent, backgroundColor: C.accent + '20' },
+    countryChipText: { color: C.textMuted, fontWeight: '600', fontSize: 13 },
+    searchRow: { flexDirection: 'row', gap: 8 },
+    searchBtn: {
+      backgroundColor: C.accent, borderRadius: 10,
+      paddingHorizontal: 18, justifyContent: 'center', alignItems: 'center', minWidth: 80,
+    },
+    searchBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    leadCard: {
+      backgroundColor: C.card, borderRadius: 10,
+      borderWidth: 1, borderColor: C.success + '60',
+      padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12,
+    },
+    leadInfo: { flex: 1 },
+    leadBadge: { color: C.success, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 },
+    leadName: { color: C.text, fontWeight: '700', fontSize: 15 },
+    leadEmail: { color: C.textMuted, fontSize: 12, marginTop: 2 },
+    changeBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border },
+    changeBtnText: { color: C.textMuted, fontSize: 13, fontWeight: '600' },
+    notFoundBox: {
+      backgroundColor: C.card, borderRadius: 10,
+      borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 16,
+    },
+    notFoundText: { color: C.textMuted, fontSize: 13, marginBottom: 4 },
+    notFoundEmail: { color: C.text, fontWeight: '600', fontSize: 14, marginBottom: 10 },
+    retryText: { color: C.accent, fontSize: 13, fontWeight: '600' },
+    sectionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 24, marginBottom: 8 },
+    sectionCount: {
+      color: C.accent, fontSize: 12, fontWeight: '700',
+      backgroundColor: C.accent + '20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10,
+    },
+    productCard: {
+      backgroundColor: C.card, borderRadius: 10,
+      borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 8,
+    },
+    productHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 4 },
+    productName: { color: C.text, fontWeight: '600', fontSize: 14 },
+    productSku: { color: C.textMuted, fontSize: 11, marginTop: 2 },
+    productPrice: { color: C.textMuted, fontSize: 12, marginBottom: 10 },
+    productRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+    fieldLabel: { color: C.textMuted, fontSize: 13, fontWeight: '600' },
+    qtyPill: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: C.border, overflow: 'hidden', backgroundColor: C.bg },
+    qtyPillBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center', backgroundColor: C.card },
+    qtyPillBtnText: { color: C.text, fontWeight: '700', fontSize: 22, lineHeight: 26 },
+    qtyPillInput: {
+      color: C.text, fontWeight: '700', fontSize: 16, textAlign: 'center',
+      width: 56, height: 44, backgroundColor: C.bg,
+      borderLeftWidth: 1, borderRightWidth: 1, borderColor: C.border,
+    },
+    subtotalRow: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border,
+    },
+    subtotalLabel: { color: C.textMuted, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+    subtotalValue: { color: C.text, fontSize: 15, fontWeight: '700' },
+    productComment: {
+      marginTop: 8,
+      backgroundColor: C.bg,
+      color: C.text,
+      borderWidth: 1,
+      borderColor: C.border,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      fontSize: 13,
+      minHeight: 44,
+      textAlignVertical: 'top',
+    },
+    removeBtn: { width: 34, height: 34, borderRadius: 8, backgroundColor: C.error + '20', justifyContent: 'center', alignItems: 'center' },
+    removeBtnText: { color: C.error, fontWeight: '700', fontSize: 14 },
+    addCatalogBtn: {
+      borderWidth: 1, borderColor: C.accent, borderStyle: 'dashed',
+      borderRadius: 10, padding: 16, alignItems: 'center', marginTop: 4,
+    },
+    addCatalogBtnText: { color: C.accent, fontWeight: '600', fontSize: 14 },
+    totalBox: {
+      backgroundColor: C.card, borderRadius: 10,
+      borderWidth: 1, borderColor: C.accent + '50', padding: 16, marginTop: 12,
+    },
+    totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    totalLabel: { color: C.textMuted, fontSize: 13 },
+    totalVal: { color: C.textMuted, fontSize: 13, fontWeight: '600' },
+    totalFinal: { marginTop: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border, marginBottom: 0 },
+    totalFinalLabel: { color: C.textMuted, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+    totalFinalVal: { color: C.accent, fontSize: 22, fontWeight: '800' },
+    createBtn: { backgroundColor: C.accent, borderRadius: 12, padding: 18, alignItems: 'center', marginTop: 28 },
+    createBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+    modalSafe: { flex: 1, backgroundColor: C.bg },
+    modalHeader: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: C.border,
+    },
+    modalTitle: { color: C.text, fontSize: 18, fontWeight: '700' },
+    modalCloseBtn: {
+      width: 34, height: 34, borderRadius: 17, backgroundColor: C.card,
+      borderWidth: 1, borderColor: C.border, justifyContent: 'center', alignItems: 'center',
+    },
+    modalCloseText: { color: C.textMuted, fontSize: 14, fontWeight: '700' },
+    modalSearch: {
+      margin: 16, backgroundColor: C.card, color: C.text,
+      borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
+      borderWidth: 1, borderColor: C.border, fontSize: 14,
+    },
+    catalogItem: {
+      flexDirection: 'row', alignItems: 'center', padding: 14,
+      marginHorizontal: 16, marginBottom: 8, backgroundColor: C.card,
+      borderRadius: 10, borderWidth: 1, borderColor: C.border,
+    },
+    catalogItemActive: { borderColor: C.accent, backgroundColor: C.accent + '15' },
+    catalogItemInfo: { flex: 1 },
+    catalogItemName: { color: C.text, fontWeight: '600', fontSize: 14 },
+    catalogItemSku: { color: C.textMuted, fontSize: 12, marginTop: 3 },
+    catalogCheck: { color: C.accent, fontWeight: '900', fontSize: 18, marginLeft: 10 },
+    catalogEmpty: { color: C.textMuted, textAlign: 'center', marginTop: 48, fontSize: 14, paddingHorizontal: 32 },
+    modalFooter: { padding: 20, backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.border },
+    modalSelectedText: { color: C.text, fontWeight: '600', fontSize: 14, marginBottom: 12 },
+    modalQtyRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    modalQtyLabel: { color: C.textMuted, fontSize: 14 },
+    modalQtyInput: {
+      backgroundColor: C.bg, color: C.text, borderWidth: 1, borderColor: C.border,
+      borderRadius: 8, padding: 10, width: 60, textAlign: 'center', fontSize: 16, fontWeight: '700',
+    },
+    modalAddBtn: { flex: 1, backgroundColor: C.accent, borderRadius: 8, padding: 13, alignItems: 'center' },
+    modalAddBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
-  // Modo Básico / Avanzado
-  modeToggle: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    marginHorizontal: 20,
-    marginTop: 12,
-    marginBottom: 4,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  modeChip: {
-    flex: 1, borderRadius: 10, paddingVertical: 9, alignItems: 'center',
-  },
-  modeChipActive: {
-    backgroundColor: COLORS.accent,
-    shadowColor: COLORS.accent,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  modeChipText:       { color: COLORS.textMuted, fontWeight: '600', fontSize: 14 },
-  modeChipTextActive: { color: '#fff', fontWeight: '700' },
+    // Modo Básico / Avanzado
+    modeToggle: {
+      flexDirection: 'row',
+      backgroundColor: C.card,
+      borderRadius: 12,
+      marginHorizontal: 20,
+      marginTop: 12,
+      marginBottom: 4,
+      padding: 4,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    modeChip: {
+      flex: 1, borderRadius: 10, paddingVertical: 9, alignItems: 'center',
+    },
+    modeChipActive: {
+      backgroundColor: C.accent,
+      shadowColor: C.accent,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    modeChipText:       { color: C.textMuted, fontWeight: '600', fontSize: 14 },
+    modeChipTextActive: { color: '#fff', fontWeight: '700' },
 
-  // Tabs catálogo
-  catalogTabRow: {
-    flexDirection: 'row', marginHorizontal: 16, marginBottom: 4,
-    backgroundColor: COLORS.card, borderRadius: 10,
-    borderWidth: 1, borderColor: COLORS.border, padding: 3,
-  },
-  catalogTabBtn: {
-    flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center',
-  },
-  catalogTabBtnActive: { backgroundColor: COLORS.accent },
-  catalogTabText: { color: COLORS.textMuted, fontWeight: '600', fontSize: 13 },
-  catalogTabTextActive: { color: '#fff', fontWeight: '700' },
+    // Tabs catálogo
+    catalogTabRow: {
+      flexDirection: 'row', marginHorizontal: 16, marginBottom: 4,
+      backgroundColor: C.card, borderRadius: 10,
+      borderWidth: 1, borderColor: C.border, padding: 3,
+    },
+    catalogTabBtn: {
+      flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center',
+    },
+    catalogTabBtnActive: { backgroundColor: C.accent },
+    catalogTabText: { color: C.textMuted, fontWeight: '600', fontSize: 13 },
+    catalogTabTextActive: { color: '#fff', fontWeight: '700' },
 
-  // Bloque avanzado
-  advBlock: {
-    backgroundColor: COLORS.accent + '08',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.accent + '30',
-    padding: 16,
-    marginBottom: 16,
-    marginTop: 16,
-  },
-  advTitle: {
-    color: COLORS.accent,
-    fontWeight: '800',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 12,
-  },
-});
+    // Bloque avanzado
+    advBlock: {
+      backgroundColor: C.accent + '08',
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: C.accent + '30',
+      padding: 16,
+      marginBottom: 16,
+      marginTop: 16,
+    },
+    advTitle: {
+      color: C.accent,
+      fontWeight: '800',
+      fontSize: 12,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+      marginBottom: 12,
+    },
+  });
+}
