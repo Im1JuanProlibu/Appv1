@@ -83,7 +83,7 @@ export default function LoginScreen({ navigation }) {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* Logo */}
           <View style={styles.logoContainer}>
-            <ProlibuLogoVertical width={240} />
+            <ProlibuLogoVertical scale={1} />
           </View>
 
           {/* Card */}
