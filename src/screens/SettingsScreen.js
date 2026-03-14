@@ -9,6 +9,7 @@ import { COLORS } from '../theme';
 import { getApiBase } from '../api';
 import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
+import { useTheme } from '../ThemeContext';
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
 export const DEFAULT_TEMPLATES = {
@@ -72,6 +73,7 @@ const TEMPLATE_FIELDS = [
 
 // ─── Pantalla ─────────────────────────────────────────────────────────────────
 export default function SettingsScreen({ navigation }) {
+  const { isDark, toggleTheme, colors: COLORS } = useTheme();
   const [user, setUser]           = useState({});
   const [domain, setDomain]       = useState('');
   const [templates, setTemplates] = useState({ ...DEFAULT_TEMPLATES });
@@ -186,6 +188,26 @@ export default function SettingsScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+
+        {/* ── Apariencia ── */}
+        <Text style={styles.sectionLabel}>APARIENCIA</Text>
+        <View style={styles.card}>
+          <View style={styles.themeRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.themeLabel, { color: COLORS.text }]}>Modo oscuro</Text>
+              <Text style={[styles.themeDesc, { color: COLORS.textMuted }]}>
+                Cambia entre tema claro y oscuro
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.themeToggle, isDark && styles.themeToggleOn]}
+              onPress={toggleTheme}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.themeThumb, isDark && styles.themeThumbOn]} />
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* ── Cuenta ── */}
         <Text style={styles.sectionLabel}>CUENTA</Text>
@@ -352,14 +374,37 @@ const styles = StyleSheet.create({
   },
   templateFooter: {
     flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginTop: 6,
+    alignItems: 'flex-start', marginTop: 6,
   },
-  templateHint:    { color: COLORS.textMuted, fontSize: 10 },
-  templateCounter: { color: COLORS.textMuted, fontSize: 11, fontWeight: '600' },
+  templateHint: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 4,
+    lineHeight: 16,
+    flexWrap: 'wrap',
+    flex: 1,
+    flexShrink: 1,
+  },
+  templateCounter: { color: COLORS.textMuted, fontSize: 11, fontWeight: '600', marginLeft: 8 },
 
   resetBtn: {
     borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
     padding: 14, alignItems: 'center', marginTop: 4,
   },
   resetBtnText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '600' },
+
+  themeRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+  themeLabel: { fontSize: 15, fontWeight: '600' },
+  themeDesc: { fontSize: 12, marginTop: 2 },
+  themeToggle: {
+    width: 50, height: 28, borderRadius: 14,
+    backgroundColor: COLORS.border, justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  themeToggleOn: { backgroundColor: COLORS.accent },
+  themeThumb: {
+    width: 24, height: 24, borderRadius: 12, backgroundColor: '#fff',
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 2, elevation: 2,
+  },
+  themeThumbOn: { alignSelf: 'flex-end' },
 });

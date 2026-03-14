@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
-import { getProposal, saveProposal, changeProposalStatus, getProducts, getCurrencies, searchCurrencies, getApiBase, createProduct } from '../api';
+import { getProposal, saveProposal, changeProposalStatus, getProducts, getPackages, getCurrencies, searchCurrencies, getApiBase, createProduct } from '../api';
 
 const STATUSES = ['Draft', 'Ready', 'Approved', 'Denied'];
 const STATUS_LABEL = { Draft: 'Borrador', Ready: 'Lista', Approved: 'Aprobada', Denied: 'Negada' };
@@ -125,6 +125,8 @@ export default function EditorScreen({ navigation, route }) {
   const [catalogSearch, setCatalogSearch] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [addQty, setAddQty] = useState('1');
+  const [packages, setPackages] = useState([]);
+  const [catalogTab, setCatalogTab] = useState('products'); // 'products' | 'packages'
 
   // Create product modal state
   const [showCreate, setShowCreate] = useState(false);
@@ -135,7 +137,7 @@ export default function EditorScreen({ navigation, route }) {
   const [creatingProduct, setCreatingProduct] = useState(false);
 
   useEffect(() => {
-    Promise.all([loadProposal(), loadCatalog(), loadCurrencies()])
+    Promise.all([loadProposal(), loadCatalog(), loadCurrencies(), loadPackages()])
       .then(([, catalogResult]) => {
         if (catalogResult && catalogResult.length > 0) {
           setProducts((prev) => prev.map((p) => {
@@ -188,9 +190,21 @@ export default function EditorScreen({ navigation, route }) {
     }
   }
 
+  async function loadPackages() {
+    try {
+      const res = await getPackages(auth.token);
+      const raw = Array.isArray(res) ? res : (res.docs || res.data || res.records || []);
+      setPackages(Array.isArray(raw) ? raw : []);
+    } catch {}
+  }
+
   function setQty(index, qty) {
     const n = Math.max(1, parseInt(qty) || 1);
     setProducts((prev) => prev.map((p, i) => (i === index ? { ...p, quantity: n, _edited: true } : p)));
+  }
+
+  function setProductComment(index, val) {
+    setProducts((prev) => prev.map((p, i) => i === index ? { ...p, comment: val } : p));
   }
 
   function setDiscount(index, val, mode) {
@@ -296,6 +310,7 @@ export default function EditorScreen({ navigation, route }) {
       // Incluir nombre y precio cuando estén disponibles (productos custom o sin referencia de catálogo)
       if (p.name) entry.name = p.name;
       if (p.price != null) entry.price = p.price;
+      if (p.comment) entry.comment = p.comment;
       return entry;
     });
 
@@ -343,7 +358,8 @@ export default function EditorScreen({ navigation, route }) {
     }
   }
 
-  const filteredCatalog = catalog.filter((p) =>
+  const activeCatalog = catalogTab === 'packages' ? packages : catalog;
+  const filteredCatalog = activeCatalog.filter((p) =>
     (p.name || '').toLowerCase().includes(catalogSearch.toLowerCase()) ||
     (p.sku || '').toLowerCase().includes(catalogSearch.toLowerCase())
   );
@@ -570,6 +586,15 @@ export default function EditorScreen({ navigation, route }) {
                 </Text>
                 <Text style={styles.subtotalValue}>$ {subtotal.toLocaleString('es-CO')}</Text>
               </View>
+              <TextInput
+                style={styles.productComment}
+                placeholder="Nota interna del producto (opcional)..."
+                placeholderTextColor={COLORS.textMuted}
+                value={p.comment || ''}
+                onChangeText={(v) => setProductComment(i, v)}
+                multiline
+                numberOfLines={2}
+              />
             </View>
           );
         })}
@@ -615,7 +640,7 @@ export default function EditorScreen({ navigation, route }) {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.addBtnSecondary, styles.addBtnFlex]}
-            onPress={() => { setCatalogSearch(''); setSelectedItem(null); setShowCatalog(true); }}
+            onPress={() => { setCatalogSearch(''); setSelectedItem(null); setCatalogTab('products'); setShowCatalog(true); }}
             activeOpacity={0.7}
           >
             <Text style={styles.addBtnSecondaryText}>Del catálogo</Text>
@@ -720,6 +745,28 @@ export default function EditorScreen({ navigation, route }) {
             <Text style={styles.modalProductCount}>{catalog.length} productos</Text>
             <TouchableOpacity onPress={() => setShowCatalog(false)} style={styles.modalCloseBtn}>
               <Text style={styles.modalCloseText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Productos / Paquetes toggle */}
+          <View style={styles.catalogTabRow}>
+            <TouchableOpacity
+              style={[styles.catalogTabBtn, catalogTab === 'products' && styles.catalogTabBtnActive]}
+              onPress={() => { setCatalogTab('products'); setSelectedItem(null); }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.catalogTabText, catalogTab === 'products' && styles.catalogTabTextActive]}>
+                Productos {catalog.length > 0 ? `(${catalog.length})` : ''}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.catalogTabBtn, catalogTab === 'packages' && styles.catalogTabBtnActive]}
+              onPress={() => { setCatalogTab('packages'); setSelectedItem(null); }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.catalogTabText, catalogTab === 'packages' && styles.catalogTabTextActive]}>
+                Paquetes {packages.length > 0 ? `(${packages.length})` : ''}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -1011,6 +1058,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   subtotalValue: { color: COLORS.text, fontSize: 15, fontWeight: '700' },
+  productComment: {
+    marginTop: 8,
+    backgroundColor: COLORS.bg,
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    minHeight: 44,
+    textAlignVertical: 'top',
+  },
 
   // Grand total box
   totalBox: {
@@ -1208,6 +1268,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalCloseText: { color: COLORS.textMuted, fontSize: 14, fontWeight: '700' },
+
+  // Tabs catálogo
+  catalogTabRow: {
+    flexDirection: 'row', marginHorizontal: 16, marginBottom: 4,
+    backgroundColor: COLORS.card, borderRadius: 10,
+    borderWidth: 1, borderColor: COLORS.border, padding: 3,
+  },
+  catalogTabBtn: {
+    flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center',
+  },
+  catalogTabBtnActive: { backgroundColor: COLORS.accent },
+  catalogTabText: { color: COLORS.textMuted, fontWeight: '600', fontSize: 13 },
+  catalogTabTextActive: { color: '#fff', fontWeight: '700' },
+
   modalSearch: {
     margin: 16,
     backgroundColor: COLORS.card,

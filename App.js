@@ -16,6 +16,7 @@ import ReportsScreen from './src/screens/ReportsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import { COLORS } from './src/theme';
 import { setApiDomain } from './src/api';
+import { ThemeProvider } from './src/ThemeContext';
 
 const Stack = createNativeStackNavigator();
 
@@ -45,23 +46,25 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <NavigationContainer>
-        <Stack.Navigator
-          initialRouteName={initialRoute}
-          screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
-        >
-          <Stack.Screen name="Domain" component={DomainScreen} />
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Agents" component={AgentsScreen} />
-          <Stack.Screen name="Proposals" component={ProposalsScreen} />
-          <Stack.Screen name="Editor" component={EditorScreen} />
-          <Stack.Screen name="CreateProposal" component={CreateProposalScreen} />
-          <Stack.Screen name="Dashboard" component={DashboardScreen} />
-          <Stack.Screen name="Reports" component={ReportsScreen} />
-          <Stack.Screen name="Settings" component={SettingsScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </SafeAreaProvider>
+    <ThemeProvider>
+      <SafeAreaProvider>
+        <NavigationContainer>
+          <Stack.Navigator
+            initialRouteName={initialRoute}
+            screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
+          >
+            <Stack.Screen name="Domain" component={DomainScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Agents" component={AgentsScreen} />
+            <Stack.Screen name="Proposals" component={ProposalsScreen} />
+            <Stack.Screen name="Editor" component={EditorScreen} />
+            <Stack.Screen name="CreateProposal" component={CreateProposalScreen} />
+            <Stack.Screen name="Dashboard" component={DashboardScreen} />
+            <Stack.Screen name="Reports" component={ReportsScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </ThemeProvider>
   );
 }

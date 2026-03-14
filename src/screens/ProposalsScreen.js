@@ -542,7 +542,7 @@ export default function ProposalsScreen({ navigation, route }) {
             onPress={() => setSeguimientoModal({ visible: true, proposal: item, type: 'urgente' })}
             activeOpacity={0.8}
           >
-            <Text style={styles.urgentBtnText}>🔥  Seguimiento urgente</Text>
+            <Text style={styles.urgentBtnText}>🔥  Llamarlo ahora</Text>
             <Text style={styles.seguimientoArrow}>→</Text>
           </TouchableOpacity>
         )}
@@ -552,7 +552,7 @@ export default function ProposalsScreen({ navigation, route }) {
             onPress={() => setSeguimientoModal({ visible: true, proposal: item, type: 'novista' })}
             activeOpacity={0.8}
           >
-            <Text style={styles.noVistaBtnText}>📞  Sin vistas — Contactar</Text>
+            <Text style={styles.noVistaBtnText}>📞  Sin vistas — Llamar ahora</Text>
             <Text style={styles.seguimientoArrow}>→</Text>
           </TouchableOpacity>
         )}
@@ -592,11 +592,9 @@ export default function ProposalsScreen({ navigation, route }) {
             activeOpacity={0.7}
           >
             <Text style={styles.bellIcon}>🔔</Text>
-            {(unread > 0 || (!loading && totalCount > 0)) && (
+            {unread > 0 && (
               <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>
-                  {unread > 0 ? (unread > 99 ? '99+' : String(unread)) : String(totalCount)}
-                </Text>
+                <Text style={styles.bellBadgeText}>{unread > 99 ? '99+' : unread}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -1000,14 +998,14 @@ export default function ProposalsScreen({ navigation, route }) {
             <View style={styles.sendSheetHandle} />
             {seguimientoModal.type === 'urgente' ? (
               <>
-                <Text style={styles.sendSheetTitle}>🔥 Seguimiento urgente</Text>
+                <Text style={styles.sendSheetTitle}>🔥 Llamarlo ahora</Text>
                 <Text style={styles.sendSheetSub}>
                   El cliente vio la propuesta hace menos de 1 hora. ¡Es el momento de contactar!
                 </Text>
               </>
             ) : (
               <>
-                <Text style={styles.sendSheetTitle}>📞 Sin vistas — Contactar</Text>
+                <Text style={styles.sendSheetTitle}>📞 Sin vistas — Llamar ahora</Text>
                 <Text style={styles.sendSheetSub}>
                   Esta propuesta lleva más de una semana sin ser vista. Recuérdale al lead.
                 </Text>

@@ -158,6 +158,10 @@ export default function CreateProposalScreen({ navigation, route }) {
     setProducts((prev) => prev.map((p, i) => i === index ? { ...p, quantity: n } : p));
   }
 
+  function setProductComment(index, val) {
+    setProducts((prev) => prev.map((p, i) => i === index ? { ...p, comment: val } : p));
+  }
+
   async function handleCreate() {
     if (!title.trim()) {
       Alert.alert('Título requerido', 'Ingresa un título para la propuesta.');
@@ -195,6 +199,7 @@ export default function CreateProposalScreen({ navigation, route }) {
         };
         if (p.name) entry.name = p.name;
         if (p.price != null) entry.price = p.price;
+        if (p.comment) entry.comment = p.comment;
         return entry;
       });
 
@@ -481,6 +486,15 @@ export default function CreateProposalScreen({ navigation, route }) {
                 <Text style={styles.subtotalLabel}>{taxRate > 0 ? `Neto + IVA ${taxRate}%` : 'Subtotal'}</Text>
                 <Text style={styles.subtotalValue}>$ {subtotal.toLocaleString('es-CO')}</Text>
               </View>
+              <TextInput
+                style={styles.productComment}
+                placeholder="Nota interna del producto (opcional)..."
+                placeholderTextColor={COLORS.textMuted}
+                value={p.comment || ''}
+                onChangeText={(v) => setProductComment(i, v)}
+                multiline
+                numberOfLines={2}
+              />
             </View>
           );
         })}
@@ -629,7 +643,6 @@ export default function CreateProposalScreen({ navigation, route }) {
             placeholderTextColor={COLORS.textMuted}
             value={catalogSearch}
             onChangeText={setCatalogSearch}
-            autoFocus
           />
           <FlatList
             data={filteredCatalog}
@@ -793,6 +806,19 @@ const styles = StyleSheet.create({
   },
   subtotalLabel: { color: COLORS.textMuted, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   subtotalValue: { color: COLORS.text, fontSize: 15, fontWeight: '700' },
+  productComment: {
+    marginTop: 8,
+    backgroundColor: COLORS.bg,
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    minHeight: 44,
+    textAlignVertical: 'top',
+  },
   removeBtn: { width: 34, height: 34, borderRadius: 8, backgroundColor: COLORS.error + '20', justifyContent: 'center', alignItems: 'center' },
   removeBtnText: { color: COLORS.error, fontWeight: '700', fontSize: 14 },
   addCatalogBtn: {
@@ -897,6 +923,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.accent + '30',
     padding: 16,
     marginBottom: 16,
+    marginTop: 16,
   },
   advTitle: {
     color: COLORS.accent,

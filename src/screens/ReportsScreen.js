@@ -319,13 +319,6 @@ export default function ReportsScreen({ navigation }) {
             <Text style={styles.periodCardLabel}>{p.label}</Text>
             <Text style={styles.periodCardDates}>{fmtDateShort(p.start)} — {fmtDateShort(p.end)}</Text>
           </View>
-          {p.conversion !== null && (
-            <View style={[styles.convBadge, { backgroundColor: p.conversion >= 50 ? COLORS.success + '22' : COLORS.error + '18' }]}>
-              <Text style={[styles.convBadgeText, { color: p.conversion >= 50 ? COLORS.success : COLORS.error }]}>
-                {p.conversion}%
-              </Text>
-            </View>
-          )}
         </View>
 
         {/* Barra de actividad */}
@@ -750,8 +743,6 @@ const styles = StyleSheet.create({
   periodCardHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
   periodCardLabel: { color: COLORS.text, fontWeight: '700', fontSize: 15 },
   periodCardDates: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
-  convBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, marginLeft: 8 },
-  convBadgeText: { fontWeight: '800', fontSize: 14 },
   activityBarTrack: {
     flexDirection: 'row', height: 5,
     backgroundColor: COLORS.border, borderRadius: 3,
