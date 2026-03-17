@@ -669,7 +669,7 @@ export default function ProposalsScreen({ navigation, route }) {
         )}
       </TouchableOpacity>
 
-      {loading ? (
+      {loading || refreshing ? (
         <ProlibuLoader visible={true} background="transparent" />
       ) : (
         <SectionList
