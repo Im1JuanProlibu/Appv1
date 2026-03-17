@@ -22,13 +22,13 @@ const LIGHT = {
 };
 
 const DARK = {
-  bg: '#111111',
-  card: '#1E1E1E',
+  bg: '#000000',
+  card: '#0D0D0D',
   accent: '#4285F4',
   accentFg: '#FFFFFF',
-  text: '#F0F0F0',
-  textMuted: '#999999',
-  border: '#333333',
+  text: '#FFFFFF',
+  textMuted: '#AAAAAA',
+  border: '#1F1F1F',
   success: '#39B54A',
   error: '#D4145A',
   draft: '#FDBD00',

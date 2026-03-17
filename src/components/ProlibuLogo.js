@@ -1,16 +1,21 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
+import { useTheme } from '../ThemeContext';
 
-const logoVertical   = require('../../assets/safe-white-logo-vertical.png');
-const logoHorizontal = require('../../assets/safe-white-logo-horizontal.png');
+const logoVerticalLight   = require('../../assets/safe-white-logo-vertical.png');
+const logoHorizontalLight = require('../../assets/safe-white-logo-horizontal.png');
+const logoVerticalDark    = require('../../assets/safe-black-logo-vertical.png');
+const logoHorizontalDark  = require('../../assets/safe-black-logo-horizontal.png');
 
 // ─── Logo vertical — Login y Domain ──────────────────────────────────────────
 export function ProlibuLogoVertical({ scale = 1, tagline }) {
+  const { isDark } = useTheme();
   const width  = Math.round(180 * scale);
   const height = Math.round(120 * scale);
+  const source = isDark ? logoVerticalDark : logoVerticalLight;
   return (
     <View style={styles.vertical}>
-      <Image source={logoVertical} style={{ width, height }} resizeMode="contain" />
+      <Image source={source} style={{ width, height }} resizeMode="contain" />
       {tagline ? (
         <Text style={[styles.tagline, { fontSize: Math.round(11 * scale), marginTop: Math.round(8 * scale) }]}>
           {tagline}
@@ -20,12 +25,14 @@ export function ProlibuLogoVertical({ scale = 1, tagline }) {
   );
 }
 
-// ─── Logo horizontal — Header de Propuestas ───────────────────────────────────
+// ─── Logo horizontal — Headers ────────────────────────────────────────────────
 export function ProlibuLogoHorizontal({ scale = 1 }) {
+  const { isDark } = useTheme();
   const width  = Math.round(130 * scale);
   const height = Math.round(36 * scale);
+  const source = isDark ? logoHorizontalDark : logoHorizontalLight;
   return (
-    <Image source={logoHorizontal} style={{ width, height }} resizeMode="contain" />
+    <Image source={source} style={{ width, height }} resizeMode="contain" />
   );
 }
 

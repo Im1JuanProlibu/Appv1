@@ -4,15 +4,23 @@
     "slug": "prolibu-v1",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#000000"
       },
       "package": "com.prolibu.v1"
     },
     "ios": {
       "bundleIdentifier": "com.prolibu.v1",
+      "supportsTablet": false,
       "infoPlist": {
         "NSUserNotificationsUsageDescription": "Para notificarte cuando un cliente está viendo tu propuesta."
       }
@@ -27,6 +35,12 @@
           "sounds": []
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "8485e9de-7a20-4641-8a90-f37185fc5389"
+      }
+    },
+    "owner": "prolibujuan"
   }
 }

@@ -931,7 +931,7 @@ export default function ProposalsScreen({ navigation, route }) {
                 <View style={styles.shareInfo}>
                   <Text style={styles.shareInfoIcon}>↑</Text>
                   <Text style={styles.shareInfoText}>
-                    Se abrirá el menú de compartir del sistema con el enlace de la propuesta
+                    Se compartirá el mensaje con el template y el enlace de la propuesta
                   </Text>
                 </View>
               )}
@@ -953,14 +953,14 @@ export default function ProposalsScreen({ navigation, route }) {
                     handleEmail(sendModal.proposal, sendModal.urlType, sendModal.emailSubject, sendModal.emailMsg);
                     setSendModal({ ...sendModal, visible: false });
                   } else {
-                    // Share: mantener modal visible, abrir sheet encima, cerrar después
+                    // Share: usar waMsg (template + URL) — solo message para evitar duplicado en Android
                     const url = sendModal.urlType === 'client'
                       ? await buildClientShortUrl(sendModal.proposal)
                       : buildProposalUrl(sendModal.proposal, sendModal.urlType);
+                    const shareMsg = sendModal.waMsg || url;
                     try {
                       await Share.share({
-                        message: url,
-                        url,
+                        message: shareMsg,
                         title: sendModal.proposal?.title || sendModal.proposal?.name || 'Propuesta',
                       });
                     } catch {}

@@ -703,7 +703,7 @@ function makeStyles(C) {
       paddingHorizontal: 14, paddingVertical: 8,
       borderRadius: 10, borderWidth: 1, borderColor: C.border, backgroundColor: C.card,
     },
-    periodChipActive: { backgroundColor: C.text, borderColor: C.text },
+    periodChipActive: { backgroundColor: C.accent, borderColor: C.accent },
     periodChipText: { color: C.textMuted, fontSize: 13, fontWeight: '600' },
     periodChipTextActive: { color: '#fff' },
 
