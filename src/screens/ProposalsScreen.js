@@ -681,8 +681,8 @@ export default function ProposalsScreen({ navigation, route }) {
             <RefreshControl
               refreshing={false}
               onRefresh={onRefresh}
-              tintColor={COLORS.accent}
-              colors={[COLORS.accent]}
+              tintColor="transparent"
+              colors={['transparent']}
             />
           }
           ListEmptyComponent={
