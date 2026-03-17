@@ -210,6 +210,7 @@ export default function DashboardScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
+      <View style={{ flex: 1 }}>
       {loading ? (
         <ProlibuLoader visible={true} background="transparent" />
       ) : !stats ? (
@@ -225,8 +226,8 @@ export default function DashboardScreen({ navigation }) {
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh}
-              tintColor={COLORS.accent} colors={[COLORS.accent]} />
+            <RefreshControl refreshing={false} onRefresh={onRefresh}
+              tintColor="transparent" colors={['transparent']} />
           }
         >
           <Animated.View style={{ opacity: fadeAnim }}>
@@ -428,6 +429,10 @@ export default function DashboardScreen({ navigation }) {
           </Animated.View>
         </ScrollView>
       )}
+      {refreshing && (
+        <ProlibuLoader visible={true} background={isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.75)'} />
+      )}
+      </View>
 
       <BottomTabBar active="Dashboard" navigation={navigation} />
     </SafeAreaView>

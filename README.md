@@ -39,6 +39,7 @@ Abrir app
 
 ### LoginScreen
 - Autenticación con email y contraseña
+- **Toggle para mostrar/ocultar contraseña**
 - Logo PNG dinámico (claro/oscuro)
 - Botón "Cambiar cuenta" para regresar al DomainScreen
 
@@ -48,21 +49,24 @@ Abrir app
 - Indicador en tiempo real cuando un cliente está viendo una propuesta (Socket.IO)
 - Última vez vista por el cliente (hora y nombre)
 - Badge de notificaciones con historial
-- CTA contextual por propuesta:
-  - 🔥 **Llamarlo ahora** — si fue vista recientemente
-  - 📞 **Sin vistas — Llamar ahora** — si lleva más de 7 días sin vistas
+- **CTA contextual por propuesta (condicional según teléfono del lead):**
+  - 🔥 **Llamarlo ahora** — si fue vista en la última hora **y el lead tiene teléfono**
+  - ✉ **Seguimiento por correo** — si fue vista en la última hora **pero el lead no tiene teléfono**
+  - 📞 **Sin vistas — Llamar ahora** — si lleva más de 7 días sin vistas **y hay teléfono**
+  - ✉ **Sin vistas — Enviar correo** — si lleva más de 7 días sin vistas **y no hay teléfono**
 - Modal de envío por propuesta:
   - **WhatsApp** con plantilla personalizable + número pre-cargado del lead
   - **Email** con detección automática de cliente (Gmail / Outlook / mailto)
   - **Compartir** con menú nativo del SO
   - Selector de URL: corta con seguimiento o anónima sin seguimiento
-- Pull-to-refresh con loader animado de marca
+- Pull-to-refresh con loader animado de marca (sin spinner nativo)
 
 ### CreateProposalScreen
 - Modo **Básico** (por defecto) y modo **Avanzado** (observaciones, fechas, pagos, referencia)
 - Número de propuesta: 6 caracteres aleatorios `[A-Z0-9]`, editable
 - Búsqueda de lead por email con creación si no existe
 - Catálogo con tabs **Productos / Paquetes**, búsqueda en tiempo real
+- **Descuento por producto** (%) en el primer formulario
 - **Nota por producto** (campo `comment` enviado en el payload)
 - Resumen financiero antes de confirmar (subtotal, descuento, impuestos, total)
 
@@ -82,12 +86,15 @@ Abrir app
 - Cards de temperatura (Caliente / Tibia / Fría)
 - Embudo de cierre (Aprobadas vs Negadas)
 - Montos: total, aprobado, pipeline
+- Pull-to-refresh con ProlibuLoader overlay (sin spinner nativo)
+- Delay mínimo de 600ms para que la animación siempre sea visible
 
 ### ReportsScreen
 - Selector de rango: 3 meses / 6 meses / Este año / Año pasado / Personalizado
 - Agrupación: Diario / Semanal / Mensual / Trimestral / Anual
 - Métricas por período: Creadas, Aprobadas, Negadas, Lista, Borrador, $ Aprobado
 - Totales acumulados del rango completo
+- Generación con animación ProlibuLoader (delay 700ms)
 - Sección de reportes del servidor (solo admin)
 
 ### SettingsScreen
@@ -112,7 +119,7 @@ Abrir app
 | `ProlibuLogoVertical` | Logo PNG para Login y Domain — cambia según tema claro/oscuro |
 | `ProlibuLogoHorizontal` | Logo PNG para headers de tabs — cambia según tema |
 | `ProlibuSpinner` | 3 pelotas animadas (azul, amarillo, rojo) — inline |
-| `ProlibuLoader` | Overlay pantalla completa con ProlibuSpinner |
+| `ProlibuLoader` | Overlay absoluteFillObject con ProlibuSpinner — zIndex 999 |
 | `BottomTabBar` | Tab bar personalizado con 4 tabs y punto indicador |
 | `FilterPanel` | Panel de filtros avanzados (modal deslizable) |
 
@@ -137,6 +144,18 @@ const styles = makeStyles(COLORS); // estilos reactivos al tema
 | `accent` | `#4285F4` | `#4285F4` |
 
 Los logos cambian automáticamente entre versión blanca (modo claro) y negra (modo oscuro).
+
+---
+
+## Loader animado (ProlibuLoader)
+
+Animación de 3 pelotas con colores de marca usando `Animated.loop` + `Easing.bezier(0.28, 0.84, 0.42, 1)`:
+
+- **Azul** `#4285F4` — delay 0ms
+- **Amarillo** `#FDBD00` — delay 400ms
+- **Rojo** `#D4145A` — delay 800ms
+
+Se usa como overlay (`absoluteFillObject`) para evitar que el tab bar o el layout se muevan durante la carga. El `RefreshControl` se configura con `refreshing={false}` y `tintColor="transparent"` para ocultar el spinner nativo del SO.
 
 ---
 
@@ -204,11 +223,11 @@ Appv1/
 ├── app.json                        # Config Expo (nombre, ícono, splash, bundle IDs)
 ├── eas.json                        # Config EAS Build (preview APK/IPA, production)
 ├── assets/
-│   ├── icon.png                    # Ícono de la app
+│   ├── icon.png                    # Ícono de la app (800x800)
 │   ├── safe-white-logo-horizontal.png
 │   ├── safe-white-logo-vertical.png
-│   ├── safe-black-logo-horizontal.png
-│   └── safe-black-logo-vertical.png
+│   ├── safe-black-logo-horizontal.png  # Logo para modo oscuro
+│   └── safe-black-logo-vertical.png    # Logo para modo oscuro
 └── src/
     ├── api.js                      # Todas las llamadas a la API
     ├── theme.js                    # Paleta LIGHT estática (referencia)
@@ -234,12 +253,18 @@ Appv1/
 
 ## Desarrollo local
 
+**Opción recomendada — misma red WiFi (más estable):**
 ```bash
 npm install
+npx expo start --go
+```
+Escanear el QR con **Expo Go** en el dispositivo (teléfono y PC en el mismo WiFi).
+
+**Con tunnel (si el teléfono está en otra red):**
+```bash
 npx expo start --tunnel --go
 ```
-
-Escanear el QR con **Expo Go** en el dispositivo.
+> Requiere `@expo/ngrok` instalado. Si hay errores de ngrok (`session closed`, `remote gone away`), es un problema de disponibilidad del servicio. Usar la opción LAN es más confiable.
 
 ---
 
@@ -262,6 +287,8 @@ eas build --platform ios --profile preview
 **Bundle ID iOS:** `com.prolibu.v1`
 **Versión:** `1.0.0`
 
+> El ícono debe llamarse `icon.png` (minúsculas) — los servidores EAS de Linux son case-sensitive.
+
 ---
 
 ## Dependencias principales
@@ -276,3 +303,4 @@ eas build --platform ios --profile preview
 | `expo-notifications ~0.29.0` | Banners locales iOS/Android |
 | `socket.io-client ^4.5.4` | Tiempo real |
 | `expo-asset` | Assets estáticos |
+| `@expo/ngrok ^4.1.0` | Tunnel para desarrollo (opcional) |

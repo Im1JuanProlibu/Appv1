@@ -349,6 +349,28 @@ export default function ProposalsScreen({ navigation, route }) {
     }
   }
 
+  async function openSendModal(proposal, channel = 'whatsapp') {
+    const lead = proposal.relatedLead;
+    const name = typeof lead === 'object' ? (lead?.firstName || lead?.name || '') : '';
+    const title = proposal.title || proposal.name || '';
+    const urlType = proposal.status === 'Ready' ? 'client' : 'anonymous';
+    const previewUrl = urlType === 'client'
+      ? await buildClientShortUrl(proposal)
+      : buildProposalUrl(proposal, 'anonymous');
+    const applyT = (tpl) =>
+      tpl.replace('{nombre}', name).replace('{propuesta}', title).replace('{url}', previewUrl);
+    const emailSubject = msgTemplates?.emailAsunto
+      ? applyT(msgTemplates.emailAsunto)
+      : `Propuesta comercial${title ? `: ${title}` : ''}`;
+    const emailMsg = msgTemplates?.emailCuerpo
+      ? applyT(msgTemplates.emailCuerpo)
+      : `Hola${name ? ` ${name}` : ''},\n\nEspero que te encuentres muy bien. Te compartimos nuestra propuesta comercial${title ? ` "${title}"` : ''} para tu revisión.\n\nPuedes acceder a ella en el siguiente enlace:\n${previewUrl}\n\nQuedo atento a tus comentarios y a cualquier duda que puedas tener.\n\nSaludos cordiales,`;
+    const waMsg = msgTemplates?.envio
+      ? applyT(msgTemplates.envio)
+      : `${name ? `Hola ${name},` : 'Hola,'} te comparto nuestra propuesta comercial${title ? ` *"${title}"*` : ''}.\n\nPuedes revisarla en el siguiente enlace:\n${previewUrl}`;
+    setSendModal({ visible: true, proposal, urlType, channel, waMsg, emailSubject, emailMsg });
+  }
+
   function getLeadPhone(proposal) {
     const lead = proposal.relatedLead;
     if (typeof lead !== 'object' || !lead) return '';
@@ -442,6 +464,7 @@ export default function ProposalsScreen({ navigation, route }) {
     const nowMs = Date.now();
     const isRecentlyViewed = !!(lastViewTs && (nowMs - new Date(lastViewTs).getTime()) < 3600000);
     const isNeverViewedOld = !lastViewTs && !!(item.createdAt && (nowMs - new Date(item.createdAt).getTime()) > 7 * 24 * 60 * 60 * 1000);
+    const leadPhone = getLeadPhone(item);
 
     return (
       <TouchableOpacity
@@ -511,37 +534,17 @@ export default function ProposalsScreen({ navigation, route }) {
           <View style={styles.cardFooterRight}>
             <TouchableOpacity
               style={styles.sendBtn}
-              onPress={async () => {
-                const lead = item.relatedLead;
-                const name = typeof lead === 'object' ? (lead?.firstName || lead?.name || '') : '';
-                const title = item.title || item.name || '';
-                const urlType = item.status === 'Ready' ? 'client' : 'anonymous';
-                const previewUrl = urlType === 'client'
-                  ? await buildClientShortUrl(item)
-                  : buildProposalUrl(item, 'anonymous');
-                const applyT = (tpl) =>
-                  tpl.replace('{nombre}', name).replace('{propuesta}', title).replace('{url}', previewUrl);
-                const emailSubject = msgTemplates?.emailAsunto
-                  ? applyT(msgTemplates.emailAsunto)
-                  : `Propuesta comercial${title ? `: ${title}` : ''}`;
-                const emailMsg = msgTemplates?.emailCuerpo
-                  ? applyT(msgTemplates.emailCuerpo)
-                  : `Hola${name ? ` ${name}` : ''},\n\nEspero que te encuentres muy bien. Te compartimos nuestra propuesta comercial${title ? ` "${title}"` : ''} para tu revisión.\n\nPuedes acceder a ella en el siguiente enlace:\n${previewUrl}\n\nQuedo atento a tus comentarios y a cualquier duda que puedas tener.\n\nSaludos cordiales,`;
-                const waMsg = msgTemplates?.envio
-                  ? applyT(msgTemplates.envio)
-                  : `${name ? `Hola ${name},` : 'Hola,'} te comparto nuestra propuesta comercial${title ? ` *"${title}"*` : ''}.\n\nPuedes revisarla en el siguiente enlace:\n${previewUrl}`;
-                setSendModal({ visible: true, proposal: item, urlType, channel: 'whatsapp', waMsg, emailSubject, emailMsg });
-              }}
+              onPress={() => openSendModal(item, 'whatsapp')}
               activeOpacity={0.7}
             >
               <Text style={styles.sendBtnText}>Enviar ↗</Text>
             </TouchableOpacity>
           </View>
         </View>
-        {(isRecentlyViewed || (!isRecentlyViewed && isNeverViewedOld)) && (
+        {(isRecentlyViewed || isNeverViewedOld) && (
           <View style={styles.cardDivider} />
         )}
-        {isRecentlyViewed && (
+        {isRecentlyViewed && leadPhone && (
           <TouchableOpacity
             style={styles.urgentBtn}
             onPress={() => setSeguimientoModal({ visible: true, proposal: item, type: 'urgente' })}
@@ -551,13 +554,33 @@ export default function ProposalsScreen({ navigation, route }) {
             <Text style={styles.seguimientoArrow}>→</Text>
           </TouchableOpacity>
         )}
-        {!isRecentlyViewed && isNeverViewedOld && (
+        {isRecentlyViewed && !leadPhone && (
+          <TouchableOpacity
+            style={styles.emailFollowupBtn}
+            onPress={() => openSendModal(item, 'email')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.emailFollowupBtnText}>✉  Seguimiento por correo</Text>
+            <Text style={styles.seguimientoArrow}>→</Text>
+          </TouchableOpacity>
+        )}
+        {isNeverViewedOld && leadPhone && (
           <TouchableOpacity
             style={styles.noVistaBtn}
             onPress={() => setSeguimientoModal({ visible: true, proposal: item, type: 'novista' })}
             activeOpacity={0.8}
           >
             <Text style={styles.noVistaBtnText}>📞  Sin vistas — Llamar ahora</Text>
+            <Text style={styles.seguimientoArrow}>→</Text>
+          </TouchableOpacity>
+        )}
+        {isNeverViewedOld && !leadPhone && (
+          <TouchableOpacity
+            style={styles.emailFollowupBtn}
+            onPress={() => openSendModal(item, 'email')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.emailFollowupBtnText}>✉  Sin vistas — Enviar correo</Text>
             <Text style={styles.seguimientoArrow}>→</Text>
           </TouchableOpacity>
         )}
@@ -1856,6 +1879,18 @@ function makeStyles(C) {
     paddingHorizontal: 14,
   },
   noVistaBtnText: { color: '#3B82F6', fontSize: 13, fontWeight: '700' },
+  emailFollowupBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#22C55E',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  emailFollowupBtnText: { color: '#16A34A', fontSize: 13, fontWeight: '700' },
   seguimientoArrow: { color: '#AAAAAA', fontSize: 16, fontWeight: '400' },
   seguimientoBtn: {
     marginTop: 16,
