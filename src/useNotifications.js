@@ -5,16 +5,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { getApiBase } from './api';
 
-// Mostrar notificación como banner aunque la app esté en primer plano (solo iOS)
-if (Platform.OS === 'ios') {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false, // no acumular badge — evita interferir con otras apps
-    }),
-  });
-}
+// Mostrar notificación como banner aunque la app esté en primer plano (iOS y Android)
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 const STORAGE_KEY = 'prolibu_notifications';
 const MAX_NOTIFICATIONS = 50;
@@ -37,15 +35,24 @@ export function useNotifications(token) {
   const socketIdRef = useRef(null);
   // Deduplicar: evita múltiples notificaciones de la misma propuesta en < 30s
   const lastNotifRef = useRef({});
-  // Bandera para saber si los permisos iOS fueron concedidos
-  const notifPermittedRef = useRef(Platform.OS !== 'ios');
+  // Bandera para saber si los permisos fueron concedidos
+  const notifPermittedRef = useRef(false);
 
-  // Pedir permisos de notificación al montar (solo iOS)
+  // Pedir permisos al montar (iOS + Android 13+)
   useEffect(() => {
-    if (Platform.OS === 'ios') {
-      Notifications.requestPermissionsAsync().then(({ status }) => {
-        notifPermittedRef.current = status === 'granted';
-        if (status !== 'granted') console.log('[Notifications] Permisos denegados:', status);
+    Notifications.requestPermissionsAsync().then(({ status }) => {
+      notifPermittedRef.current = status === 'granted';
+      if (status !== 'granted') console.log('[Notifications] Permisos denegados:', status);
+    }).catch(() => {});
+
+    // Canal de notificaciones para Android
+    if (Platform.OS === 'android') {
+      Notifications.setNotificationChannelAsync('prolibu', {
+        name: 'Prolibu',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#4285F4',
+        sound: true,
       }).catch(() => {});
     }
   }, []);
@@ -143,6 +150,7 @@ export function useNotifications(token) {
           body: proposalTitle,
           sound: true,
           data: { proposalId },
+          ...(Platform.OS === 'android' && { channelId: 'prolibu' }),
         },
         trigger: null,
       }).catch((e) => console.log('[Notifications] Error al mostrar banner:', e.message));
