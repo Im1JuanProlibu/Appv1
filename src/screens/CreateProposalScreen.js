@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
   Alert,
   StatusBar,
   FlatList,
@@ -17,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../ThemeContext';
 import { checkLeadByEmail, searchLeadByEmail, createLead, createProposal, getProducts, getPackages, getCurrencies, searchCurrencies } from '../api';
+import { ProlibuSpinner } from '../components/ProlibuLoader';
 
 const COUNTRY_CODES = [
   { code: '+57',  flag: '🇨🇴', name: 'CO' },
@@ -508,7 +508,7 @@ export default function CreateProposalScreen({ navigation, route }) {
           activeOpacity={0.7}
         >
           {catalogLoading
-            ? <ActivityIndicator color={COLORS.accent} size="small" />
+            ? <ProlibuSpinner />
             : <Text style={styles.addCatalogBtnText}>+ Agregar del catálogo</Text>
           }
         </TouchableOpacity>
@@ -606,7 +606,7 @@ export default function CreateProposalScreen({ navigation, route }) {
           disabled={!canCreate || creating}
           activeOpacity={0.8}
         >
-          {creating ? <ActivityIndicator color="#fff" /> : <Text style={styles.createBtnText}>Crear propuesta →</Text>}
+          {creating ? <ProlibuSpinner /> : <Text style={styles.createBtnText}>Crear propuesta →</Text>}
         </TouchableOpacity>
       </ScrollView>
 

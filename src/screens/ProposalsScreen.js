@@ -24,6 +24,7 @@ import { getProposals, getApiBase, generateShortUrl } from '../api';
 import { useNotifications } from '../useNotifications';
 import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
+import { ProlibuLoader } from '../components/ProlibuLoader';
 
 const STATUS_COLOR = {
   Ready: '#39B54A',
@@ -669,7 +670,7 @@ export default function ProposalsScreen({ navigation, route }) {
       </TouchableOpacity>
 
       {loading ? (
-        <ActivityIndicator color={COLORS.accent} size="large" style={styles.loader} />
+        <ProlibuLoader visible={true} background="transparent" />
       ) : (
         <SectionList
           sections={sections}

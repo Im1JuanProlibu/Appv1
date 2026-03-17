@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../ThemeContext';
 import { getProposal, saveProposal, changeProposalStatus, getProducts, getPackages, getCurrencies, searchCurrencies, getApiBase, createProduct } from '../api';
+import { ProlibuSpinner } from '../components/ProlibuLoader';
 
 const STATUSES = ['Draft', 'Ready', 'Approved', 'Denied'];
 const STATUS_LABEL = { Draft: 'Borrador', Ready: 'Lista', Approved: 'Aprobada', Denied: 'Negada' };
@@ -398,7 +399,7 @@ export default function EditorScreen({ navigation, route }) {
   if (loading) {
     return (
       <SafeAreaView style={[styles.safe, styles.centered]} edges={['top']}>
-        <ActivityIndicator color={COLORS.accent} size="large" />
+        <ProlibuSpinner />
         <Text style={styles.loadingText}>Cargando propuesta...</Text>
       </SafeAreaView>
     );
@@ -662,7 +663,7 @@ export default function EditorScreen({ navigation, route }) {
           activeOpacity={0.8}
         >
           {saving ? (
-            <ActivityIndicator color="#fff" />
+            <ProlibuSpinner />
           ) : (
             <Text style={styles.saveBtnText}>Guardar cambios</Text>
           )}
@@ -731,7 +732,7 @@ export default function EditorScreen({ navigation, route }) {
               activeOpacity={0.8}
             >
               {creatingProduct
-                ? <ActivityIndicator color="#fff" />
+                ? <ProlibuSpinner />
                 : <Text style={styles.modalAddBtnText}>Agregar producto</Text>}
             </TouchableOpacity>
           </View>

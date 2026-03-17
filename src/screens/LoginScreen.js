@@ -8,7 +8,7 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
+
   Alert,
   ScrollView,
 } from 'react-native';
@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../ThemeContext';
 import { login, getApiBase } from '../api';
 import { ProlibuLogoVertical } from '../components/ProlibuLogo';
+import { ProlibuSpinner } from '../components/ProlibuLoader';
 
 export default function LoginScreen({ navigation }) {
   const { colors: COLORS, isDark } = useTheme();
@@ -125,7 +126,7 @@ export default function LoginScreen({ navigation }) {
               activeOpacity={0.8}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ProlibuSpinner />
               ) : (
                 <Text style={styles.btnText}>Ingresar</Text>
               )}

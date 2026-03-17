@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
-  ActivityIndicator,
   ScrollView,
   RefreshControl,
   Animated,
@@ -16,6 +15,7 @@ import { useTheme } from '../ThemeContext';
 import { getProposals } from '../api';
 import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
+import { ProlibuLoader } from '../components/ProlibuLoader';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 // Brand colors are the same in both themes — use hardcoded hex values
@@ -210,7 +210,7 @@ export default function DashboardScreen({ navigation }) {
       </View>
 
       {loading ? (
-        <ActivityIndicator color={COLORS.accent} size="large" style={styles.loader} />
+        <ProlibuLoader visible={true} background="transparent" />
       ) : !stats ? (
         <View style={styles.errorContainer}>
           <Text style={{ fontSize: 40, marginBottom: 16 }}>📊</Text>
