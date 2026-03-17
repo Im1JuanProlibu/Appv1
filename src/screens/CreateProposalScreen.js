@@ -163,6 +163,11 @@ export default function CreateProposalScreen({ navigation, route }) {
     setProducts((prev) => prev.map((p, i) => i === index ? { ...p, comment: val } : p));
   }
 
+  function setDiscount(index, val) {
+    const n = Math.min(100, Math.max(0, parseFloat(val) || 0));
+    setProducts((prev) => prev.map((p, i) => i === index ? { ...p, discountRate: n } : p));
+  }
+
   async function handleCreate() {
     if (!title.trim()) {
       Alert.alert('Título requerido', 'Ingresa un título para la propuesta.');
@@ -450,9 +455,12 @@ export default function CreateProposalScreen({ navigation, route }) {
           const price = parseFloat(p.product?.price ?? p.product?.value ?? p.product?.unitPrice ?? p.price ?? 0) || 0;
           const taxRate = parseFloat(p.product?.taxRate ?? p.product?.tax ?? 0) || 0;
           const qty = p.quantity || 1;
+          const discount = p.discountRate || 0;
           const lineGross = price * qty;
-          const taxAmt = taxRate > 0 ? (lineGross * taxRate) / 100 : 0;
-          const subtotal = lineGross + taxAmt;
+          const discountAmt = (lineGross * discount) / 100;
+          const lineNet = lineGross - discountAmt;
+          const taxAmt = taxRate > 0 ? (lineNet * taxRate) / 100 : 0;
+          const subtotal = lineNet + taxAmt;
           return (
             <View key={i} style={styles.productCard}>
               <View style={styles.productHeader}>
@@ -483,6 +491,24 @@ export default function CreateProposalScreen({ navigation, route }) {
                   <TouchableOpacity style={styles.qtyPillBtn} onPress={() => setQty(i, qty + 1)}>
                     <Text style={styles.qtyPillBtnText}>+</Text>
                   </TouchableOpacity>
+                </View>
+              </View>
+              <View style={styles.productRow}>
+                <Text style={styles.fieldLabel}>Descuento %</Text>
+                <View style={styles.discountRow}>
+                  <TextInput
+                    style={styles.discountInput}
+                    value={discount > 0 ? String(discount) : ''}
+                    onChangeText={(v) => setDiscount(i, v)}
+                    placeholder="0"
+                    placeholderTextColor={COLORS.textMuted}
+                    keyboardType="decimal-pad"
+                    selectTextOnFocus
+                  />
+                  <Text style={styles.discountPct}>%</Text>
+                  {discount > 0 && (
+                    <Text style={styles.discountAmt}>  −$ {discountAmt.toLocaleString('es-CO')}</Text>
+                  )}
                 </View>
               </View>
               <View style={styles.subtotalRow}>
@@ -810,6 +836,14 @@ function makeStyles(C) {
     },
     subtotalLabel: { color: C.textMuted, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
     subtotalValue: { color: C.text, fontSize: 15, fontWeight: '700' },
+    discountRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    discountInput: {
+      width: 56, borderWidth: 1, borderColor: C.border, borderRadius: 8,
+      paddingHorizontal: 10, paddingVertical: 6, fontSize: 14,
+      color: C.text, backgroundColor: C.bg, textAlign: 'center',
+    },
+    discountPct: { color: C.textMuted, fontSize: 14, fontWeight: '600' },
+    discountAmt: { color: '#39B54A', fontSize: 13, fontWeight: '700' },
     productComment: {
       marginTop: 8,
       backgroundColor: C.bg,

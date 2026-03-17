@@ -19,6 +19,7 @@ import { useTheme } from '../ThemeContext';
 import { getProposals, getReports, runReport, downloadReport } from '../api';
 import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
+import { ProlibuLoader, ProlibuSpinner } from '../components/ProlibuLoader';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const RANGE_OPTIONS = [
@@ -202,6 +203,7 @@ export default function ReportsScreen({ navigation }) {
   // Reporte generado
   const [report, setReport]       = useState(null);
   const [generated, setGenerated] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   // Reportes servidor (solo admin)
   const [serverReports, setServerReports]   = useState([]);
@@ -252,9 +254,14 @@ export default function ReportsScreen({ navigation }) {
       Alert.alert('Sin datos', 'No hay propuestas disponibles para generar el reporte.');
       return;
     }
-    const result = generateReport(proposals, rangeKey, periodKey, customStart, customEnd);
-    setReport(result);
-    setGenerated(true);
+    setGenerating(true);
+    setGenerated(false);
+    setTimeout(() => {
+      const result = generateReport(proposals, rangeKey, periodKey, customStart, customEnd);
+      setReport(result);
+      setGenerated(true);
+      setGenerating(false);
+    }, 700);
   }
 
   function applyCustomDates() {
@@ -458,10 +465,10 @@ export default function ReportsScreen({ navigation }) {
           </View>
 
           {loadingProposals ? (
-            <ActivityIndicator color={COLORS.accent} style={{ marginTop: 20 }} />
+            <ProlibuSpinner style={{ marginTop: 20, alignSelf: 'center' }} />
           ) : (
-            <TouchableOpacity style={styles.generateBtn} onPress={handleGenerate} activeOpacity={0.85}>
-              <Text style={styles.generateBtnText}>▶  Generar reporte</Text>
+            <TouchableOpacity style={styles.generateBtn} onPress={handleGenerate} disabled={generating} activeOpacity={0.85}>
+              {generating ? <ProlibuSpinner /> : <Text style={styles.generateBtnText}>▶  Generar reporte</Text>}
             </TouchableOpacity>
           )}
         </View>
@@ -660,6 +667,7 @@ export default function ReportsScreen({ navigation }) {
       </Modal>
 
       <BottomTabBar active="Reports" navigation={navigation} />
+      <ProlibuLoader visible={generating} background={isDark ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.8)'} />
     </SafeAreaView>
   );
 }

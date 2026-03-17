@@ -170,8 +170,9 @@ export default function DashboardScreen({ navigation }) {
   }, []);
 
   async function load(id, token) {
+    const minDelay = new Promise(r => setTimeout(r, 600));
     try {
-      const res = await getProposals(id, token);
+      const [res] = await Promise.all([getProposals(id, token), minDelay]);
       const raw = res.docs || res.data || (Array.isArray(res) ? res : []);
       const proposals = (Array.isArray(raw) ? raw : []).filter(p =>
         ['Draft', 'Ready', 'Approved', 'Denied'].includes(p.status)

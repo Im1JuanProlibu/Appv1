@@ -24,6 +24,7 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleLogin() {
     if (!email.trim() || !password) {
@@ -108,16 +109,21 @@ export default function LoginScreen({ navigation }) {
             />
 
             <Text style={styles.label}>Contraseña</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••"
-              placeholderTextColor={COLORS.textMuted}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              returnKeyType="go"
-              onSubmitEditing={handleLogin}
-            />
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.inputFlex}
+                placeholder="••••••••"
+                placeholderTextColor={COLORS.textMuted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                returnKeyType="go"
+                onSubmitEditing={handleLogin}
+              />
+              <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPassword(v => !v)}>
+                <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={[styles.btn, loading && styles.btnDisabled]}
@@ -196,6 +202,23 @@ function makeStyles(C) {
       fontSize: 15,
       marginBottom: 16,
     },
+    inputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: C.bg,
+      borderWidth: 1,
+      borderColor: C.border,
+      borderRadius: 10,
+      marginBottom: 16,
+    },
+    inputFlex: {
+      flex: 1,
+      color: C.text,
+      padding: 14,
+      fontSize: 15,
+    },
+    eyeBtn: { paddingHorizontal: 14 },
+    eyeIcon: { fontSize: 18 },
     btn: {
       backgroundColor: C.accent,
       borderRadius: 10,
