@@ -669,9 +669,7 @@ export default function ProposalsScreen({ navigation, route }) {
         )}
       </TouchableOpacity>
 
-      {loading || refreshing ? (
-        <ProlibuLoader visible={true} background="transparent" />
-      ) : (
+      <View style={{ flex: 1 }}>
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.id || item._id}
@@ -681,7 +679,7 @@ export default function ProposalsScreen({ navigation, route }) {
           stickySectionHeadersEnabled={false}
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
+              refreshing={false}
               onRefresh={onRefresh}
               tintColor={COLORS.accent}
               colors={[COLORS.accent]}
@@ -697,7 +695,10 @@ export default function ProposalsScreen({ navigation, route }) {
             </View>
           }
         />
-      )}
+        {(loading || refreshing) && (
+          <ProlibuLoader visible={true} background={isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.75)'} />
+        )}
+      </View>
 
       {/* Panel de filtros avanzados */}
       <FilterPanel
