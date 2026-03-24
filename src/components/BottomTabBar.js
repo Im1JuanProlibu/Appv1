@@ -2,12 +2,13 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../ThemeContext';
+import { SquaresFour, ChartBar, Rows, GearSix } from 'phosphor-react-native';
 
 const TABS = [
-  { key: 'Proposals', label: 'Propuestas', icon: '⊞' },
-  { key: 'Dashboard', label: 'Dashboard',  icon: '◉'  },
-  { key: 'Reports',   label: 'Reportes',   icon: '▤'  },
-  { key: 'Settings',  label: 'Ajustes',    icon: '⚙'  },
+  { key: 'Proposals', label: 'Propuestas', Icon: SquaresFour },
+  { key: 'Dashboard', label: 'Dashboard',  Icon: ChartBar    },
+  { key: 'Reports',   label: 'Reportes',   Icon: Rows        },
+  { key: 'Settings',  label: 'Ajustes',    Icon: GearSix     },
 ];
 
 export default function BottomTabBar({ active, navigation }) {
@@ -28,7 +29,7 @@ export default function BottomTabBar({ active, navigation }) {
             }}
             activeOpacity={0.7}
           >
-            <Text style={[styles.icon, isActive && styles.iconActive]}>{tab.icon}</Text>
+            <tab.Icon size={22} color={isActive ? COLORS.accent : COLORS.textMuted} weight={isActive ? 'fill' : 'regular'} />
             <Text style={[styles.label, isActive && styles.labelActive]}>{tab.label}</Text>
             {isActive && <View style={styles.activeDot} />}
           </TouchableOpacity>
@@ -56,13 +57,6 @@ function makeStyles(C) {
       flex: 1,
       alignItems: 'center',
       gap: 3,
-    },
-    icon: {
-      fontSize: 20,
-      color: C.textMuted,
-    },
-    iconActive: {
-      color: C.accent,
     },
     label: {
       fontSize: 10,

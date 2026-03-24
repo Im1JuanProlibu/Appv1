@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../ThemeContext';
 import { checkLeadByEmail, searchLeadByEmail, createLead, createProposal, getProducts, getPackages, getCurrencies, searchCurrencies } from '../api';
 import { ProlibuSpinner } from '../components/ProlibuLoader';
+import { ArrowLeft, ArrowRight, Check, X } from 'phosphor-react-native';
 
 const COUNTRY_CODES = [
   { code: '+57',  flag: '🇨🇴', name: 'CO' },
@@ -280,7 +281,7 @@ export default function CreateProposalScreen({ navigation, route }) {
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>←</Text>
+          <ArrowLeft size={22} color={COLORS.accent} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nueva propuesta</Text>
       </View>
@@ -399,7 +400,10 @@ export default function CreateProposalScreen({ navigation, route }) {
         {leadFound && (
           <View style={styles.leadCard}>
             <View style={styles.leadInfo}>
-              <Text style={styles.leadBadge}>✓ Encontrado</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Check size={13} color="#39B54A" weight="bold" />
+                <Text style={styles.leadBadge}>Encontrado</Text>
+              </View>
               <Text style={styles.leadName}>
                 {[leadFound.firstName, leadFound.lastName].filter(Boolean).join(' ') || leadFound.name || 'Sin nombre'}
               </Text>
@@ -469,7 +473,7 @@ export default function CreateProposalScreen({ navigation, route }) {
                   {(p.product?.sku || p.sku) ? <Text style={styles.productSku} numberOfLines={1}>SKU: {p.product?.sku || p.sku}</Text> : null}
                 </View>
                 <TouchableOpacity style={styles.removeBtn} onPress={() => removeProduct(i)}>
-                  <Text style={styles.removeBtnText}>✕</Text>
+                  <X size={16} color={COLORS.textMuted} />
                 </TouchableOpacity>
               </View>
               <Text style={styles.productPrice}>
@@ -632,7 +636,12 @@ export default function CreateProposalScreen({ navigation, route }) {
           disabled={!canCreate || creating}
           activeOpacity={0.8}
         >
-          {creating ? <ProlibuSpinner /> : <Text style={styles.createBtnText}>Crear propuesta →</Text>}
+          {creating ? <ProlibuSpinner /> : (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={styles.createBtnText}>Crear propuesta</Text>
+              <ArrowRight size={18} color="#fff" />
+            </View>
+          )}
         </TouchableOpacity>
       </ScrollView>
 
@@ -642,7 +651,7 @@ export default function CreateProposalScreen({ navigation, route }) {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Catálogo</Text>
             <TouchableOpacity onPress={() => setShowCatalog(false)} style={styles.modalCloseBtn}>
-              <Text style={styles.modalCloseText}>✕</Text>
+              <X size={20} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>
           {/* Productos / Paquetes toggle */}
@@ -693,7 +702,7 @@ export default function CreateProposalScreen({ navigation, route }) {
                       $ {(item.price || 0).toLocaleString('es-CO')} · {item.currency || currency}{taxRate > 0 ? ` · IVA ${taxRate}%` : ''}
                     </Text>
                   </View>
-                  {active && <Text style={styles.catalogCheck}>✓</Text>}
+                  {active && <Check size={18} color={COLORS.accent} weight="bold" />}
                 </TouchableOpacity>
               );
             }}

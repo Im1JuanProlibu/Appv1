@@ -147,6 +147,51 @@ Los logos cambian automáticamente entre versión blanca (modo claro) y negra (m
 
 ---
 
+## Iconografía (Phosphor Icons)
+
+Todos los iconos de la app usan **[phosphor-react-native](https://github.com/duongdev/phosphor-react-native)** — componentes SVG nativos con 6 pesos disponibles.
+
+```jsx
+import { Fire, Phone, Envelope } from 'phosphor-react-native';
+
+<Fire size={20} color="#FF5722" weight="fill" />
+```
+
+| Pesos disponibles | Uso recomendado |
+|---|---|
+| `regular` | Estado inactivo (tabs, iconos sin foco) |
+| `fill` | Estado activo, énfasis |
+| `bold` | Checkmarks, confirmaciones |
+| `light` / `thin` | Decorativos |
+| `duotone` | Con `duotoneColor` para efectos de dos tonos |
+
+**Iconos principales usados:**
+
+| Pantalla | Icono | Componente |
+|---|---|---|
+| Bottom tabs | Propuestas | `SquaresFour` |
+| Bottom tabs | Dashboard | `ChartBar` |
+| Bottom tabs | Reportes | `Rows` |
+| Bottom tabs | Ajustes | `GearSix` |
+| Login | Ver/ocultar contraseña | `Eye` / `EyeSlash` |
+| Propuestas | Notificaciones | `Bell` / `BellRinging` |
+| Propuestas | Filtros avanzados | `SlidersHorizontal` |
+| Propuestas | CTA urgente | `Fire` |
+| Propuestas | CTA teléfono | `Phone` |
+| Propuestas | CTA correo | `Envelope` |
+| Propuestas | Canal WhatsApp | `WhatsappLogo` |
+| Propuestas | Canal compartir | `Export` |
+| Dashboard | Temperatura caliente | `Fire` |
+| Dashboard | Temperatura tibia | `Thermometer` |
+| Dashboard | Temperatura fría | `Snowflake` |
+| Dashboard | Recargar | `ArrowClockwise` |
+| Editor / Crear | Volver | `ArrowLeft` |
+| Editor / Crear | Cerrar modal | `X` |
+| Editor / Crear | Ítem seleccionado | `Check` |
+| Editor | Propuesta guardada | `CheckCircle` |
+
+---
+
 ## Loader animado (ProlibuLoader)
 
 Animación de 3 pelotas con colores de marca usando `Animated.loop` + `Easing.bezier(0.28, 0.84, 0.42, 1)`:
@@ -304,3 +349,5 @@ eas build --platform ios --profile preview
 | `socket.io-client ^4.5.4` | Tiempo real |
 | `expo-asset` | Assets estáticos |
 | `@expo/ngrok ^4.1.0` | Tunnel para desarrollo (opcional) |
+| `phosphor-react-native ^3.0.3` | Iconografía SVG (1000+ iconos) |
+| `react-native-svg 15.12.1` | Dependencia de Phosphor |

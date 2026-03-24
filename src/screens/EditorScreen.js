@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../ThemeContext';
 import { getProposal, saveProposal, changeProposalStatus, getProducts, getPackages, getCurrencies, searchCurrencies, getApiBase, createProduct } from '../api';
 import { ProlibuSpinner } from '../components/ProlibuLoader';
+import { ArrowLeft, ArrowRight, CheckCircle, X, Check } from 'phosphor-react-native';
 
 const STATUSES = ['Draft', 'Ready', 'Approved', 'Denied'];
 const STATUS_LABEL = { Draft: 'Borrador', Ready: 'Lista', Approved: 'Aprobada', Denied: 'Negada' };
@@ -49,7 +50,7 @@ function Header({ title, number, onBack }) {
   return (
     <View style={styles.header}>
       <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-        <Text style={styles.backText}>←</Text>
+        <ArrowLeft size={22} color={COLORS.accent} />
       </TouchableOpacity>
       <View style={styles.headerInfo}>
         <Text style={styles.headerTitle} numberOfLines={1}>
@@ -69,7 +70,7 @@ function SuccessScreen({ propUrl, proposal, status, onBack }) {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.successScroll}>
         <View style={styles.successIconWrap}>
-          <Text style={styles.successIconText}>✓</Text>
+          <CheckCircle size={64} color="#39B54A" weight="fill" />
         </View>
         <Text style={styles.successTitle}>¡Propuesta guardada!</Text>
         <Text style={styles.successSubtitle}>
@@ -87,7 +88,7 @@ function SuccessScreen({ propUrl, proposal, status, onBack }) {
           onPress={() => Linking.openURL(propUrl).catch(() => Alert.alert('Error', 'No se pudo abrir el enlace.'))}
           activeOpacity={0.8}
         >
-          <Text style={styles.openBtnText}>Abrir propuesta →</Text>
+          <Text style={styles.openBtnText}>Abrir propuesta </Text><ArrowRight size={16} color="#fff" />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -99,7 +100,7 @@ function SuccessScreen({ propUrl, proposal, status, onBack }) {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.backLinkBtn} onPress={onBack}>
-          <Text style={styles.backLinkText}>← Volver a propuestas</Text>
+          <ArrowLeft size={14} color={COLORS.accent} /><Text style={styles.backLinkText}> Volver a propuestas</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -526,7 +527,7 @@ export default function EditorScreen({ navigation, route }) {
                   {productSku ? <Text style={styles.productSku} numberOfLines={1}>SKU: {productSku}</Text> : null}
                 </View>
                 <TouchableOpacity style={styles.removeBtn} onPress={() => removeProduct(i)}>
-                  <Text style={styles.removeBtnText}>✕</Text>
+                  <X size={16} color={COLORS.textMuted} />
                 </TouchableOpacity>
               </View>
 
@@ -681,7 +682,7 @@ export default function EditorScreen({ navigation, route }) {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Nuevo producto</Text>
             <TouchableOpacity onPress={() => setShowCreate(false)} style={styles.modalCloseBtn}>
-              <Text style={styles.modalCloseText}>✕</Text>
+              <X size={20} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>
           <View style={styles.createForm}>
@@ -752,7 +753,7 @@ export default function EditorScreen({ navigation, route }) {
             <Text style={styles.modalTitle}>Catálogo de productos</Text>
             <Text style={styles.modalProductCount}>{catalog.length} productos</Text>
             <TouchableOpacity onPress={() => setShowCatalog(false)} style={styles.modalCloseBtn}>
-              <Text style={styles.modalCloseText}>✕</Text>
+              <X size={20} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -808,7 +809,7 @@ export default function EditorScreen({ navigation, route }) {
                       <Text style={styles.catalogItemSku}>{item.sku}</Text>
                     ) : null}
                   </View>
-                  {active && <Text style={styles.catalogCheck}>✓</Text>}
+                  {active && <Check size={18} color={COLORS.accent} weight="bold" />}
                 </TouchableOpacity>
               );
             }}

@@ -16,6 +16,7 @@ import { getProposals } from '../api';
 import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
 import { ProlibuLoader } from '../components/ProlibuLoader';
+import { Fire, Thermometer, Snowflake, ArrowClockwise } from 'phosphor-react-native';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 // Brand colors are the same in both themes — use hardcoded hex values
@@ -27,9 +28,9 @@ const STATUS_CONFIG = [
 ];
 
 const TEMP_CONFIG = [
-  { key: 'Hot',  label: 'Caliente', color: '#FF5722', emoji: '🔥' },
-  { key: 'Warm', label: 'Tibia',    color: '#F59E0B', emoji: '🌡' },
-  { key: 'Cold', label: 'Fría',     color: '#60A5FA', emoji: '❄️' },
+  { key: 'Hot',  label: 'Caliente', color: '#FF5722', Icon: Fire        },
+  { key: 'Warm', label: 'Tibia',    color: '#F59E0B', Icon: Thermometer },
+  { key: 'Cold', label: 'Fría',     color: '#60A5FA', Icon: Snowflake   },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -206,7 +207,7 @@ export default function DashboardScreen({ navigation }) {
         <View style={{ flex: 1 }} />
         {userName ? <Text style={styles.headerSub} numberOfLines={1}>{userName}</Text> : null}
         <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn} activeOpacity={0.7}>
-          <Text style={styles.refreshText}>↻</Text>
+          <ArrowClockwise size={22} color={COLORS.accent} />
         </TouchableOpacity>
       </View>
 
@@ -340,7 +341,7 @@ export default function DashboardScreen({ navigation }) {
                 const pct   = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0;
                 return (
                   <View key={t.key} style={[styles.tempCard, { borderColor: t.color + '55' }]}>
-                    <Text style={styles.tempEmoji}>{t.emoji}</Text>
+                    <t.Icon size={22} color={t.color} weight="fill" />
                     <Text style={[styles.tempNum, { color: t.color }]}>{count}</Text>
                     <Text style={styles.tempLabel}>{t.label}</Text>
                     <View style={[styles.tempPill, { backgroundColor: t.color + '20' }]}>
@@ -455,7 +456,6 @@ function makeStyles(C) {
     headerTitle:{ color: C.text, fontSize: 22, fontWeight: '800' },
     headerSub:  { color: C.textMuted, fontSize: 12, marginTop: 2 },
     refreshBtn: { padding: 4 },
-    refreshText:{ color: C.accent, fontSize: 22 },
     errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
     errorText: { color: C.textMuted, fontSize: 15, textAlign: 'center', marginBottom: 20 },
     retryBtn:  { backgroundColor: C.accent, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 },
@@ -513,7 +513,7 @@ function makeStyles(C) {
       flex: 1, backgroundColor: C.card, borderRadius: 16,
       borderWidth: 1.5, padding: 14, alignItems: 'center', gap: 4,
     },
-    tempEmoji:{ fontSize: 20, marginBottom: 2 },
+    tempEmoji:{ marginBottom: 2 },
     tempNum:  { fontWeight: '900', fontSize: 28, letterSpacing: -0.5 },
     tempLabel:{ color: C.textMuted, fontSize: 10, fontWeight: '700' },
     tempPill: { marginTop: 4, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },

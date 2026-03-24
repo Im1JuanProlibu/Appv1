@@ -18,6 +18,7 @@ import { useTheme } from '../ThemeContext';
 import { login, getApiBase } from '../api';
 import { ProlibuLogoVertical } from '../components/ProlibuLogo';
 import { ProlibuSpinner } from '../components/ProlibuLoader';
+import { Eye, EyeSlash } from 'phosphor-react-native';
 
 export default function LoginScreen({ navigation }) {
   const { colors: COLORS, isDark } = useTheme();
@@ -121,7 +122,9 @@ export default function LoginScreen({ navigation }) {
                 onSubmitEditing={handleLogin}
               />
               <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPassword(v => !v)}>
-                <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
+                {showPassword
+                  ? <EyeSlash size={20} color={COLORS.textMuted} />
+                  : <Eye size={20} color={COLORS.textMuted} />}
               </TouchableOpacity>
             </View>
 
@@ -217,8 +220,7 @@ function makeStyles(C) {
       padding: 14,
       fontSize: 15,
     },
-    eyeBtn: { paddingHorizontal: 14 },
-    eyeIcon: { fontSize: 18 },
+    eyeBtn: { paddingHorizontal: 14, justifyContent: 'center' },
     btn: {
       backgroundColor: C.accent,
       borderRadius: 10,

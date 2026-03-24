@@ -25,6 +25,10 @@ import { useNotifications } from '../useNotifications';
 import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
 import { ProlibuLoader } from '../components/ProlibuLoader';
+import {
+  Bell, BellRinging, Eye, Fire, Phone, Envelope,
+  WhatsappLogo, Export, ArrowRight, X, SlidersHorizontal, Check,
+} from 'phosphor-react-native';
 
 const STATUS_COLOR = {
   Ready: '#39B54A',
@@ -474,12 +478,14 @@ export default function ProposalsScreen({ navigation, route }) {
       >
         {isLive && (
           <View style={styles.liveBanner}>
-            <Text style={styles.liveBannerText}>👁  Viendo ahora</Text>
+            <Eye size={13} color="#fff" weight="fill" />
+            <Text style={styles.liveBannerText}> Viendo ahora</Text>
           </View>
         )}
         {!isLive && lastViewTs && (
           <View style={styles.lastViewBanner}>
-            <Text style={styles.lastViewText}>👁  Última vista {timeAgo(lastViewTs)}</Text>
+            <Eye size={12} color="#60A5FA" weight="fill" />
+            <Text style={styles.lastViewText}> Última vista {timeAgo(lastViewTs)}</Text>
           </View>
         )}
         <View style={styles.cardTop}>
@@ -522,7 +528,8 @@ export default function ProposalsScreen({ navigation, route }) {
             if (v == null) return null;
             return (
               <View style={styles.viewsBadge}>
-                <Text style={styles.viewsText}>👁 {v}</Text>
+                <Eye size={11} color={COLORS.textMuted} />
+                <Text style={styles.viewsText}> {v}</Text>
               </View>
             );
           })()}
@@ -550,8 +557,11 @@ export default function ProposalsScreen({ navigation, route }) {
             onPress={() => setSeguimientoModal({ visible: true, proposal: item, type: 'urgente' })}
             activeOpacity={0.8}
           >
-            <Text style={styles.urgentBtnText}>🔥  Llamarlo ahora</Text>
-            <Text style={styles.seguimientoArrow}>→</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Fire size={15} color="#FF5722" weight="fill" />
+              <Text style={styles.urgentBtnText}>Llamarlo ahora</Text>
+            </View>
+            <ArrowRight size={16} color="#AAAAAA" />
           </TouchableOpacity>
         )}
         {isRecentlyViewed && !leadPhone && (
@@ -560,8 +570,11 @@ export default function ProposalsScreen({ navigation, route }) {
             onPress={() => openSendModal(item, 'email')}
             activeOpacity={0.8}
           >
-            <Text style={styles.emailFollowupBtnText}>✉  Seguimiento por correo</Text>
-            <Text style={styles.seguimientoArrow}>→</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Envelope size={15} color="#16A34A" weight="fill" />
+              <Text style={styles.emailFollowupBtnText}>Seguimiento por correo</Text>
+            </View>
+            <ArrowRight size={16} color="#AAAAAA" />
           </TouchableOpacity>
         )}
         {isNeverViewedOld && leadPhone && (
@@ -570,8 +583,11 @@ export default function ProposalsScreen({ navigation, route }) {
             onPress={() => setSeguimientoModal({ visible: true, proposal: item, type: 'novista' })}
             activeOpacity={0.8}
           >
-            <Text style={styles.noVistaBtnText}>📞  Sin vistas — Llamar ahora</Text>
-            <Text style={styles.seguimientoArrow}>→</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Phone size={15} color="#3B82F6" weight="fill" />
+              <Text style={styles.noVistaBtnText}>Sin vistas — Llamar ahora</Text>
+            </View>
+            <ArrowRight size={16} color="#AAAAAA" />
           </TouchableOpacity>
         )}
         {isNeverViewedOld && !leadPhone && (
@@ -580,8 +596,11 @@ export default function ProposalsScreen({ navigation, route }) {
             onPress={() => openSendModal(item, 'email')}
             activeOpacity={0.8}
           >
-            <Text style={styles.emailFollowupBtnText}>✉  Sin vistas — Enviar correo</Text>
-            <Text style={styles.seguimientoArrow}>→</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Envelope size={15} color="#16A34A" weight="fill" />
+              <Text style={styles.emailFollowupBtnText}>Sin vistas — Enviar correo</Text>
+            </View>
+            <ArrowRight size={16} color="#AAAAAA" />
           </TouchableOpacity>
         )}
       </TouchableOpacity>
@@ -621,7 +640,7 @@ export default function ProposalsScreen({ navigation, route }) {
             onPress={() => { setShowNotifications(true); markAllRead(); }}
             activeOpacity={0.7}
           >
-            <Text style={styles.bellIcon}>🔔</Text>
+            <Bell size={24} color={COLORS.text} />
             {unread > 0 && (
               <View style={styles.bellBadge}>
                 <Text style={styles.bellBadgeText}>{unread > 99 ? '99+' : unread}</Text>
@@ -678,7 +697,7 @@ export default function ProposalsScreen({ navigation, route }) {
         onPress={() => setFilterPanelVisible(true)}
         activeOpacity={0.85}
       >
-        <Text style={[styles.filterBarBtnIcon, activeFilterCount > 0 && { color: COLORS.accentFg }]}>⚙</Text>
+        <SlidersHorizontal size={15} color={activeFilterCount > 0 ? COLORS.accentFg : COLORS.textMuted} />
         <Text style={[styles.filterBarBtnText, activeFilterCount > 0 && { color: COLORS.accentFg }]}>
           {activeFilterCount > 0 ? `Filtros activos (${activeFilterCount})` : 'Filtros avanzados'}
         </Text>
@@ -687,7 +706,10 @@ export default function ProposalsScreen({ navigation, route }) {
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             onPress={() => applyPanel({ sort: activeSort, lf: null, af: 'all', rf: 'all', vf: 'all', df: 'all', dfrom: '', dto: '' })}
           >
-            <Text style={{ color: COLORS.accentFg, fontSize: 13, fontWeight: '700', marginLeft: 6 }}>✕ Limpiar</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 6 }}>
+              <X size={13} color={COLORS.accentFg} weight="bold" />
+              <Text style={{ color: COLORS.accentFg, fontSize: 13, fontWeight: '700' }}>Limpiar</Text>
+            </View>
           </TouchableOpacity>
         )}
       </TouchableOpacity>
@@ -843,9 +865,9 @@ export default function ProposalsScreen({ navigation, route }) {
               <Text style={styles.sendSheetLabel}>Canal</Text>
               <View style={styles.channelRow}>
                 {[
-                  { key: 'whatsapp', icon: '◉', label: 'WhatsApp',  color: '#25D366' },
-                  { key: 'email',    icon: '✉', label: 'Correo',    color: '#4A90E2' },
-                  { key: 'share',    icon: '↑', label: 'Compartir', color: COLORS.accent },
+                  { key: 'whatsapp', Icon: WhatsappLogo, label: 'WhatsApp',  color: '#25D366' },
+                  { key: 'email',    Icon: Envelope,     label: 'Correo',    color: '#4A90E2' },
+                  { key: 'share',    Icon: Export,       label: 'Compartir', color: COLORS.accent },
                 ].map((ch) => {
                   const active = sendModal.channel === ch.key;
                   return (
@@ -855,7 +877,7 @@ export default function ProposalsScreen({ navigation, route }) {
                       onPress={() => setSendModal({ ...sendModal, channel: ch.key })}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.channelBtnIcon}>{ch.icon}</Text>
+                      <ch.Icon size={20} color={active ? ch.color : COLORS.textMuted} weight={active ? 'fill' : 'regular'} />
                       <Text style={[styles.channelBtnLabel, active && { color: ch.color, fontWeight: '700' }]}>
                         {ch.label}
                       </Text>
@@ -954,7 +976,7 @@ export default function ProposalsScreen({ navigation, route }) {
 
               {sendModal.channel === 'share' && (
                 <View style={styles.shareInfo}>
-                  <Text style={styles.shareInfoIcon}>↑</Text>
+                  <Export size={18} color={COLORS.accent} />
                   <Text style={styles.shareInfoText}>
                     Se compartirá el mensaje con el template y el enlace de la propuesta
                   </Text>
@@ -993,11 +1015,16 @@ export default function ProposalsScreen({ navigation, route }) {
                   }
                 }}
               >
-                <Text style={styles.sendConfirmText}>
-                  {sendModal.channel === 'whatsapp' ? '◉  Enviar por WhatsApp' :
-                   sendModal.channel === 'email'    ? '✉  Enviar por Correo'   :
-                                                      '↑  Compartir enlace'}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  {sendModal.channel === 'whatsapp' ? <WhatsappLogo size={18} color="#fff" /> :
+                   sendModal.channel === 'email'    ? <Envelope size={18} color="#fff" /> :
+                                                      <Export size={18} color="#fff" />}
+                  <Text style={styles.sendConfirmText}>
+                    {sendModal.channel === 'whatsapp' ? 'Enviar por WhatsApp' :
+                     sendModal.channel === 'email'    ? 'Enviar por Correo'   :
+                                                        'Compartir enlace'}
+                  </Text>
+                </View>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1029,14 +1056,20 @@ export default function ProposalsScreen({ navigation, route }) {
             <View style={styles.sendSheetHandle} />
             {seguimientoModal.type === 'urgente' ? (
               <>
-                <Text style={styles.sendSheetTitle}>🔥 Llamarlo ahora</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Fire size={20} color="#FF5722" weight="fill" />
+                  <Text style={styles.sendSheetTitle}>Llamarlo ahora</Text>
+                </View>
                 <Text style={styles.sendSheetSub}>
                   El cliente vio la propuesta hace menos de 1 hora. ¡Es el momento de contactar!
                 </Text>
               </>
             ) : (
               <>
-                <Text style={styles.sendSheetTitle}>📞 Sin vistas — Llamar ahora</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Phone size={20} color="#3B82F6" weight="fill" />
+                  <Text style={styles.sendSheetTitle}>Sin vistas — Llamar ahora</Text>
+                </View>
                 <Text style={styles.sendSheetSub}>
                   Esta propuesta lleva más de una semana sin ser vista. Recuérdale al lead.
                 </Text>
@@ -1069,7 +1102,10 @@ export default function ProposalsScreen({ navigation, route }) {
               }}
               activeOpacity={0.85}
             >
-              <Text style={[styles.seguimientoBtnText, { color: '#fff' }]}>◉  Contactar por WhatsApp</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <WhatsappLogo size={18} color="#fff" />
+                <Text style={[styles.seguimientoBtnText, { color: '#fff' }]}>Contactar por WhatsApp</Text>
+              </View>
             </TouchableOpacity>
 
             {seguimientoModal.proposal && getLeadPhone(seguimientoModal.proposal) ? (
@@ -1081,7 +1117,10 @@ export default function ProposalsScreen({ navigation, route }) {
                 }}
                 activeOpacity={0.85}
               >
-                <Text style={[styles.seguimientoBtnText, { color: '#fff' }]}>✆  Llamar</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Phone size={18} color="#fff" />
+                  <Text style={[styles.seguimientoBtnText, { color: '#fff' }]}>Llamar</Text>
+                </View>
               </TouchableOpacity>
             ) : null}
 
@@ -1118,14 +1157,14 @@ export default function ProposalsScreen({ navigation, route }) {
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={() => setShowNotifications(false)} style={styles.notifCloseBtn}>
-                <Text style={styles.notifCloseText}>✕</Text>
+                <X size={20} color={COLORS.text} weight="bold" />
               </TouchableOpacity>
             </View>
           </View>
 
           {notifications.length === 0 ? (
             <View style={styles.notifEmpty}>
-              <Text style={styles.notifEmptyIcon}>🔔</Text>
+              <BellRinging size={48} color={COLORS.textMuted} />
               <Text style={styles.notifEmptyText}>Sin notificaciones</Text>
               <Text style={styles.notifEmptyHint}>Cuando un cliente abra una propuesta aparecerá aquí</Text>
             </View>
@@ -1134,7 +1173,7 @@ export default function ProposalsScreen({ navigation, route }) {
               {notifications.map((n) => (
                 <View key={n.id} style={[styles.notifItem, !n.read && styles.notifItemUnread]}>
                   <View style={styles.notifItemIcon}>
-                    <Text style={{ fontSize: 20 }}>👁</Text>
+                    <Eye size={20} color={COLORS.accent} weight="fill" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.notifItemTitle} numberOfLines={1}>
@@ -1289,7 +1328,7 @@ function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
               <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 2 }}>Toca un filtro activo para desactivarlo</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.notifCloseBtn}>
-              <Text style={styles.notifCloseText}>✕</Text>
+              <X size={20} color={COLORS.text} weight="bold" />
             </TouchableOpacity>
           </View>
 
@@ -1327,7 +1366,7 @@ function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
                       maxLength={10}
                     />
                   </View>
-                  <Text style={{ color: COLORS.textMuted, alignSelf: 'flex-end', paddingBottom: 12, marginHorizontal: 4 }}>→</Text>
+                  <ArrowRight size={16} color={COLORS.textMuted} style={{ alignSelf: 'flex-end', marginBottom: 12, marginHorizontal: 4 }} />
                   <View style={styles.dateInputWrap}>
                     <Text style={styles.dateInputLabel}>Hasta</Text>
                     <TextInput
@@ -1366,7 +1405,7 @@ function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
                       <Text style={[styles.panelLeadBtnText, active && styles.panelLeadBtnTextActive]}>{lead.name}</Text>
                       {lead.email ? <Text style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>{lead.email}</Text> : null}
                     </View>
-                    {active && <Text style={{ color: COLORS.accent, fontWeight: '800' }}>✓</Text>}
+                    {active && <Check size={16} color={COLORS.accent} weight="bold" />}
                   </TouchableOpacity>
                 );
               })}

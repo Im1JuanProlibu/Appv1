@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../theme';
 import { getAgents } from '../api';
+import { Check, ArrowRight } from 'phosphor-react-native';
 
 export default function AgentsScreen({ navigation }) {
   const [agents, setAgents] = useState([]);
@@ -102,7 +103,7 @@ export default function AgentsScreen({ navigation }) {
         </View>
         {isSelected && (
           <View style={styles.check}>
-            <Text style={styles.checkText}>✓</Text>
+            <Check size={14} color="#fff" weight="bold" />
           </View>
         )}
       </TouchableOpacity>
@@ -171,7 +172,10 @@ export default function AgentsScreen({ navigation }) {
           onPress={handleNext}
           activeOpacity={0.8}
         >
-          <Text style={styles.nextText}>Ver propuestas →</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={styles.nextText}>Ver propuestas</Text>
+            <ArrowRight size={18} color="#fff" />
+          </View>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
