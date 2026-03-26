@@ -167,9 +167,9 @@ export function useNotifications(token) {
           body: proposalTitle,
           sound: 'default',
           data: { proposalId },
+          ...(Platform.OS === 'android' && { channelId: 'prolibu' }),
         },
         trigger: null,
-        ...(Platform.OS === 'android' && { channelId: 'prolibu' }),
       }).catch((e) => console.log('[Notifications] Error al mostrar banner:', e.message));
     }
 
