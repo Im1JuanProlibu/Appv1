@@ -125,7 +125,7 @@ export default function ProposalsScreen({ navigation, route }) {
   const [seguimientoModal, setSeguimientoModal] = useState({ visible: false, proposal: null, type: 'urgente' });
   const [msgTemplates, setMsgTemplates] = useState(null); // null = usar defaults
 
-  const { notifications, unread, connected, liveViewing, lastViewed, markAllRead, clearAll } = useNotifications(
+  const { notifications, unread, connected, liveViewing, lastViewed, markAllRead, clearAll, notifPermission } = useNotifications(
     auth?.token ?? null
   );
 
@@ -1175,6 +1175,19 @@ export default function ProposalsScreen({ navigation, route }) {
             </View>
           </View>
 
+          {/* Banner: permiso de notificaciones denegado */}
+          {notifPermission === 'denied' && (
+            <TouchableOpacity
+              style={styles.notifPermBanner}
+              onPress={() => Linking.openSettings()}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.notifPermBannerText}>
+                ⚠️ Los banners están desactivados. Toca aquí para activar notificaciones en Ajustes.
+              </Text>
+            </TouchableOpacity>
+          )}
+
           {notifications.length === 0 ? (
             <View style={styles.notifEmpty}>
               <BellRinging size={48} color={COLORS.textMuted} />
@@ -1920,6 +1933,17 @@ function makeStyles(C) {
   notifTitle: { color: C.text, fontSize: 18, fontWeight: '800' },
   notifConnected: { color: '#22c55e', fontSize: 11, marginTop: 2 },
   notifDisconnected: { color: C.textMuted, fontSize: 11, marginTop: 2 },
+  notifPermBanner: {
+    backgroundColor: '#FDBD0020',
+    borderWidth: 1,
+    borderColor: '#FDBD00',
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  notifPermBannerText: { color: C.text, fontSize: 13, lineHeight: 18 },
   notifHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   notifClearBtn: { paddingHorizontal: 10, paddingVertical: 6 },
   notifClearText: { color: C.textMuted, fontSize: 13 },

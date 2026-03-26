@@ -31,6 +31,7 @@ export function useNotifications(token) {
   const [unread, setUnread] = useState(0);
   const [connected, setConnected] = useState(false);
   const [liveViewing, setLiveViewing] = useState({}); // { [proposalId]: true }
+  const [notifPermission, setNotifPermission] = useState('undetermined'); // 'granted' | 'denied' | 'undetermined'
   const socketRef = useRef(null);
   const socketIdRef = useRef(null);
   // Deduplicar: evita múltiples notificaciones de la misma propuesta en < 30s
@@ -63,6 +64,7 @@ export function useNotifications(token) {
           finalStatus = status;
         }
         notifPermittedRef.current = finalStatus === 'granted';
+        setNotifPermission(finalStatus);
         console.log('[Notifications] Permisos:', finalStatus);
       } catch (e) {
         console.log('[Notifications] Error setup:', e.message);
@@ -230,5 +232,5 @@ export function useNotifications(token) {
     }
   }
 
-  return { notifications, unread, connected, liveViewing, lastViewed, markAllRead, clearAll };
+  return { notifications, unread, connected, liveViewing, lastViewed, markAllRead, clearAll, notifPermission };
 }
