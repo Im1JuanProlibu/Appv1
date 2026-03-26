@@ -5,7 +5,11 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "ios": "expo start --ios"
+    "ios": "expo start --ios",
+    "tunnel": "node kill-port.js 8081 && npx expo start --tunnel",
+    "tunnel:cf": "node start-dev.js",
+    "tunnel:ng": "node start-ngrok.js",
+    "postinstall": "node patch-ngrok.js"
   },
   "dependencies": {
     "@expo/ngrok": "^4.1.3",
