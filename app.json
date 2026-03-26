@@ -22,7 +22,8 @@
       "bundleIdentifier": "com.prolibu.v1",
       "supportsTablet": false,
       "infoPlist": {
-        "NSUserNotificationsUsageDescription": "Para notificarte cuando un cliente está viendo tu propuesta."
+        "NSUserNotificationsUsageDescription": "Para notificarte cuando un cliente está viendo tu propuesta.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "plugins": [
