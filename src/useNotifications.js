@@ -40,21 +40,35 @@ export function useNotifications(token) {
 
   // Pedir permisos al montar (iOS + Android 13+)
   useEffect(() => {
-    Notifications.requestPermissionsAsync().then(({ status }) => {
-      notifPermittedRef.current = status === 'granted';
-      if (status !== 'granted') console.log('[Notifications] Permisos denegados:', status);
-    }).catch(() => {});
+    async function setupNotifications() {
+      try {
+        // Canal de Android PRIMERO (debe existir antes de pedir permisos)
+        if (Platform.OS === 'android') {
+          await Notifications.setNotificationChannelAsync('prolibu', {
+            name: 'Prolibu — Alertas de vista',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#4285F4',
+            sound: 'default',
+            enableLights: true,
+            enableVibrate: true,
+            showBadge: true,
+          });
+        }
 
-    // Canal de notificaciones para Android
-    if (Platform.OS === 'android') {
-      Notifications.setNotificationChannelAsync('prolibu', {
-        name: 'Prolibu',
-        importance: Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#4285F4',
-        sound: true,
-      }).catch(() => {});
+        const { status: existing } = await Notifications.getPermissionsAsync();
+        let finalStatus = existing;
+        if (existing !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+        notifPermittedRef.current = finalStatus === 'granted';
+        console.log('[Notifications] Permisos:', finalStatus);
+      } catch (e) {
+        console.log('[Notifications] Error setup:', e.message);
+      }
     }
+    setupNotifications();
   }, []);
 
   // Cargar notificaciones persistidas al inicio
@@ -78,10 +92,13 @@ export function useNotifications(token) {
     const socketUrl = `${base}:3001`;
 
     const socket = io(socketUrl, {
-      transports: ['polling', 'websocket'],
+      transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionDelay: 3000,
-      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
+      reconnectionAttempts: Infinity,
+      timeout: 10000,
+      forceNew: true,
       // El servidor verifica CORS; enviamos el mismo Origin que usaría el browser.
       extraHeaders: {
         Origin: base,
@@ -142,17 +159,17 @@ export function useNotifications(token) {
     }
     if (proposalId) lastNotifRef.current[proposalId] = now;
 
-    // Banner del sistema operativo (solo iOS — Android Expo Go SDK 53+ no lo soporta)
+    // Banner del sistema operativo
     if (notifPermittedRef.current) {
       Notifications.scheduleNotificationAsync({
         content: {
           title: `👁 ${leadName} vio tu propuesta`,
           body: proposalTitle,
-          sound: true,
+          sound: 'default',
           data: { proposalId },
-          ...(Platform.OS === 'android' && { channelId: 'prolibu' }),
         },
         trigger: null,
+        ...(Platform.OS === 'android' && { channelId: 'prolibu' }),
       }).catch((e) => console.log('[Notifications] Error al mostrar banner:', e.message));
     }
 
