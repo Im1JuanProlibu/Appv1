@@ -16,8 +16,8 @@ export const COLORS = {
   success: '#39B54A',      // Green Amazonia
   error: '#D4145A',        // Red Crayola
   draft: '#FDBD00',        // Yellow Canario — Borrador
-  ready: '#39B54A',        // Green Amazonia — Lista
-  sent: '#4285F4',         // Blue Baru — Aprobada
+  ready: '#4285F4',        // Blue Baru — Lista
+  sent: '#39B54A',         // Green Amazonia — Aprobada
   denied: '#D4145A',       // Red Crayola — Negada
   yellow: '#FDBD00',
   red: '#D4145A',

@@ -24,8 +24,8 @@ const STATUSES = ['Draft', 'Ready', 'Approved', 'Denied'];
 const STATUS_LABEL = { Draft: 'Borrador', Ready: 'Lista', Approved: 'Aprobada', Denied: 'Negada' };
 const STATUS_COLOR = {
   Draft: '#FDBD00',
-  Ready: '#39B54A',
-  Approved: '#4285F4',
+  Ready: '#4285F4',
+  Approved: '#39B54A',
   Denied: '#D4145A',
 };
 

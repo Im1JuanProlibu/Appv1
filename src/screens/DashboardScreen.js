@@ -22,8 +22,8 @@ import { Fire, Thermometer, Snowflake, ArrowClockwise } from 'phosphor-react-nat
 // Brand colors are the same in both themes — use hardcoded hex values
 const STATUS_CONFIG = [
   { key: 'Draft',    label: 'Borrador', color: '#FDBD00' },
-  { key: 'Ready',    label: 'Lista',    color: '#39B54A' },
-  { key: 'Approved', label: 'Aprobada', color: '#4285F4' },
+  { key: 'Ready',    label: 'Lista',    color: '#4285F4' },
+  { key: 'Approved', label: 'Aprobada', color: '#39B54A' },
   { key: 'Denied',   label: 'Negada',   color: '#D4145A' },
 ];
 
@@ -278,8 +278,8 @@ export default function DashboardScreen({ navigation }) {
             <View style={styles.pipeRow}>
               {[
                 { label: 'Borrador',    val: stats.byStatus.Draft,    color: '#FDBD00' },
-                { label: 'Lista',       val: stats.byStatus.Ready,    color: '#39B54A' },
-                { label: 'Aprobada',    val: stats.byStatus.Approved, color: '#4285F4' },
+                { label: 'Lista',       val: stats.byStatus.Ready,    color: '#4285F4' },
+                { label: 'Aprobada',    val: stats.byStatus.Approved, color: '#39B54A' },
                 { label: 'Negada',      val: stats.byStatus.Denied,   color: '#D4145A' },
               ].map(item => (
                 <View key={item.label} style={styles.pipeCard}>

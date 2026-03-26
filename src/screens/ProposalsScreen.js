@@ -31,9 +31,9 @@ import {
 } from 'phosphor-react-native';
 
 const STATUS_COLOR = {
-  Ready: '#39B54A',
   Draft: '#FDBD00',
-  Approved: '#4285F4',
+  Ready: '#4285F4',
+  Approved: '#39B54A',
   Denied: '#D4145A',
 };
 const STATUS_LABEL = { Draft: 'Borrador', Ready: 'Lista', Approved: 'Aprobada', Denied: 'Negada' };
@@ -64,8 +64,8 @@ function makeFilters(accent) {
   return [
     { key: 'all',      label: 'Todas',    color: accent,     fg: '#ffffff' },
     { key: 'Draft',    label: 'Borrador', color: '#FDBD00',  fg: '#000000' },
-    { key: 'Ready',    label: 'Lista',    color: '#39B54A',  fg: '#ffffff' },
-    { key: 'Approved', label: 'Aprobada', color: '#4285F4',  fg: '#ffffff' },
+    { key: 'Ready',    label: 'Lista',    color: '#4285F4',  fg: '#ffffff' },
+    { key: 'Approved', label: 'Aprobada', color: '#39B54A',  fg: '#ffffff' },
     { key: 'Denied',   label: 'Negada',   color: '#D4145A',  fg: '#ffffff' },
   ];
 }

@@ -286,8 +286,8 @@ Todas las peticiones (excepto login) llevan header `Authorization: Bearer {token
 | Valor API | Etiqueta | Color |
 |---|---|---|
 | `Draft` | Borrador | `#FDBD00` Amarillo Canario |
-| `Ready` | Lista | `#39B54A` Verde Amazonia |
-| `Approved` | Aprobada | `#4285F4` Azul Barú |
+| `Ready` | Lista | `#4285F4` Azul Barú |
+| `Approved` | Aprobada | `#39B54A` Verde Amazonia |
 | `Denied` | Negada | `#D4145A` Rojo Crayola |
 
 ---
