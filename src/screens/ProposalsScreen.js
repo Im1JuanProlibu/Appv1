@@ -26,7 +26,7 @@ import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
 import { ProlibuLoader } from '../components/ProlibuLoader';
 import {
-  Bell, BellRinging, Eye, Fire, Phone, Envelope,
+  Bell, BellRinging, Eye, Fire, Thermometer, Snowflake, Phone, Envelope,
   WhatsappLogo, Export, ArrowRight, X, SlidersHorizontal, Check,
 } from 'phosphor-react-native';
 
@@ -504,36 +504,49 @@ export default function ProposalsScreen({ navigation, route }) {
             <Text style={[styles.badgeText, { color }]}>{STATUS_LABEL[item.status] || item.status}</Text>
           </View>
         </View>
-        <View style={styles.cardMeta}>
+        {/* Fila 1: fecha y moneda */}
+        <View style={styles.cardMetaRow}>
+          {item.updatedAt ? (
+            <Text style={styles.metaItem}>{formatDate(item.updatedAt)}</Text>
+          ) : null}
+          {item.currency ? (
+            <View style={styles.metaChip}>
+              <Text style={styles.metaChipText}>
+                {typeof item.currency === 'object' ? item.currency.code : item.currency}
+              </Text>
+            </View>
+          ) : null}
           {item.number ? (
             <View style={styles.metaChip}>
               <Text style={styles.metaChipText}>#{item.number}</Text>
             </View>
           ) : null}
-          {item.updatedAt ? <Text style={styles.metaItem}>{formatDate(item.updatedAt)}</Text> : null}
-          {item.currency ? (
-            <View style={styles.metaChip}>
-              <Text style={styles.metaChipText}>{typeof item.currency === 'object' ? item.currency.code : item.currency}</Text>
-            </View>
-          ) : null}
-          {TEMP_CONFIG[item.rating] && (
-            <View style={[styles.tempBadge, { backgroundColor: TEMP_CONFIG[item.rating].color + '15', borderColor: TEMP_CONFIG[item.rating].color + '50' }]}>
-              <Text style={[styles.tempText, { color: TEMP_CONFIG[item.rating].color }]}>
-                {TEMP_CONFIG[item.rating].label}
-              </Text>
-            </View>
-          )}
-          {(() => {
-            const v = item.views ?? item.visits ?? item.opens ?? item.timesOpened ?? item.opened ?? null;
-            if (v == null) return null;
-            return (
-              <View style={styles.viewsBadge}>
-                <Eye size={11} color={COLORS.textMuted} />
-                <Text style={styles.viewsText}> {v}</Text>
-              </View>
-            );
-          })()}
         </View>
+        {/* Fila 2: temperatura y vistas */}
+        {(TEMP_CONFIG[item.rating] || (item.views ?? item.visits ?? item.opens ?? item.timesOpened ?? item.opened) != null) && (
+          <View style={styles.cardMetaBadges}>
+            {TEMP_CONFIG[item.rating] && (() => {
+              const tc = TEMP_CONFIG[item.rating];
+              const TempIcon = item.rating === 'Hot' ? Fire : item.rating === 'Warm' ? Thermometer : Snowflake;
+              return (
+                <View style={[styles.tempBadge, { backgroundColor: tc.color + '18', borderColor: tc.color + '55' }]}>
+                  <TempIcon size={12} color={tc.color} weight="fill" />
+                  <Text style={[styles.tempText, { color: tc.color }]}>{tc.label}</Text>
+                </View>
+              );
+            })()}
+            {(() => {
+              const v = item.views ?? item.visits ?? item.opens ?? item.timesOpened ?? item.opened ?? null;
+              if (v == null) return null;
+              return (
+                <View style={styles.viewsBadge}>
+                  <Eye size={12} color={COLORS.textMuted} weight="fill" />
+                  <Text style={styles.viewsText}>{v} {v === 1 ? 'vista' : 'vistas'}</Text>
+                </View>
+              );
+            })()}
+          </View>
+        )}
         <View style={styles.cardFooter}>
           <View style={styles.editHint}>
             <Text style={styles.editHintText}>Toca para editar</Text>
@@ -1620,11 +1633,18 @@ function makeStyles(C) {
   },
   badgeDot: { width: 6, height: 6, borderRadius: 3 },
   badgeText: { fontSize: 11, fontWeight: '700' },
-  cardMeta: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
+  cardMetaRow: {
+    flexDirection: 'row', alignItems: 'center',
+    gap: 8, marginBottom: 8, flexWrap: 'wrap',
+  },
+  cardMetaBadges: {
+    flexDirection: 'row', alignItems: 'center',
+    gap: 8, marginBottom: 12,
+  },
   metaItem: { color: C.textMuted, fontSize: 12 },
   metaChip: {
     backgroundColor: C.card, borderRadius: 6,
-    paddingHorizontal: 7, paddingVertical: 2,
+    paddingHorizontal: 7, paddingVertical: 3,
     borderWidth: 1, borderColor: C.border,
   },
   metaChipText: { color: C.textMuted, fontSize: 11, fontWeight: '600' },
@@ -1741,18 +1761,18 @@ function makeStyles(C) {
   },
   leadPickerCountText: { color: C.textMuted, fontSize: 12, fontWeight: '700' },
   tempBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 9, paddingVertical: 4,
+    borderRadius: 8, borderWidth: 1,
   },
-  tempText: { fontSize: 10, fontWeight: '700' },
+  tempText: { fontSize: 12, fontWeight: '700' },
   viewsBadge: {
-    paddingHorizontal: 7, paddingVertical: 2,
-    borderRadius: 20, borderWidth: 1,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 9, paddingVertical: 4,
+    borderRadius: 8, borderWidth: 1,
     borderColor: C.border, backgroundColor: C.card,
   },
-  viewsText: { fontSize: 10, fontWeight: '600', color: C.textMuted },
+  viewsText: { fontSize: 12, fontWeight: '600', color: C.textMuted },
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
   cardFooterRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sendBtn: {
