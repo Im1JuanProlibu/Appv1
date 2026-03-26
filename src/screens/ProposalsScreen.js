@@ -1438,7 +1438,6 @@ function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
                     placeholder="Buscar lead..."
                     placeholderTextColor={COLORS.textMuted}
                     autoCapitalize="none"
-                    autoFocus
                   />
                   <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} nestedScrollEnabled>
                     {[{ id: null, name: 'Todos los leads', email: '' }, ...filteredLeads].map((lead) => {
