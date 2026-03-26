@@ -1,19 +1,140 @@
 # Prolibu V1 — App Móvil
 
-App móvil Android/iOS para gestión de propuestas comerciales Prolibu. Construida con **React Native + Expo SDK 54**.
+App móvil Android/iOS para gestión de propuestas comerciales de la plataforma **Prolibu**. Permite a asesores de ventas crear, editar y hacer seguimiento de propuestas en tiempo real — incluyendo alertas cuando un cliente abre una propuesta.
+
+Construida con **React Native + Expo SDK 54**.
 
 ---
 
-## Stack
+## Qué hace la app
+
+- **Gestión de propuestas**: crear, editar, cambiar estado (Borrador / Lista / Aprobada / Negada), agregar productos/paquetes con descuentos e IVA
+- **Seguimiento en tiempo real**: Socket.IO notifica al asesor en el instante que un cliente abre su propuesta (banner nativo + historial)
+- **Dashboard de KPIs**: conversión, pérdida, pipeline, temperatura de leads
+- **Reportes**: métricas por período con múltiples agrupaciones
+- **CTA inteligente**: sugiere llamar o enviar correo/WhatsApp según comportamiento del lead
+- **Multi-empresa**: cada empresa tiene su propio subdominio Prolibu (`empresa.prolibu.com`)
+- **Modo claro/oscuro** con paleta de marca Prolibu
+
+---
+
+## Requisitos previos
+
+Antes de instalar, asegúrate de tener:
+
+| Herramienta | Versión mínima | Cómo instalar |
+|---|---|---|
+| **Node.js** | 18+ | [nodejs.org](https://nodejs.org) |
+| **npm** | 9+ | Incluido con Node.js |
+| **Git** | cualquiera | [git-scm.com](https://git-scm.com) |
+| **Expo Go** (teléfono) | última versión | App Store / Google Play |
+| **EAS CLI** *(solo para builds)* | última versión | `npm install -g eas-cli` |
+
+> No se necesita Android Studio ni Xcode para desarrollo con Expo Go.
+
+---
+
+## Instalación
+
+```bash
+# 1. Clonar el repositorio
+git clone https://github.com/Im1JuanProlibu/Appv1.git
+cd Appv1
+
+# 2. Instalar dependencias
+#    (el postinstall aplica patch-ngrok.js automáticamente)
+npm install
+
+# 3. Arrancar en modo desarrollo (misma red WiFi)
+npx expo start --go
+
+# O con tunnel si estás en redes diferentes
+npm run tunnel
+```
+
+Luego escanear el QR desde **dentro de Expo Go** (no con la cámara del sistema).
+
+---
+
+## Desarrollo local — opciones de tunnel
+
+### Opción 1 — Misma red WiFi (más estable)
+```bash
+npx expo start --go
+```
+PC y teléfono deben estar en el mismo WiFi.
+
+### Opción 2 — Tunnel recomendado (cualquier red) ✅
+```bash
+npm run tunnel
+```
+- Mata procesos Metro colgados en puerto 8081
+- Aplica parche ngrok v3 automáticamente
+- Arranca con `EXPO_NO_REDIRECT_PAGE=1` para que el QR use `exp://` directo (evita la página de advertencia de ngrok)
+
+### Opción 3 — Cloudflare Tunnel (sin cuenta)
+```bash
+npm run tunnel:cf
+```
+Usa `cloudflared` vía npx. No requiere cuenta ni token. Genera URL `*.trycloudflare.com`.
+
+### Opción 4 — ngrok v3 directo
+```bash
+npm run tunnel:ng
+```
+Requiere ngrok v3 instalado: `winget install ngrok.ngrok` (Windows) o `brew install ngrok` (Mac).
+
+> **Importante:** siempre escanear el QR desde **dentro de Expo Go**, no con la cámara del sistema.
+
+---
+
+## Scripts npm
+
+| Script | Descripción |
+|---|---|
+| `npm start` | Metro sin tunnel |
+| `npm run android` | Abre en emulador Android |
+| `npm run ios` | Abre en simulador iOS (solo Mac) |
+| `npm run tunnel` | **Tunnel recomendado para Expo Go** |
+| `npm run tunnel:cf` | Cloudflare Tunnel alternativo |
+| `npm run tunnel:ng` | ngrok v3 directo |
+
+El `postinstall` aplica `patch-ngrok.js` automáticamente en cada `npm install`.
+
+---
+
+## Build nativo (APK/IPA)
+
+```bash
+npm install -g eas-cli
+eas login           # cuenta expo.dev
+eas init            # solo la primera vez
+
+# Android — APK instalable directamente
+eas build --platform android --profile preview
+
+# iOS — IPA (requiere cuenta Apple Developer $99/año para distribución)
+eas build --platform ios --profile preview
+```
 
 | | |
 |---|---|
-| Framework | React Native + Expo SDK 54 |
-| Navegación | React Navigation (Stack + BottomTabBar personalizado) |
-| Distribución | EAS Build (APK Android / IPA iOS) |
-| Tiempo real | Socket.IO en puerto 3001 |
-| Persistencia local | AsyncStorage |
-| Tema | React Context (claro/oscuro) |
+| Proyecto EAS | `@prolibujuan/prolibu-v1` |
+| Package Android | `com.prolibu.v1` |
+| Bundle ID iOS | `com.prolibu.v1` |
+| Versión | `1.0.1` |
+| Proyecto ID EAS | `8485e9de-7a20-4641-8a90-f37185fc5389` |
+
+> Para iOS sin cuenta de pago: usar **Expo Go** en desarrollo, o Sideloadly con Apple ID gratuito (el IPA caduca cada 7 días).
+
+---
+
+## Primer uso de la app
+
+1. **Ingresar dominio**: escribe el subdominio de tu cuenta Prolibu (ej: `miempresa`) y selecciona la plataforma (`.prolibu.com` o `.nodriza.io`)
+2. **Login**: email y contraseña del usuario en Prolibu
+3. **Seleccionar asesor** *(solo admins)*: elegir el asesor a gestionar
+4. Ya en la app: las propuestas cargan automáticamente y el socket se conecta para alertas en tiempo real
 
 ---
 
@@ -55,34 +176,33 @@ Abrir app
 - Búsqueda en tiempo real por nombre o email
 - Auto-selecciona al usuario logueado si tiene rol de agente
 - Avatar con inicial del nombre, resaltado en azul al seleccionar
-- Botón continuar navega a ProposalsScreen pasando el asesor elegido
 
 ### ProposalsScreen *(tab principal)*
-- Lista de propuestas en `SectionList` con filtros por estado (chips con contador)
-- Panel de filtros avanzados (modal deslizable):
-  - Por lead/cliente
-  - Por actividad (visto hoy, esta semana, sin ver, etc.)
-  - Por temperatura (Hot / Warm / Cold)
-  - Por vistas (tiene vistas, sin vistas, muchas vistas)
-  - Por rango de fechas (hoy, semana, mes, 3 meses, personalizado)
-  - Ordenamiento (recientes, antiguas, creación, A-Z)
-- Indicador en tiempo real cuando un cliente está viendo una propuesta (Socket.IO)
-- Última vez vista por el cliente (hora y nombre)
-- Badge de notificaciones con historial (panel deslizable)
-- **CTA contextual por propuesta (condicional según teléfono del lead):**
-  - 🔥 **Llamarlo ahora** — vista en la última hora + lead tiene teléfono
+- Lista de propuestas en `SectionList` con chips de estado y contador
+- **Panel de filtros avanzados** (modal deslizable):
+  - **Lead**: dropdown colapsable con buscador — muestra el lead seleccionado, al tocar se despliega lista con scroll (sin abrir teclado automáticamente)
+  - Por actividad: visto hoy, esta semana, sin ver, aprobada+vista, lista+vista
+  - Por temperatura: Hot / Warm / Cold
+  - Por vistas: con vistas, sin vistas, 5+ vistas
+  - Por rango de fechas: hoy, semana, mes, 3 meses, personalizado (YYYY-MM-DD)
+  - Ordenamiento: recientes, antiguas, por creación, A-Z
+- Indicador en vivo cuando un cliente está viendo una propuesta (Socket.IO, dura 60s)
+- Última vista: hora y nombre del lead en cada tarjeta
+- Badge de notificaciones + panel historial (máx 50, persistido)
+- **CTA contextual por propuesta** según comportamiento y teléfono del lead:
+  - 🔥 **Llamarlo ahora** — vista en la última hora + tiene teléfono
   - ✉ **Seguimiento por correo** — vista en la última hora + sin teléfono
-  - 📞 **Sin vistas — Llamar ahora** — más de 7 días sin vistas + hay teléfono
-  - ✉ **Sin vistas — Enviar correo** — más de 7 días sin vistas + sin teléfono
-- Modal de envío por propuesta:
-  - **WhatsApp** con plantilla personalizable + número pre-cargado del lead
-  - **Email** con detección automática del cliente (Gmail / Outlook / mailto)
-  - **Compartir** con menú nativo del SO
-  - Selector de URL: corta con seguimiento o anónima sin seguimiento
+  - 📞 **Sin vistas — Llamar ahora** — +7 días sin vistas + tiene teléfono
+  - ✉ **Sin vistas — Enviar correo** — +7 días sin vistas + sin teléfono
+- **Modal de envío** por propuesta:
+  - WhatsApp con plantilla personalizable + número pre-cargado del lead
+  - Email con detección automática del cliente (Gmail / Outlook / mailto)
+  - Compartir con menú nativo del SO
+  - Selector URL: corta con seguimiento o anónima sin seguimiento
 - Pull-to-refresh con ProlibuLoader (sin spinner nativo)
 
 ### CreateProposalScreen
-- Modo **Básico** (por defecto) y modo **Avanzado** (observaciones, fechas, pagos, referencia)
+- Modo **Básico** (por defecto) y **Avanzado** (observaciones, fechas, pagos, referencia)
 - Número de propuesta: 6 caracteres aleatorios `[A-Z0-9]`, editable
 - Búsqueda de lead por email — lo crea automáticamente si no existe
 - Selector de país con código telefónico (+57, +1, +52, etc.)
@@ -92,11 +212,13 @@ Abrir app
 
 ### EditorScreen
 - Carga completa de propuesta (`populate=all`)
-- Selector de estado, moneda (con búsqueda), temperatura
+- Selector de estado con colores de marca
+- **Campo "Razón de negación"**: aparece automáticamente al seleccionar estado `Negada`; se guarda en `PUT /proposal/denialReason`
+- Selector de moneda con búsqueda en tiempo real
 - Gestión de productos: cantidad, descuento (% o $), subtotal con IVA
 - Catálogo con tabs **Productos / Paquetes**
 - Nota por producto (campo `comment`)
-- Guardar: `PUT /proposal/:id` + cambio de estado si aplica
+- Guardar: `PUT /proposal/:id` → cambio de estado si aplica → razón de negación si aplica
 - Pantalla de éxito con URL copiable y botón compartir
 
 ### DashboardScreen
@@ -105,7 +227,7 @@ Abrir app
 - Gráfica de distribución por estado
 - Cards de temperatura (Caliente / Tibia / Fría)
 - Montos: total, aprobado, pipeline
-- Pull-to-refresh con ProlibuLoader overlay (sin spinner nativo)
+- Pull-to-refresh con ProlibuLoader overlay
 
 ### ReportsScreen
 - Selector de rango: 3 meses / 6 meses / Este año / Año pasado / Personalizado
@@ -117,7 +239,7 @@ Abrir app
 
 ### SettingsScreen
 - Perfil del agente (nombre, email, dominio) — solo lectura
-- **Toggle modo claro / oscuro** persistido en AsyncStorage
+- Toggle modo claro / oscuro persistido en AsyncStorage
 - **5 plantillas de mensajes editables** con contador de caracteres:
 
 | Plantilla | Canal | Máx. caracteres |
@@ -128,7 +250,7 @@ Abrir app
 | Asunto | Email | 120 |
 | Cuerpo | Email | 600 |
 
-- Variables disponibles en plantillas: `{nombre}`, `{propuesta}`, `{url}`
+- Variables disponibles: `{nombre}`, `{propuesta}`, `{url}`
 - Botón restaurar predeterminados
 - Cerrar sesión / Cambiar servidor
 
@@ -141,7 +263,7 @@ Abrir app
 | `ProlibuLogoVertical` | `components/ProlibuLogo.js` | Logo PNG vertical — cambia según tema |
 | `ProlibuLogoHorizontal` | `components/ProlibuLogo.js` | Logo PNG horizontal — cambia según tema |
 | `ProlibuSpinner` | `components/ProlibuLoader.js` | 3 pelotas animadas (azul, amarillo, rojo) — inline |
-| `ProlibuLoader` | `components/ProlibuLoader.js` | Overlay absoluteFillObject con ProlibuSpinner — zIndex 999 |
+| `ProlibuLoader` | `components/ProlibuLoader.js` | Overlay `absoluteFillObject` con ProlibuSpinner — zIndex 999 |
 | `BottomTabBar` | `components/BottomTabBar.js` | Tab bar personalizado con 4 tabs y punto indicador |
 
 ---
@@ -167,117 +289,7 @@ const styles = makeStyles(COLORS); // estilos reactivos al tema
 | `error` | `#D4145A` | `#D4145A` |
 | `draft` | `#FDBD00` | `#FDBD00` |
 
-Los logos cambian automáticamente entre versión blanca (modo claro) y negra (modo oscuro).
-
----
-
-## Iconografía (Phosphor Icons)
-
-Todos los iconos usan **[phosphor-react-native](https://github.com/duongdev/phosphor-react-native)** — SVG nativos con 6 pesos.
-
-```jsx
-import { Fire, Phone, Envelope } from 'phosphor-react-native';
-<Fire size={20} color="#FF5722" weight="fill" />
-```
-
-| Pesos | Uso |
-|---|---|
-| `regular` | Estado inactivo (tabs, iconos sin foco) |
-| `fill` | Estado activo, énfasis |
-| `bold` | Checkmarks, confirmaciones |
-| `light` / `thin` | Decorativos |
-| `duotone` | Efectos de dos tonos con `duotoneColor` |
-
-**Iconos por pantalla:**
-
-| Pantalla | Icono | Componente |
-|---|---|---|
-| Bottom tabs | Propuestas | `SquaresFour` |
-| Bottom tabs | Dashboard | `ChartBar` |
-| Bottom tabs | Reportes | `Rows` |
-| Bottom tabs | Ajustes | `GearSix` |
-| Login | Ver/ocultar contraseña | `Eye` / `EyeSlash` |
-| Agentes | Asesor seleccionado | `Check` |
-| Agentes | Continuar | `ArrowRight` |
-| Propuestas | Notificaciones | `Bell` / `BellRinging` |
-| Propuestas | Filtros avanzados | `SlidersHorizontal` |
-| Propuestas | CTA urgente | `Fire` |
-| Propuestas | CTA teléfono | `Phone` |
-| Propuestas | CTA correo | `Envelope` |
-| Propuestas | Canal WhatsApp | `WhatsappLogo` |
-| Propuestas | Canal compartir | `Export` |
-| Dashboard | Temperatura caliente | `Fire` |
-| Dashboard | Temperatura tibia | `Thermometer` |
-| Dashboard | Temperatura fría | `Snowflake` |
-| Dashboard | Recargar | `ArrowClockwise` |
-| Editor / Crear | Volver | `ArrowLeft` |
-| Editor / Crear | Cerrar modal | `X` |
-| Editor / Crear | Ítem seleccionado | `Check` |
-| Editor | Propuesta guardada | `CheckCircle` |
-
----
-
-## Loader animado (ProlibuLoader)
-
-Animación de 3 pelotas con colores de marca usando `Animated.loop` + `Easing.bezier(0.28, 0.84, 0.42, 1)`:
-
-- **Azul** `#4285F4` — delay 0ms
-- **Amarillo** `#FDBD00` — delay 400ms
-- **Rojo** `#D4145A` — delay 800ms
-
-Se usa como overlay (`absoluteFillObject`) para evitar que el layout se mueva durante la carga. El `RefreshControl` se configura con `refreshing={false}` y `tintColor="transparent"` para ocultar el spinner nativo del SO.
-
----
-
-## Notificaciones en tiempo real
-
-Socket.IO autenticado en `{dominio}:3001`:
-
-```
-App conecta → emite { accessToken }
-             ← recibe authenticated { socketId }
-             ← escucha canal socketId: { action: 'common.proposalView', data }
-```
-
-- Banner nativo del SO (iOS y Android) al recibir una vista
-- Canal Android `prolibu` con prioridad HIGH
-- Historial de hasta 50 notificaciones con persistencia en AsyncStorage
-- Deduplicación de 30 segundos por propuesta
-- Indicador en vivo (`liveViewing`) visible en las tarjetas por 60 segundos
-- Reconexión automática (cada 3s, máx 10 intentos)
-
-> Las notificaciones funcionan solo mientras la app está abierta (Socket.IO). Para notificaciones con app cerrada se requiere integración FCM/APNs en el backend de Prolibu.
-
----
-
-## API
-
-Base URL dinámica: `https://{subdominio}.prolibu.com/v1`
-
-Todas las peticiones (excepto login) llevan header `Authorization: Bearer {token}`.
-
-| Función | Método | Endpoint |
-|---|---|---|
-| `login` | POST | `/user/login` |
-| `getAgents` | GET | `/publicservices/getAgents?roles[]=agent` |
-| `getProposals` | GET | `/proposal?inCharge={id}&sort=updatedAt DESC&populate=all` |
-| `getProposal` | GET | `/proposal/:id?populate=all` |
-| `getProposalStats` | GET | `/proposal/calcStats?inCharge={id}` |
-| `createProposal` | POST | `/proposal` |
-| `saveProposal` | PUT | `/proposal/:id` |
-| `changeProposalStatus` | PUT | `/proposal/changeStatus` |
-| `getProducts` | GET | `/product?disabled=false&limit=1000` |
-| `createProduct` | POST | `/product` |
-| `getPackages` | GET | `/package?sort=updatedAt DESC&limit=200` |
-| `getCurrencies` | GET | `/currency` |
-| `searchCurrencies` | GET | `/currency?code={q}&limit=10` |
-| `checkLeadByEmail` | GET | `/lead/exist?key=email&val={email}` |
-| `searchLeadByEmail` | GET | `/lead?email={email}` |
-| `createLead` | POST | `/lead` |
-| `generateShortUrl` | POST | `/urlShort/generate` |
-| `getReports` | GET | `/report?limit=50` |
-| `runReport` | GET | `/report/:id/run` |
-| `downloadReport` | GET | `/report/:id/download` |
+Los logos cambian automáticamente entre versión blanca (modo oscuro) y negra (modo claro).
 
 ---
 
@@ -292,12 +304,67 @@ Todas las peticiones (excepto login) llevan header `Authorization: Bearer {token
 
 ---
 
+## Notificaciones en tiempo real
+
+El hook `useNotifications(token)` en `src/useNotifications.js` conecta via Socket.IO al servidor Prolibu en el puerto 3001.
+
+```
+App conecta a {dominio}:3001
+  → emite:  authenticate { accessToken }
+  ← recibe: authenticated { socketId }
+  ← escucha canal socketId: { action: 'common.proposalView', data }
+```
+
+- Banner nativo del SO (iOS y Android) al recibir una vista
+- Canal Android `prolibu` con prioridad MAX, vibración y luces
+- Historial de hasta 50 notificaciones persistido en AsyncStorage
+- Deduplicación de 30 segundos por propuesta
+- Indicador en vivo (`liveViewing`) visible en tarjetas por 60 segundos
+- Reconexión automática sin límite de intentos
+- Si los permisos de notificación están denegados: banner amarillo en el panel con link directo a Ajustes del sistema
+
+> Las notificaciones funcionan solo mientras la app está abierta. Para notificaciones con app cerrada se requiere integración FCM/APNs en el backend de Prolibu.
+
+---
+
+## API
+
+Base URL dinámica: `https://{subdominio}.prolibu.com/v1` (configurable en DomainScreen, guardado en AsyncStorage).
+
+Todas las peticiones (excepto login) llevan header `Authorization: Bearer {token}`.
+
+| Función en `api.js` | Método | Endpoint |
+|---|---|---|
+| `login` | POST | `/user/login` |
+| `getAgents` | GET | `/publicservices/getAgents?roles[]=agent&status=active` |
+| `getProposals` | GET | `/proposal?inCharge={id}&sort=updatedAt DESC&populate=all` |
+| `getProposal` | GET | `/proposal/:id?populate=all` |
+| `getProposalStats` | GET | `/proposal/calcStats?inCharge={id}` |
+| `createProposal` | POST | `/proposal` |
+| `saveProposal` | PUT | `/proposal/:id` |
+| `changeProposalStatus` | PUT | `/proposal/changeStatus` |
+| `saveDenialReason` | PUT | `/proposal/denialReason` |
+| `getProducts` | GET | `/product?disabled=false&limit=1000` |
+| `createProduct` | POST | `/product` |
+| `getPackages` | GET | `/package?sort=updatedAt DESC&limit=200` |
+| `getCurrencies` | GET | `/currency` |
+| `searchCurrencies` | GET | `/currency/search?criteria={q}` |
+| `checkLeadByEmail` | GET | `/lead/exist?key=email&val={email}` |
+| `searchLeadByEmail` | GET | `/lead?email={email}` |
+| `createLead` | POST | `/lead` |
+| `generateShortUrl` | POST | `/urlShort/generate` |
+| `getReports` | GET | `/report?limit=50` |
+| `runReport` | GET | `/report/:id/run` |
+| `downloadReport` | GET | `/report/:id/download` |
+
+---
+
 ## Persistencia local (AsyncStorage)
 
 | Clave | Contenido |
 |---|---|
 | `domain` | URL base del servidor (`https://sub.prolibu.com`) |
-| `auth` | Token JWT + datos del usuario logueado |
+| `auth` | Token JWT + datos del usuario logueado (JSON) |
 | `dark_mode` | Preferencia de tema (`"true"` / `"false"`) |
 | `prolibu_notifications` | Historial de notificaciones (JSON, máx 50) |
 | `message_templates` | Plantillas de mensajes personalizadas (JSON) |
@@ -309,110 +376,53 @@ Todas las peticiones (excepto login) llevan header `Authorization: Bearer {token
 ```
 Appv1/
 ├── App.js                          # Entry point — ThemeProvider + NavigationContainer
-├── app.json                        # Config Expo (nombre, ícono, splash, bundle IDs)
+├── app.json                        # Config Expo (nombre, ícono, splash, bundle IDs, plugins)
 ├── eas.json                        # Config EAS Build (preview APK/IPA, production)
-├── kill-port.js                    # Libera puerto 8081 antes de arrancar
-├── patch-ngrok.js                  # Parchea @expo/ngrok para ngrok v3
-├── start-ngrok.js                  # ngrok v3 directo + Metro + QR
-├── start-dev.js                    # Cloudflare Tunnel + Metro + QR
+├── package.json                    # Dependencias y scripts npm
+├── babel.config.js                 # Config Babel para Expo
+├── kill-port.js                    # Libera puerto 8081 antes de arrancar Metro
+├── patch-ngrok.js                  # Parchea @expo/ngrok para compatibilidad con ngrok v3
+├── start-ngrok.js                  # ngrok v3 directo + Metro + QR en consola
+├── start-dev.js                    # Cloudflare Tunnel + Metro + QR en consola
 ├── assets/
-│   ├── icon.png                    # Ícono de la app (800x800)
-│   ├── safe-white-logo-horizontal.png
-│   ├── safe-white-logo-vertical.png
-│   ├── safe-black-logo-horizontal.png
-│   └── safe-black-logo-vertical.png
+│   ├── icon.png                    # Ícono app (800×800, fondo negro)
+│   ├── safe-white-logo-horizontal.png   # Logo blanco horizontal (modo claro)
+│   ├── safe-white-logo-vertical.png     # Logo blanco vertical (modo claro)
+│   ├── safe-black-logo-horizontal.png   # Logo negro horizontal (modo oscuro)
+│   └── safe-black-logo-vertical.png     # Logo negro vertical (modo oscuro)
 └── src/
-    ├── api.js                      # Todas las llamadas a la API
-    ├── theme.js                    # Paleta LIGHT estática (referencia)
-    ├── ThemeContext.js             # Context claro/oscuro — useTheme()
-    ├── useNotifications.js         # Hook Socket.IO + notificaciones locales
+    ├── api.js                      # Todas las llamadas a la API REST de Prolibu
+    ├── theme.js                    # Paleta de colores LIGHT estática (referencia)
+    ├── ThemeContext.js             # React Context claro/oscuro — exporta useTheme()
+    ├── useNotifications.js         # Hook Socket.IO + notificaciones locales + historial
     ├── components/
-    │   ├── ProlibuLogo.js          # Logos PNG dinámicos por tema (vertical + horizontal)
-    │   ├── ProlibuLoader.js        # Spinner 3 pelotas + overlay fullscreen
-    │   └── BottomTabBar.js         # Tab bar personalizado (4 tabs)
+    │   ├── ProlibuLogo.js          # Logos PNG dinámicos según tema (vertical + horizontal)
+    │   ├── ProlibuLoader.js        # Spinner 3 pelotas de marca + overlay fullscreen
+    │   └── BottomTabBar.js         # Tab bar personalizado con 4 tabs y punto indicador
     └── screens/
-        ├── DomainScreen.js         # Configurar servidor
-        ├── LoginScreen.js          # Autenticación
-        ├── AgentsScreen.js         # Selector de asesor (modo admin)
-        ├── ProposalsScreen.js      # Lista propuestas + filtros + notificaciones
-        ├── CreateProposalScreen.js # Crear propuesta nueva
-        ├── EditorScreen.js         # Editar propuesta existente
-        ├── DashboardScreen.js      # KPIs y estadísticas
-        ├── ReportsScreen.js        # Reportes con rangos y períodos
+        ├── DomainScreen.js         # Configurar servidor (subdominio Prolibu)
+        ├── LoginScreen.js          # Autenticación email + contraseña
+        ├── AgentsScreen.js         # Selector de asesor (solo admins)
+        ├── ProposalsScreen.js      # Lista propuestas + filtros + notificaciones + CTA
+        ├── CreateProposalScreen.js # Crear propuesta nueva (básico/avanzado)
+        ├── EditorScreen.js         # Editar propuesta + razón de negación
+        ├── DashboardScreen.js      # KPIs y estadísticas de pipeline
+        ├── ReportsScreen.js        # Reportes por período y agrupación
         └── SettingsScreen.js       # Preferencias + plantillas de mensajes
 ```
 
 ---
 
-## Desarrollo local
+## Iconografía (Phosphor Icons)
 
-**Opción 1 — Misma red WiFi (más estable):**
-```bash
-npm install
-npx expo start --go
-```
-Escanear el QR con **Expo Go** desde dentro de la app (teléfono y PC en el mismo WiFi).
+Todos los iconos usan **[phosphor-react-native](https://github.com/duongdev/phosphor-react-native)** — SVG nativos con 6 pesos.
 
-**Opción 2 — Tunnel recomendado (cualquier red):**
-```bash
-npm run tunnel
-```
-Mata cualquier proceso Metro colgado, aplica parches ngrok v3 y arranca el tunnel con `EXPO_NO_REDIRECT_PAGE=1` para que el QR use `exp://` directamente (evita la página intermedia de ngrok).
-
-> Importante: escanear el QR desde **dentro de Expo Go** (no con la cámara del sistema).
-
-**Opción 3 — Cloudflare Tunnel (sin cuenta, sin instalación):**
-```bash
-npm run tunnel:cf
-```
-Usa `cloudflared` via npx. No requiere cuenta ni token. Genera URL `*.trycloudflare.com`.
-
-**Opción 4 — ngrok v3 directo:**
-```bash
-npm run tunnel:ng
-```
-Inicia ngrok directamente (requiere ngrok v3 en PATH: `winget install ngrok.ngrok`), Metro y muestra QR con `exp://`.
-
----
-
-## Scripts npm
-
-| Script | Comando | Descripción |
-|---|---|---|
-| `npm start` | `expo start` | Metro sin tunnel |
-| `npm run android` | `expo start --android` | Abre en emulador Android |
-| `npm run ios` | `expo start --ios` | Abre en simulador iOS |
-| `npm run tunnel` | `kill-port + expo start --tunnel --go` | **Tunnel recomendado para Expo Go** |
-| `npm run tunnel:cf` | `node start-dev.js` | Cloudflare Tunnel alternativo |
-| `npm run tunnel:ng` | `node start-ngrok.js` | ngrok v3 directo |
-
-El `postinstall` aplica `patch-ngrok.js` automáticamente en cada `npm install`.
-
----
-
-## Build nativo (EAS)
-
-```bash
-npm install -g eas-cli
-eas login
-eas init
-
-# Android — APK instalable
-eas build --platform android --profile preview
-
-# iOS — IPA (instalar con Sideloadly + Apple ID gratuito, expira 7 días)
-eas build --platform ios --profile preview
+```jsx
+import { Fire, Phone, Envelope } from 'phosphor-react-native';
+<Fire size={20} color="#FF5722" weight="fill" />
 ```
 
-| | |
-|---|---|
-| Proyecto EAS | `@prolibujuan/prolibu-v1` |
-| Package Android | `com.prolibu.v1` |
-| Bundle ID iOS | `com.prolibu.v1` |
-| Versión | `1.0.0` |
-| Proyecto ID | `8485e9de-7a20-4641-8a90-f37185fc5389` |
-
-> El ícono debe llamarse `icon.png` (minúsculas) — los servidores EAS de Linux son case-sensitive.
+Pesos usados: `regular` (inactivo), `fill` (activo/énfasis), `bold` (confirmaciones).
 
 ---
 
@@ -423,18 +433,18 @@ eas build --platform ios --profile preview
 | `expo` | `~54.0.0` | Runtime base |
 | `react-native` | `0.81.5` | UI nativa |
 | `react` | `19.1.0` | Librería base |
-| `@react-navigation/native-stack` | `^6.11.0` | Navegación |
+| `@react-navigation/native-stack` | `^6.11.0` | Navegación entre pantallas |
 | `@react-native-async-storage/async-storage` | `2.2.0` | Persistencia local |
-| `react-native-safe-area-context` | `~5.6.0` | Áreas seguras |
-| `react-native-screens` | `~4.16.0` | Optimización navegación |
+| `react-native-safe-area-context` | `~5.6.0` | Áreas seguras (notch, home bar) |
+| `react-native-screens` | `~4.16.0` | Optimización de navegación |
 | `expo-notifications` | `~0.32.16` | Banners locales iOS/Android |
-| `expo-asset` | `~12.0.12` | Assets estáticos |
+| `expo-asset` | `~12.0.12` | Assets estáticos (imágenes) |
 | `expo-constants` | `~18.0.13` | Constantes de entorno |
 | `expo-dev-client` | `~6.0.20` | Builds de desarrollo personalizados |
-| `socket.io-client` | `^4.5.4` | Tiempo real |
+| `socket.io-client` | `^4.5.4` | Tiempo real (alertas de vista) |
 | `phosphor-react-native` | `^3.0.3` | Iconografía SVG (800+ iconos) |
 | `react-native-svg` | `15.12.1` | Dependencia de Phosphor |
-| `@expo/ngrok` | `^4.1.3` | Tunnel Expo (parcheado para v3) |
+| `@expo/ngrok` | `^4.1.3` | Tunnel Expo (parcheado para ngrok v3) |
 | `ngrok` | `^4.3.3` | Cliente ngrok v3 |
 | `qrcode-terminal` | `^0.12.0` | QR en consola para scripts de tunnel |
 
@@ -445,3 +455,13 @@ eas build --platform ios --profile preview
 | `@babel/core` | Compilación JS |
 | `babel-preset-expo` | Preset Babel para Expo |
 | `cross-env` | Variables de entorno cross-platform en scripts npm |
+
+---
+
+## Notas de desarrollo
+
+- El ícono debe llamarse `icon.png` (minúsculas) — los servidores EAS de Linux son case-sensitive
+- El archivo `sas` está en `.gitignore` — contiene datos de clientes reales
+- `patch-ngrok.js` se ejecuta automáticamente en cada `npm install` vía `postinstall`
+- El socket usa `transports: ['websocket', 'polling']` — websocket primero para mejor rendimiento
+- En Android 13+ el permiso de notificaciones debe ser concedido explícitamente en el primer launch
