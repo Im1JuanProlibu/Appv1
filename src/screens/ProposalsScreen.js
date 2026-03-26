@@ -27,7 +27,7 @@ import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
 import { ProlibuLoader } from '../components/ProlibuLoader';
 import {
   Bell, BellRinging, Eye, Fire, Thermometer, Snowflake, Phone, Envelope,
-  WhatsappLogo, Export, ArrowRight, X, SlidersHorizontal, Check,
+  WhatsappLogo, Export, ArrowRight, X, SlidersHorizontal, Check, CaretDown,
 } from 'phosphor-react-native';
 
 const STATUS_COLOR = {
@@ -1228,6 +1228,7 @@ function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
   const [dfrom, setDfrom] = useState(initialValues.dfrom);
   const [dto,   setDto]   = useState(initialValues.dto);
   const [leadSearch, setLeadSearch] = useState('');
+  const [leadDropOpen, setLeadDropOpen] = useState(false);
 
   React.useEffect(() => {
     if (visible) {
@@ -1240,13 +1241,14 @@ function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
       setDfrom(initialValues.dfrom);
       setDto(initialValues.dto);
       setLeadSearch('');
+      setLeadDropOpen(false);
     }
   }, [visible]);
 
   function clearAll() {
     setSort('updatedAt_desc'); setAf('all'); setRf('all');
     setVf('all'); setLf(null); setDf('all'); setDfrom(''); setDto('');
-    setLeadSearch('');
+    setLeadSearch(''); setLeadDropOpen(false);
   }
 
   // Chip toggle: si ya está activo, vuelve a 'all'
@@ -1397,31 +1399,55 @@ function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
             </PanelSection>
 
             <PanelSection title="Lead">
-              <TextInput
-                style={[styles.emailSubjectInput, { marginBottom: 8 }]}
-                value={leadSearch}
-                onChangeText={setLeadSearch}
-                placeholder="Buscar lead..."
-                placeholderTextColor={COLORS.textMuted}
-                autoCapitalize="none"
-              />
-              {[{ id: null, name: 'Todos los leads', email: '' }, ...filteredLeads].map((lead) => {
-                const active = lf === lead.id;
-                return (
-                  <TouchableOpacity
-                    key={lead.id ?? '__all__'}
-                    style={[styles.panelLeadBtn, { marginBottom: 6 }, active && styles.panelLeadBtnActive]}
-                    onPress={() => setLf(active && lead.id !== null ? null : lead.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.panelLeadBtnText, active && styles.panelLeadBtnTextActive]}>{lead.name}</Text>
-                      {lead.email ? <Text style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>{lead.email}</Text> : null}
-                    </View>
-                    {active && <Check size={16} color={COLORS.accent} weight="bold" />}
-                  </TouchableOpacity>
-                );
-              })}
+              {/* Botón selector colapsable */}
+              <TouchableOpacity
+                style={styles.leadDropBtn}
+                onPress={() => setLeadDropOpen((v) => !v)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.leadDropBtnText, lf && { color: COLORS.accent }]} numberOfLines={1}>
+                  {lf ? (leads.find((l) => l.id === lf)?.name || 'Lead seleccionado') : 'Todos los leads'}
+                </Text>
+                <CaretDown
+                  size={16}
+                  color={COLORS.textMuted}
+                  style={{ transform: [{ rotate: leadDropOpen ? '180deg' : '0deg' }] }}
+                />
+              </TouchableOpacity>
+
+              {/* Lista desplegable */}
+              {leadDropOpen && (
+                <View style={styles.leadDropList}>
+                  <TextInput
+                    style={[styles.emailSubjectInput, { marginBottom: 8, marginTop: 4 }]}
+                    value={leadSearch}
+                    onChangeText={setLeadSearch}
+                    placeholder="Buscar lead..."
+                    placeholderTextColor={COLORS.textMuted}
+                    autoCapitalize="none"
+                    autoFocus
+                  />
+                  <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} nestedScrollEnabled>
+                    {[{ id: null, name: 'Todos los leads', email: '' }, ...filteredLeads].map((lead) => {
+                      const active = lf === lead.id;
+                      return (
+                        <TouchableOpacity
+                          key={lead.id ?? '__all__'}
+                          style={[styles.panelLeadBtn, { marginBottom: 6 }, active && styles.panelLeadBtnActive]}
+                          onPress={() => { setLf(active && lead.id !== null ? null : lead.id); setLeadDropOpen(false); setLeadSearch(''); }}
+                          activeOpacity={0.7}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.panelLeadBtnText, active && styles.panelLeadBtnTextActive]}>{lead.name}</Text>
+                            {lead.email ? <Text style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>{lead.email}</Text> : null}
+                          </View>
+                          {active && <Check size={16} color={COLORS.accent} weight="bold" />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
             </PanelSection>
 
             <TouchableOpacity
@@ -1729,10 +1755,21 @@ function makeStyles(C) {
   panelChipActive: { borderColor: C.accent, backgroundColor: C.accent + '15' },
   panelChipText: { color: C.textMuted, fontSize: 13, fontWeight: '600' },
   panelChipTextActive: { color: C.accent, fontWeight: '700' },
-  panelLeadBtn: {
+  leadDropBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     borderWidth: 1, borderColor: C.border, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 12, backgroundColor: C.card,
+  },
+  leadDropBtnText: { color: C.textMuted, fontSize: 14, flex: 1, marginRight: 8 },
+  leadDropList: {
+    borderWidth: 1, borderColor: C.border, borderRadius: 10,
+    marginTop: 6, paddingHorizontal: 10, paddingTop: 4, paddingBottom: 6,
+    backgroundColor: C.card, maxHeight: 280,
+  },
+  panelLeadBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderWidth: 1, borderColor: C.border, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 12, backgroundColor: C.bg,
   },
   panelLeadBtnActive: { borderColor: C.accent, backgroundColor: C.accent + '10' },
   panelLeadBtnText: { color: C.textMuted, fontSize: 14 },
