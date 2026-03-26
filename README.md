@@ -24,6 +24,7 @@ Abrir app
   ├── Sin dominio guardado  → DomainScreen
   └── Con dominio
         ├── Sin sesión      → LoginScreen
+        │                         └── (admin) → AgentsScreen → elige asesor
         └── Con sesión      → ProposalsScreen (tab principal)
                                   ├── [Tab] Dashboard   → DashboardScreen
                                   ├── [Tab] Reportes    → ReportsScreen
@@ -42,6 +43,13 @@ Abrir app
 - **Toggle para mostrar/ocultar contraseña**
 - Logo PNG dinámico (claro/oscuro)
 - Botón "Cambiar cuenta" para regresar al DomainScreen
+
+### AgentsScreen *(modo admin)*
+- Lista todos los asesores del equipo (`GET /publicservices/getAgents?roles[]=agent`)
+- Búsqueda en tiempo real por nombre o email
+- Auto-selecciona al usuario logueado si tiene rol de agente
+- Avatar con inicial del nombre
+- Botón "Continuar" navega a `ProposalsScreen` con el asesor elegido
 
 ### ProposalsScreen *(tab principal)*
 - Lista de propuestas del agente con filtros por estado (chips con contador)
@@ -121,7 +129,6 @@ Abrir app
 | `ProlibuSpinner` | 3 pelotas animadas (azul, amarillo, rojo) — inline |
 | `ProlibuLoader` | Overlay absoluteFillObject con ProlibuSpinner — zIndex 999 |
 | `BottomTabBar` | Tab bar personalizado con 4 tabs y punto indicador |
-| `FilterPanel` | Panel de filtros avanzados (modal deslizable) |
 
 ---
 
@@ -189,6 +196,8 @@ import { Fire, Phone, Envelope } from 'phosphor-react-native';
 | Editor / Crear | Cerrar modal | `X` |
 | Editor / Crear | Ítem seleccionado | `Check` |
 | Editor | Propuesta guardada | `CheckCircle` |
+| Agentes | Asesor seleccionado | `Check` |
+| Agentes | Continuar / navegar | `ArrowRight` |
 
 ---
 
@@ -231,16 +240,20 @@ Base URL dinámica: `https://{subdominio}.prolibu.com/v1`
 | Función | Método | Endpoint |
 |---|---|---|
 | `login` | POST | `/user/login` |
+| `getAgents` | GET | `/publicservices/getAgents?roles[]=agent` |
 | `getProposals` | GET | `/proposal?inCharge={id}&limit=200&populate=all` |
 | `getProposal` | GET | `/proposal/:id?populate=all` |
+| `getProposalStats` | GET | `/proposal/calcStats?inCharge={id}` |
 | `createProposal` | POST | `/proposal` |
 | `saveProposal` | PUT | `/proposal/:id` |
 | `changeProposalStatus` | PUT | `/proposal/changeStatus` |
 | `getProducts` | GET | `/product?disabled=false&limit=1000` |
+| `createProduct` | POST | `/product` |
 | `getPackages` | GET | `/package?sort=updatedAt DESC&limit=200` |
 | `getCurrencies` | GET | `/currency` |
 | `searchCurrencies` | GET | `/currency?code={q}&limit=10` |
 | `checkLeadByEmail` | GET | `/lead/exist?key=email&val={email}` |
+| `searchLeadByEmail` | GET | `/lead?email={email}&...` |
 | `createLead` | POST | `/lead` |
 | `generateShortUrl` | POST | `/urlShort/generate` |
 | `getReports` | GET | `/report?limit=50` |
@@ -267,6 +280,9 @@ Appv1/
 ├── App.js                          # Entry point — ThemeProvider + NavigationContainer
 ├── app.json                        # Config Expo (nombre, ícono, splash, bundle IDs)
 ├── eas.json                        # Config EAS Build (preview APK/IPA, production)
+├── patch-ngrok.js                  # Parchea @expo/ngrok para compatibilidad con ngrok v3
+├── start-ngrok.js                  # Inicia ngrok v3 + Metro + QR (alternativa a --tunnel)
+├── start-dev.js                    # Inicia Cloudflare Tunnel + Metro + QR
 ├── assets/
 │   ├── icon.png                    # Ícono de la app (800x800)
 │   ├── safe-white-logo-horizontal.png
@@ -281,11 +297,11 @@ Appv1/
     ├── components/
     │   ├── ProlibuLogo.js          # Logos PNG dinámicos por tema
     │   ├── ProlibuLoader.js        # Spinner animado 3 pelotas + overlay
-    │   ├── BottomTabBar.js         # Tab bar personalizado
-    │   └── FilterPanel.js          # Panel filtros avanzados
+    │   └── BottomTabBar.js         # Tab bar personalizado
     └── screens/
         ├── DomainScreen.js
         ├── LoginScreen.js
+        ├── AgentsScreen.js         # Selector de asesor (modo admin)
         ├── ProposalsScreen.js
         ├── CreateProposalScreen.js
         ├── EditorScreen.js
@@ -305,11 +321,28 @@ npx expo start --go
 ```
 Escanear el QR con **Expo Go** en el dispositivo (teléfono y PC en el mismo WiFi).
 
-**Con tunnel (si el teléfono está en otra red):**
+**Con tunnel Expo (si el teléfono está en otra red):**
 ```bash
 npx expo start --tunnel --go
 ```
-> Requiere `@expo/ngrok` instalado. Si hay errores de ngrok (`session closed`, `remote gone away`), es un problema de disponibilidad del servicio. Usar la opción LAN es más confiable.
+> Requiere `@expo/ngrok` instalado. Si hay errores de ngrok (`session closed`, `remote gone away`), usa una de las siguientes alternativas.
+
+**Con ngrok v3 directo (tunnel estable, requiere ngrok v3 instalado):**
+```bash
+# 1. Parchear @expo/ngrok una vez después de npm install
+node patch-ngrok.js
+
+# 2. Iniciar tunnel + Metro + QR automático
+node start-ngrok.js
+```
+> Requiere `ngrok` v3 en PATH. Instalar con: `winget install ngrok.ngrok`
+> El parche se puede automatizar agregando `"postinstall": "node patch-ngrok.js"` en `package.json`.
+
+**Con Cloudflare Tunnel (sin cuenta, sin instalación):**
+```bash
+node start-dev.js
+```
+> Usa `cloudflared` via npx. No requiere cuenta. Genera URL `*.trycloudflare.com`.
 
 ---
 
@@ -348,6 +381,9 @@ eas build --platform ios --profile preview
 | `expo-notifications ~0.29.0` | Banners locales iOS/Android |
 | `socket.io-client ^4.5.4` | Tiempo real |
 | `expo-asset` | Assets estáticos |
-| `@expo/ngrok ^4.1.0` | Tunnel para desarrollo (opcional) |
+| `expo-dev-client ~6.0.20` | Builds de desarrollo personalizados |
+| `@expo/ngrok ^4.1.3` | Tunnel para desarrollo (requiere parche v3) |
+| `ngrok ^4.3.3` | Cliente ngrok v3 (usado por `start-ngrok.js`) |
+| `qrcode-terminal ^0.12.0` | Genera QR en consola para `start-ngrok.js` y `start-dev.js` |
 | `phosphor-react-native ^3.0.3` | Iconografía SVG (1000+ iconos) |
 | `react-native-svg 15.12.1` | Dependencia de Phosphor |
