@@ -6,7 +6,7 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "tunnel": "node kill-port.js 8081 && npx expo start --tunnel",
+    "tunnel": "node kill-port.js 8081 && npx expo start --tunnel --go",
     "tunnel:cf": "node start-dev.js",
     "tunnel:ng": "node start-ngrok.js",
     "postinstall": "node patch-ngrok.js"
@@ -20,7 +20,7 @@
     "expo-asset": "~12.0.12",
     "expo-constants": "~18.0.13",
     "expo-dev-client": "~6.0.20",
-    "expo-notifications": "~0.29.0",
+    "expo-notifications": "~0.32.16",
     "ngrok": "^4.3.3",
     "phosphor-react-native": "^3.0.3",
     "qrcode-terminal": "^0.12.0",
