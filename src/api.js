@@ -106,6 +106,19 @@ export function saveProposal(id, body, token) {
   });
 }
 
+// PUT /v1/proposal/denialReason
+export function saveDenialReason(id, denialReason, token) {
+  return request('/proposal/denialReason', {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'accept': 'application/json',
+    },
+    body: JSON.stringify({ id, denialReason }),
+  });
+}
+
 // PUT /v1/proposal/changeStatus
 export function changeProposalStatus(id, status, token) {
   return request('/proposal/changeStatus', {

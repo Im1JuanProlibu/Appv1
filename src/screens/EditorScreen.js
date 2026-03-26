@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../ThemeContext';
-import { getProposal, saveProposal, changeProposalStatus, getProducts, getPackages, getCurrencies, searchCurrencies, getApiBase, createProduct } from '../api';
+import { getProposal, saveProposal, changeProposalStatus, saveDenialReason, getProducts, getPackages, getCurrencies, searchCurrencies, getApiBase, createProduct } from '../api';
 import { ProlibuSpinner } from '../components/ProlibuLoader';
 import { ArrowLeft, ArrowRight, CheckCircle, X, Check } from 'phosphor-react-native';
 
@@ -159,6 +159,7 @@ export default function EditorScreen({ navigation, route }) {
   }, []);
 
   const [originalStatus, setOriginalStatus] = useState('');
+  const [denialReason, setDenialReason] = useState('');
 
   async function loadProposal() {
     const res = await getProposal(proposalId, auth.token);
@@ -167,6 +168,7 @@ export default function EditorScreen({ navigation, route }) {
     const s = data.status || 'Draft';
     setStatus(s);
     setOriginalStatus(s);
+    setDenialReason(data.denialReason || '');
     const prods = parseProducts(data.products);
     setProducts(prods);
     const currObj = data.currency;
@@ -352,6 +354,16 @@ export default function EditorScreen({ navigation, route }) {
         }
       }
 
+      // 3. Guardar razón de negación si el estado es Denied
+      if (status === 'Denied' && denialReason.trim()) {
+        try {
+          await saveDenialReason(proposalId, denialReason.trim(), auth.token);
+          console.log('denialReason guardada OK');
+        } catch (e) {
+          console.log('Error al guardar razón de negación:', e.message);
+        }
+      }
+
       setPropUrl(propViewUrl);
       setSaved(true);
       if (statusWarning) {
@@ -448,6 +460,22 @@ export default function EditorScreen({ navigation, route }) {
             );
           })}
         </View>
+
+        {/* ── Razón de negación ── */}
+        {status === 'Denied' && (
+          <View style={styles.denialWrap}>
+            <Text style={styles.sectionLabel}>Razón de negación</Text>
+            <TextInput
+              style={styles.denialInput}
+              placeholder="Escribe la razón por la que se niega la propuesta..."
+              placeholderTextColor={COLORS.textMuted}
+              value={denialReason}
+              onChangeText={setDenialReason}
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+        )}
 
         {/* ── Moneda ── */}
         <Text style={styles.sectionLabel}>Moneda</Text>
@@ -955,6 +983,21 @@ function makeStyles(C) {
     },
     statusDot: { width: 7, height: 7, borderRadius: 4 },
     statusBtnText: { color: C.textMuted, fontWeight: '700', fontSize: 13 },
+
+    // Denial reason
+    denialWrap: { marginTop: 4 },
+    denialInput: {
+      backgroundColor: C.card,
+      borderWidth: 1,
+      borderColor: C.error + '60',
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      fontSize: 14,
+      color: C.text,
+      minHeight: 80,
+      textAlignVertical: 'top',
+    },
 
     // Products
     noProducts: {
