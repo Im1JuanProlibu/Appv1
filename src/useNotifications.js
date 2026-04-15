@@ -83,13 +83,17 @@ export function useNotifications(token, auth) {
             console.log('[Notifications] Push token:', pushToken);
 
             // Registrar en el backend si hay sesión
+            const userId = auth?.userId || auth?.user?.id || auth?.user?._id || null;
             if (token) {
+              console.log('[Notifications] Registrando token en backend. pushToken:', pushToken, '| userId:', userId, '| authToken:', token?.substring(0, 20) + '...');
               try {
-                await registerPushToken(pushToken, token);
-                console.log('[Notifications] Push token registrado en backend');
+                await registerPushToken(pushToken, token, userId);
+                console.log('[Notifications] Push token registrado en backend OK');
               } catch (e) {
                 console.log('[Notifications] No se pudo registrar push token:', e.message);
               }
+            } else {
+              console.log('[Notifications] Sin token de auth, no se registra push token');
             }
           } catch (e) {
             console.log('[Notifications] No se pudo obtener push token:', e.message);

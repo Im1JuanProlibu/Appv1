@@ -127,7 +127,7 @@ export function getNextNumber(token) {
 }
 
 // POST /v1/user/push-token — registra el Expo Push Token del dispositivo (merge, multi-device)
-export function registerPushToken(expoPushToken, token) {
+export function registerPushToken(expoPushToken, token, userId) {
   return request('/user/push-token', {
     method: 'POST',
     headers: {
@@ -135,7 +135,7 @@ export function registerPushToken(expoPushToken, token) {
       'Content-Type': 'application/json',
       accept: 'application/json',
     },
-    body: JSON.stringify({ expoPushToken }),
+    body: JSON.stringify({ expoPushToken, userId }),
   });
 }
 
