@@ -126,7 +126,8 @@ export default function ProposalsScreen({ navigation, route }) {
   const [msgTemplates, setMsgTemplates] = useState(null); // null = usar defaults
 
   const { notifications, unread, connected, liveViewing, lastViewed, markAllRead, clearAll, notifPermission } = useNotifications(
-    auth?.token ?? null
+    auth?.token ?? null,
+    auth ?? null
   );
 
   // Cargar plantillas de mensajes personalizadas

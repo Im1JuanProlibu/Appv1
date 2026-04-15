@@ -10,7 +10,7 @@
       },
       "ios": {
         "simulator": false,
-        "distribution": "internal"
+        "distribution": "store"
       }
     },
     "simulator": {

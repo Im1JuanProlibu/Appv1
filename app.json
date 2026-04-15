@@ -16,11 +16,13 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.prolibu.v1"
+      "package": "com.prolibu.v1",
+      "googleServicesFile": "./google-services.json"
     },
     "ios": {
-      "bundleIdentifier": "com.prolibu.v1",
+      "bundleIdentifier": "com.prolibu.v1.app",
       "supportsTablet": false,
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSUserNotificationsUsageDescription": "Para notificarte cuando un cliente está viendo tu propuesta.",
         "ITSAppUsesNonExemptEncryption": false

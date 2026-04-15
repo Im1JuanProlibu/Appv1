@@ -3,7 +3,8 @@ import { Platform } from 'react-native';
 import { io } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
-import { getApiBase } from './api';
+import Constants from 'expo-constants';
+import { getApiBase, registerPushToken } from './api';
 
 // Mostrar notificación como banner aunque la app esté en primer plano (iOS y Android)
 Notifications.setNotificationHandler({
@@ -26,12 +27,13 @@ const MAX_NOTIFICATIONS = 50;
  *  2. servidor responde: authenticated { socketId }
  *  3. servidor emite al canal socketId: { action, data }
  */
-export function useNotifications(token) {
+export function useNotifications(token, auth) {
   const [notifications, setNotifications] = useState([]);
   const [unread, setUnread] = useState(0);
   const [connected, setConnected] = useState(false);
   const [liveViewing, setLiveViewing] = useState({}); // { [proposalId]: true }
   const [notifPermission, setNotifPermission] = useState('undetermined'); // 'granted' | 'denied' | 'undetermined'
+  const [expoPushToken, setExpoPushToken] = useState(null);
   const socketRef = useRef(null);
   const socketIdRef = useRef(null);
   // Deduplicar: evita múltiples notificaciones de la misma propuesta en < 30s
@@ -39,7 +41,7 @@ export function useNotifications(token) {
   // Bandera para saber si los permisos fueron concedidos
   const notifPermittedRef = useRef(false);
 
-  // Pedir permisos al montar (iOS + Android 13+)
+  // Pedir permisos al montar (iOS + Android 13+) y obtener push token
   useEffect(() => {
     async function setupNotifications() {
       try {
@@ -66,12 +68,39 @@ export function useNotifications(token) {
         notifPermittedRef.current = finalStatus === 'granted';
         setNotifPermission(finalStatus);
         console.log('[Notifications] Permisos:', finalStatus);
+
+        // Obtener Expo Push Token para notificaciones con app cerrada
+        if (finalStatus === 'granted') {
+          try {
+            const projectId =
+              Constants.expoConfig?.extra?.eas?.projectId ??
+              Constants.easConfig?.projectId;
+            const pushTokenData = await Notifications.getExpoPushTokenAsync(
+              projectId ? { projectId } : {}
+            );
+            const pushToken = pushTokenData.data;
+            setExpoPushToken(pushToken);
+            console.log('[Notifications] Push token:', pushToken);
+
+            // Registrar en el backend si hay sesión
+            if (token) {
+              try {
+                await registerPushToken(pushToken, token);
+                console.log('[Notifications] Push token registrado en backend');
+              } catch (e) {
+                console.log('[Notifications] No se pudo registrar push token:', e.message);
+              }
+            }
+          } catch (e) {
+            console.log('[Notifications] No se pudo obtener push token:', e.message);
+          }
+        }
       } catch (e) {
         console.log('[Notifications] Error setup:', e.message);
       }
     }
     setupNotifications();
-  }, []);
+  }, [token]);
 
   // Cargar notificaciones persistidas al inicio
   useEffect(() => {
@@ -232,5 +261,5 @@ export function useNotifications(token) {
     }
   }
 
-  return { notifications, unread, connected, liveViewing, lastViewed, markAllRead, clearAll, notifPermission };
+  return { notifications, unread, connected, liveViewing, lastViewed, markAllRead, clearAll, notifPermission, expoPushToken };
 }

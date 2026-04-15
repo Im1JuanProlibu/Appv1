@@ -126,6 +126,19 @@ export function getNextNumber(token) {
   });
 }
 
+// POST /v1/user/push-token — registra el Expo Push Token del dispositivo (merge, multi-device)
+export function registerPushToken(expoPushToken, token) {
+  return request('/user/push-token', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify({ expoPushToken }),
+  });
+}
+
 // PUT /v1/proposal/changeStatus
 export function changeProposalStatus(id, status, token) {
   return request('/proposal/changeStatus', {
