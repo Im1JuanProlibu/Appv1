@@ -1,6 +1,4 @@
 node_modules
 .expo
 sas
-google-services.json
-GoogleService-Info.plist
 *.p8
