@@ -119,6 +119,13 @@ export function saveDenialReason(id, denialReason, token) {
   });
 }
 
+// GET /v1/proposal/getNextNumber
+export function getNextNumber(token) {
+  return request('/proposal/getNextNumber', {
+    headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
+  });
+}
+
 // PUT /v1/proposal/changeStatus
 export function changeProposalStatus(id, status, token) {
   return request('/proposal/changeStatus', {

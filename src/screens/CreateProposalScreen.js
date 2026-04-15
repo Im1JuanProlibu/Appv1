@@ -12,10 +12,11 @@ import {
   Modal,
   Keyboard,
   TouchableWithoutFeedback,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../ThemeContext';
-import { checkLeadByEmail, searchLeadByEmail, createLead, createProposal, getProducts, getPackages, getCurrencies, searchCurrencies } from '../api';
+import { checkLeadByEmail, searchLeadByEmail, createLead, createProposal, getProducts, getPackages, getCurrencies, searchCurrencies, getNextNumber } from '../api';
 import { ProlibuSpinner } from '../components/ProlibuLoader';
 import { ArrowLeft, ArrowRight, Check, X } from 'phosphor-react-native';
 
@@ -45,8 +46,9 @@ export default function CreateProposalScreen({ navigation, route }) {
   const [title, setTitle] = useState('');
   const [currency, setCurrency] = useState('COP');
   const [currencies, setCurrencies] = useState([]);
-  const [currencySearch, setCurrencySearch] = useState('COP');
-  const [currencySuggestions, setCurrencySuggestions] = useState([]);
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
+  const [currencySearch, setCurrencySearch] = useState('');
+  const [currencyResults, setCurrencyResults] = useState([]);
   const [currencySearching, setCurrencySearching] = useState(false);
 
   // Lead
@@ -74,6 +76,8 @@ export default function CreateProposalScreen({ navigation, route }) {
 
   // Modo avanzado
   const [advMode, setAdvMode] = useState(false);
+  const [useConsecutive, setUseConsecutive] = useState(false);
+  const [loadingNextNumber, setLoadingNextNumber] = useState(false);
   const [specialObservations, setSpecialObservations] = useState('');
   const [expirationDate, setExpirationDate]       = useState('');
   const [expectedCloseDate, setExpectedCloseDate] = useState('');
@@ -306,18 +310,6 @@ export default function CreateProposalScreen({ navigation, route }) {
 
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
 
-        {/* Número */}
-        <Text style={styles.label}>Número de propuesta</Text>
-        <TextInput
-          style={styles.input}
-          placeholderTextColor={COLORS.textMuted}
-          value={proposalNumber}
-          onChangeText={(v) => setProposalNumber(v.toUpperCase())}
-          autoCapitalize="characters"
-          maxLength={10}
-          returnKeyType="next"
-        />
-
         {/* Título */}
         <Text style={styles.label}>Título</Text>
         <TextInput
@@ -331,46 +323,14 @@ export default function CreateProposalScreen({ navigation, route }) {
 
         {/* Moneda */}
         <Text style={styles.label}>Moneda</Text>
-        <View style={styles.currencySearchWrap}>
-          <TextInput
-            style={styles.currencyInput}
-            placeholder="Buscar moneda (ej: COP, USD...)"
-            placeholderTextColor={COLORS.textMuted}
-            value={currencySearch}
-            autoCapitalize="characters"
-            onChangeText={async (text) => {
-              setCurrencySearch(text);
-              if (text.length < 1) { setCurrencySuggestions([]); return; }
-              setCurrencySearching(true);
-              try {
-                const res = await searchCurrencies(text, auth.token);
-                const raw = Array.isArray(res) ? res : (res.data || res.docs || res.records || []);
-                setCurrencySuggestions(Array.isArray(raw) ? raw.filter((c) => c && c.code) : []);
-              } catch { setCurrencySuggestions([]); } finally { setCurrencySearching(false); }
-            }}
-          />
-          {currencySearching && <ActivityIndicator size="small" color={COLORS.accent} style={styles.currencySpinner} />}
-          {currency ? (
-            <View style={styles.currencyChip}>
-              <Text style={styles.currencyChipText}>{currency}</Text>
-            </View>
-          ) : null}
-        </View>
-        {currencySuggestions.length > 0 && (
-          <View style={styles.currencyDropdown}>
-            {currencySuggestions.map((c) => (
-              <TouchableOpacity
-                key={c.code}
-                style={styles.currencyDropdownItem}
-                onPress={() => { setCurrency(c.code); setCurrencySearch(c.code); setCurrencySuggestions([]); }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.currencyDropdownCode}>{c.code}</Text>
-                {c.name ? <Text style={styles.currencyDropdownName}>{c.name}</Text> : null}
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+        <TouchableOpacity
+          style={styles.currencyPickerBtn}
+          onPress={() => { setCurrencySearch(''); setCurrencyResults(currencies); setShowCurrencyModal(true); }}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.currencyPickerBtnText}>{currency || 'Seleccionar moneda'}</Text>
+          <Text style={styles.currencyPickerArrow}>▾</Text>
+        </TouchableOpacity>
 
         {/* Cliente */}
         <Text style={styles.label}>Cliente (Lead)</Text>
@@ -574,6 +534,50 @@ export default function CreateProposalScreen({ navigation, route }) {
           <View style={styles.advBlock}>
             <Text style={styles.advTitle}>Campos adicionales</Text>
 
+            {/* Número de propuesta */}
+            <Text style={styles.label}>Número de propuesta</Text>
+            <View style={styles.consecutiveRow}>
+              <TouchableOpacity
+                style={[styles.consecutiveChip, !useConsecutive && styles.consecutiveChipActive]}
+                onPress={() => {
+                  setUseConsecutive(false);
+                  setProposalNumber(genProposalNumber());
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.consecutiveChipText, !useConsecutive && styles.consecutiveChipTextActive]}>Aleatorio</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.consecutiveChip, useConsecutive && styles.consecutiveChipActive]}
+                onPress={async () => {
+                  setUseConsecutive(true);
+                  setLoadingNextNumber(true);
+                  try {
+                    const res = await getNextNumber(auth.token);
+                    const num = res?.number ?? res?.proposalNumber ?? res?.nextNumber ?? res?.data ?? res;
+                    if (num && typeof num === 'string') setProposalNumber(num);
+                  } catch {}
+                  finally { setLoadingNextNumber(false); }
+                }}
+                activeOpacity={0.7}
+              >
+                {loadingNextNumber
+                  ? <ProlibuSpinner />
+                  : <Text style={[styles.consecutiveChipText, useConsecutive && styles.consecutiveChipTextActive]}>Consecutivo</Text>
+                }
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholderTextColor={COLORS.textMuted}
+              value={proposalNumber}
+              onChangeText={(v) => setProposalNumber(v.toUpperCase())}
+              autoCapitalize="characters"
+              maxLength={30}
+              returnKeyType="next"
+              editable={!loadingNextNumber}
+            />
+
             <Text style={styles.label}>Número de referencia</Text>
             <TextInput
               style={styles.input}
@@ -644,6 +648,66 @@ export default function CreateProposalScreen({ navigation, route }) {
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Currency Modal */}
+      <Modal visible={showCurrencyModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCurrencyModal(false)}>
+        <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Seleccionar moneda</Text>
+            <TouchableOpacity onPress={() => setShowCurrencyModal(false)} style={styles.modalCloseBtn}>
+              <X size={20} color={COLORS.textMuted} />
+            </TouchableOpacity>
+          </View>
+          <TextInput
+            style={styles.modalSearch}
+            placeholder="Buscar por código o nombre (COP, USD...)"
+            placeholderTextColor={COLORS.textMuted}
+            value={currencySearch}
+            autoCapitalize="characters"
+            onChangeText={async (text) => {
+              setCurrencySearch(text);
+              if (!text.trim()) { setCurrencyResults(currencies); return; }
+              setCurrencySearching(true);
+              try {
+                const res = await searchCurrencies(text.trim(), auth.token);
+                const raw = Array.isArray(res) ? res : (res.data || res.docs || res.records || []);
+                setCurrencyResults(Array.isArray(raw) ? raw.filter((c) => c && c.code) : []);
+              } catch { setCurrencyResults([]); }
+              finally { setCurrencySearching(false); }
+            }}
+          />
+          {currencySearching && (
+            <ActivityIndicator size="small" color={COLORS.accent} style={{ marginVertical: 12 }} />
+          )}
+          <FlatList
+            data={currencyResults}
+            keyExtractor={(c) => c.code}
+            renderItem={({ item }) => {
+              const active = item.code === currency;
+              return (
+                <TouchableOpacity
+                  style={[styles.catalogItem, active && styles.catalogItemActive]}
+                  onPress={() => { setCurrency(item.code); setShowCurrencyModal(false); }}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.catalogItemInfo}>
+                    <Text style={[styles.catalogItemName, active && { color: COLORS.accent }]}>{item.code}</Text>
+                    {item.name ? <Text style={styles.catalogItemSku}>{item.name}</Text> : null}
+                  </View>
+                  {active && <Check size={18} color={COLORS.accent} weight="bold" />}
+                </TouchableOpacity>
+              );
+            }}
+            ListEmptyComponent={
+              !currencySearching ? (
+                <Text style={styles.catalogEmpty}>
+                  {currencySearch ? 'Sin resultados' : 'Escribe para buscar una moneda'}
+                </Text>
+              ) : null
+            }
+          />
+        </SafeAreaView>
+      </Modal>
 
       {/* Catalog Modal */}
       <Modal visible={showCatalog} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCatalog(false)}>
@@ -762,29 +826,13 @@ function makeStyles(C) {
       borderWidth: 1, borderColor: C.border,
       borderRadius: 10, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15,
     },
-    currencySearchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    currencyInput: {
-      flex: 1, backgroundColor: C.card, color: C.text,
-      borderWidth: 1, borderColor: C.border,
-      borderRadius: 10, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15,
-    },
-    currencySpinner: { position: 'absolute', right: 80 },
-    currencyChip: {
-      backgroundColor: C.accent + '20', borderWidth: 1, borderColor: C.accent,
-      borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
-    },
-    currencyChipText: { color: C.accent, fontWeight: '700', fontSize: 14 },
-    currencyDropdown: {
+    currencyPickerBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
-      borderRadius: 10, marginTop: 4, overflow: 'hidden',
+      borderRadius: 10, paddingHorizontal: 14, paddingVertical: 14,
     },
-    currencyDropdownItem: {
-      flexDirection: 'row', alignItems: 'center', gap: 10,
-      paddingHorizontal: 14, paddingVertical: 12,
-      borderBottomWidth: 1, borderBottomColor: C.border,
-    },
-    currencyDropdownCode: { color: C.text, fontWeight: '700', fontSize: 14, minWidth: 44 },
-    currencyDropdownName: { color: C.textMuted, fontSize: 13, flex: 1 },
+    currencyPickerBtnText: { color: C.text, fontSize: 15, fontWeight: '600' },
+    currencyPickerArrow: { color: C.textMuted, fontSize: 16 },
     countryRow: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
     countryChip: {
       paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
@@ -979,6 +1027,32 @@ function makeStyles(C) {
       textTransform: 'uppercase',
       letterSpacing: 1,
       marginBottom: 12,
+    },
+    consecutiveRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 8,
+    },
+    consecutiveChip: {
+      flex: 1,
+      paddingVertical: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: C.border,
+      alignItems: 'center',
+      backgroundColor: C.card,
+    },
+    consecutiveChipActive: {
+      backgroundColor: C.accent,
+      borderColor: C.accent,
+    },
+    consecutiveChipText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: C.textMuted,
+    },
+    consecutiveChipTextActive: {
+      color: '#fff',
     },
   });
 }
