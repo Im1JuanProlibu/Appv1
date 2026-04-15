@@ -3,6 +3,13 @@
     "version": ">= 12.0.0",
     "appVersionSource": "local"
   },
+  "submit": {
+    "production": {
+      "ios": {
+        "autoIncrement": true
+      }
+    }
+  },
   "build": {
     "preview": {
       "android": {
