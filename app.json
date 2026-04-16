@@ -2,7 +2,7 @@
   "expo": {
     "name": "Prolibu V1",
     "slug": "prolibu-v1",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
@@ -26,7 +26,8 @@
       "infoPlist": {
         "NSUserNotificationsUsageDescription": "Para notificarte cuando un cliente está viendo tu propuesta.",
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "buildNumber": "3"
     },
     "plugins": [
       "expo-asset",

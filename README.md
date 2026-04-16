@@ -304,9 +304,72 @@ Los logos cambian automáticamente entre versión blanca (modo oscuro) y negra (
 
 ---
 
-## Notificaciones en tiempo real
+## Notificaciones Push — Estado actual (Apr 2026)
 
-El hook `useNotifications(token)` en `src/useNotifications.js` conecta via Socket.IO al servidor Prolibu en el puerto 3001.
+### Arquitectura implementada
+
+```
+App abierta:    Socket.IO (puerto 3001) → banner nativo en tiempo real
+App cerrada:    ExpoPushToken → Expo Push Service → FCM (Android) / APNs (iOS)
+```
+
+### Lado app (completo ✅)
+
+El hook `useNotifications(token, auth)` en `src/useNotifications.js`:
+
+1. Solicita permisos de notificación al montar
+2. Crea canal Android `prolibu` con prioridad MAX
+3. Obtiene el `ExponentPushToken[...]` del dispositivo via `expo-notifications`
+4. Llama a `POST /v1/user/push-token` con el token y el `userId` para registrarlo en el backend
+5. Conecta via Socket.IO a `{dominio}:3001` para alertas en tiempo real
+
+### Lado backend (completo ✅)
+
+- `POST /v1/user/push-token` — guarda el ExpoPushToken en el campo `expoPushTokens` del usuario (merge inteligente, soporte multi-dispositivo)
+- Cuando un cliente abre una propuesta, el backend envía push via [Expo Push API](https://exp.host/--/api/v2/push/send) (sin Firebase Admin SDK directo — Expo lo enruta internamente a FCM/APNs)
+- Limpieza automática de tokens expirados (`DeviceNotRegistered`)
+
+### Estado de builds
+
+| Build | Estado | Notas |
+|---|---|---|
+| Android APK (preview) | ✅ Generado | Requiere instalar APK nativo para tokens reales |
+| iOS IPA (preview/store) | ✅ Generado | Subido a TestFlight via `eas submit` |
+
+### Pendiente
+
+- [ ] **Backend**: corregir validación de `expoPushToken` — rechaza formato válido `ExponentPushToken[...]`. Cambiar regex a `/^ExponentPushToken\[.+\]$/`
+- [ ] Instalar APK nativo en Android para verificar token real (Expo Go no soporta push tokens desde SDK 53)
+- [ ] Verificar recepción de push con app cerrada en dispositivo físico
+
+### Comandos de build
+
+```bash
+# Android APK
+eas build --profile preview --platform android
+
+# iOS IPA (TestFlight)
+eas build --profile preview --platform ios
+eas submit --platform ios --latest
+
+# Ver logs en Android (requiere USB + depuración USB activa)
+npx react-native log-android
+```
+
+### Token confirmado en Expo Go (desarrollo)
+
+```
+ExponentPushToken[RUMgwvGXecEvKEoFzSzKqf]
+userId: 690d60d6e62d720041c9e3ce
+```
+
+> **Nota**: En Expo Go los push remotos (app cerrada) no funcionan desde SDK 53. Usar APK/IPA nativo para pruebas completas.
+
+---
+
+## Notificaciones Socket.IO (tiempo real)
+
+El hook conecta via Socket.IO al servidor Prolibu en el puerto 3001.
 
 ```
 App conecta a {dominio}:3001
@@ -322,8 +385,6 @@ App conecta a {dominio}:3001
 - Indicador en vivo (`liveViewing`) visible en tarjetas por 60 segundos
 - Reconexión automática sin límite de intentos
 - Si los permisos de notificación están denegados: banner amarillo en el panel con link directo a Ajustes del sistema
-
-> Las notificaciones funcionan solo mientras la app está abierta. Para notificaciones con app cerrada se requiere integración FCM/APNs en el backend de Prolibu.
 
 ---
 
