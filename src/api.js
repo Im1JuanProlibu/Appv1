@@ -60,10 +60,10 @@ export function getAgents() {
 }
 
 // GET /v1/proposal — si agentId es null carga todas las propuestas (admin)
-export function getProposals(agentId, token) {
+export function getProposals(agentId, token, page = 1, limit = 50) {
   const params = new URLSearchParams({
-    page: '1',
-    limit: '200',
+    page: String(page),
+    limit: String(limit),
     sort: 'updatedAt DESC',
     populate: 'all',
   });

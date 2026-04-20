@@ -127,8 +127,12 @@ export default function ProposalsScreen({ navigation, route }) {
   const userIdRef = React.useRef(null);
   const isAdminRef = React.useRef(false);
   const lastLoadRef = React.useRef(0); // throttle: evita peticiones repetidas al backend
+  const loadedAgentRef = React.useRef(null); // agentId que está actualmente cargado en allProposals
   const [userName, setUserName] = useState('');
   const [allProposals, setAllProposals] = useState([]);
+  const [totalDocs, setTotalDocs] = useState(0);   // total de propuestas en el servidor
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [sections, setSections] = useState([]);
   const [activeFilter, setActiveFilter] = useState('all');
   const [activeSort, setActiveSort] = useState('updatedAt_desc');
@@ -221,21 +225,35 @@ export default function ProposalsScreen({ navigation, route }) {
     return unsubscribe;
   }, [navigation]);
 
-  async function load(id, token, force = false) {
+  async function load(id, token, force = false, page = 1, append = false) {
     const now = Date.now();
-    // Throttle: no más de 1 petición cada 20 segundos salvo que sea forzado
-    if (!force && now - lastLoadRef.current < 20000) {
+    // Throttle solo en recarga silenciosa (no forzada, no paginación)
+    if (!force && page === 1 && now - lastLoadRef.current < 20000) {
       setRefreshing(false);
       return;
     }
-    lastLoadRef.current = now;
+    if (page === 1) lastLoadRef.current = now;
     try {
-      const res = await getProposals(id, token);
+      const res = await getProposals(id, token, page, 50);
       const raw = res.docs || res.data || (Array.isArray(res) ? res : []);
       const list = Array.isArray(raw) ? raw : [];
       const valid = list.filter((p) => ['Ready', 'Draft', 'Approved', 'Denied'].includes(p.status));
-      setAllProposals(valid);
-      buildSections(valid, activeFilter, activeSort);
+
+      // Total de docs en el servidor
+      const total = res.totalDocs ?? res.total ?? res.count ?? 0;
+      setTotalDocs(total);
+      setCurrentPage(page);
+      loadedAgentRef.current = id ?? null;
+
+      const merged = append
+        ? [...allProposals, ...valid.filter((p) => {
+            const pid = p.id || p._id;
+            return !allProposals.some((e) => (e.id || e._id) === pid);
+          })]
+        : valid;
+
+      setAllProposals(merged);
+      buildSections(merged, activeFilter, activeSort, leadFilter, activityFilter, ratingFilter, viewsFilter, dateFilter, dateFrom, dateTo, null);
       // Detectar cambios de estado respecto al caché anterior
       checkStatusChanges(valid, addStatusChangeNotification);
     } catch (e) {
@@ -243,7 +261,17 @@ export default function ProposalsScreen({ navigation, route }) {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
+  }
+
+  async function loadMore() {
+    if (loadingMore || loading) return;
+    const nextPage = currentPage + 1;
+    const id = loadedAgentRef.current;
+    if (!authRef.current) return;
+    setLoadingMore(true);
+    await load(id, authRef.current.token, true, nextPage, true);
   }
 
   function getUniqueLeads(proposals) {
@@ -384,7 +412,15 @@ export default function ProposalsScreen({ navigation, route }) {
     setDateTo(dto);
     setAgentFilter(agf ?? null);
     setFilterPanelVisible(false);
-    buildSections(allProposals, activeFilter, sort, lf, af, rf, vf, df, dfrom, dto, agf ?? null);
+
+    // Si es admin y cambió el agente → reload server-side con ese agentId
+    if (isAdminRef.current && (agf ?? null) !== loadedAgentRef.current) {
+      setLoading(true);
+      setAllProposals([]);
+      load(agf ?? null, authRef.current.token, true, 1, false);
+    } else {
+      buildSections(allProposals, activeFilter, sort, lf, af, rf, vf, df, dfrom, dto, agf ?? null);
+    }
   }
 
   const activeFilterCount = [
@@ -835,6 +871,30 @@ export default function ProposalsScreen({ navigation, route }) {
               tintColor="transparent"
               colors={['transparent']}
             />
+          }
+          ListHeaderComponent={
+            totalDocs > 0 ? (
+              <View style={styles.paginationInfo}>
+                <Text style={styles.paginationInfoText}>
+                  {allProposals.length} de {totalDocs} propuestas
+                </Text>
+              </View>
+            ) : null
+          }
+          ListFooterComponent={
+            allProposals.length < totalDocs ? (
+              <TouchableOpacity
+                style={styles.loadMoreBtn}
+                onPress={loadMore}
+                disabled={loadingMore}
+                activeOpacity={0.8}
+              >
+                {loadingMore
+                  ? <ActivityIndicator size="small" color={COLORS.accent} />
+                  : <Text style={styles.loadMoreText}>Cargar más ({totalDocs - allProposals.length} restantes)</Text>
+                }
+              </TouchableOpacity>
+            ) : null
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
@@ -2198,5 +2258,16 @@ function makeStyles(C) {
     alignItems: 'center',
   },
   seguimientoBtnText: { fontSize: 16, fontWeight: '700' },
+  paginationInfo: {
+    alignItems: 'center', paddingVertical: 6, marginBottom: 4,
+  },
+  paginationInfoText: { color: C.textMuted, fontSize: 12 },
+  loadMoreBtn: {
+    marginHorizontal: 16, marginVertical: 12,
+    paddingVertical: 14, borderRadius: 12,
+    borderWidth: 1, borderColor: C.accent,
+    alignItems: 'center', backgroundColor: C.accent + '10',
+  },
+  loadMoreText: { color: C.accent, fontWeight: '700', fontSize: 14 },
   });
 }
