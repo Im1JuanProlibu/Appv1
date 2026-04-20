@@ -126,11 +126,14 @@ export default function ProposalsScreen({ navigation, route }) {
   const authRef = React.useRef(null);
   const userIdRef = React.useRef(null);
   const isAdminRef = React.useRef(false);
-  const lastLoadRef = React.useRef(0); // throttle: evita peticiones repetidas al backend
-  const loadedAgentRef = React.useRef(null); // agentId que está actualmente cargado en allProposals
+  const lastLoadRef = React.useRef(0);
+  const loadedAgentRef = React.useRef(null);
+  const quickFilterRef = React.useRef('mine'); // 'mine' | 'all'
+  const [quickFilter, setQuickFilter] = useState('mine'); // admin only
   const [userName, setUserName] = useState('');
   const [allProposals, setAllProposals] = useState([]);
   const [totalDocs, setTotalDocs] = useState(0);   // total de propuestas en el servidor
+  const [hasMore, setHasMore] = useState(false);    // hay más páginas por cargar
   const [currentPage, setCurrentPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const [sections, setSections] = useState([]);
@@ -196,8 +199,8 @@ export default function ProposalsScreen({ navigation, route }) {
       const adminFlag = user.isAdmin === true;
       setIsAdmin(adminFlag);
       isAdminRef.current = adminFlag;
-      // Admin loads ALL proposals (no inCharge filter); agent loads only their own
-      load(adminFlag ? null : id, authData.token, true);
+      // Default: siempre carga las propuestas del usuario (quickFilter='mine')
+      load(id, authData.token, true);
       // Admin: cargar lista de agentes activos para el filtro
       if (adminFlag) {
         getActiveUsers(authData.token).then((res) => {
@@ -219,7 +222,10 @@ export default function ProposalsScreen({ navigation, route }) {
     const unsubscribe = navigation.addListener('focus', () => {
       if (authRef.current && userIdRef.current) {
         setRefreshing(true);
-        load(isAdminRef.current ? null : userIdRef.current, authRef.current.token);
+        const id = isAdminRef.current
+          ? (quickFilterRef.current === 'mine' ? userIdRef.current : null)
+          : userIdRef.current;
+        load(id, authRef.current.token);
       }
     });
     return unsubscribe;
@@ -234,7 +240,7 @@ export default function ProposalsScreen({ navigation, route }) {
     }
     if (page === 1) lastLoadRef.current = now;
     try {
-      const res = await getProposals(id, token, page, 50);
+      const res = await getProposals(id, token, page, 100);
       const raw = res.docs || res.data || (Array.isArray(res) ? res : []);
       const list = Array.isArray(raw) ? raw : [];
       const valid = list.filter((p) => ['Ready', 'Draft', 'Approved', 'Denied'].includes(p.status));
@@ -252,6 +258,10 @@ export default function ProposalsScreen({ navigation, route }) {
           })]
         : valid;
 
+      // hasMore: si el servidor informa el total, lo usamos; si no, asumimos que hay más
+      // cuando la última página trajo exactamente 100 resultados
+      const newHasMore = total > 0 ? merged.length < total : valid.length >= 100;
+      setHasMore(newHasMore);
       setAllProposals(merged);
       buildSections(merged, activeFilter, activeSort, leadFilter, activityFilter, ratingFilter, viewsFilter, dateFilter, dateFrom, dateTo, null);
       // Detectar cambios de estado respecto al caché anterior
@@ -417,7 +427,9 @@ export default function ProposalsScreen({ navigation, route }) {
     if (isAdminRef.current && (agf ?? null) !== loadedAgentRef.current) {
       setLoading(true);
       setAllProposals([]);
-      load(agf ?? null, authRef.current.token, true, 1, false);
+      // Si limpia el filtro de asesor, respeta el quickFilter activo
+      const reloadId = agf ?? (quickFilterRef.current === 'mine' ? userIdRef.current : null);
+      load(reloadId, authRef.current.token, true, 1, false);
     } else {
       buildSections(allProposals, activeFilter, sort, lf, af, rf, vf, df, dfrom, dto, agf ?? null);
     }
@@ -436,7 +448,21 @@ export default function ProposalsScreen({ navigation, route }) {
   function onRefresh() {
     if (!auth) return;
     setRefreshing(true);
-    load(isAdminRef.current ? null : userId, auth.token, true); // pull-to-refresh: siempre forzar
+    const id = isAdminRef.current
+      ? (quickFilterRef.current === 'mine' ? userIdRef.current : null)
+      : userIdRef.current;
+    load(id, auth.token, true);
+  }
+
+  function handleQuickFilter(mode) {
+    if (mode === quickFilterRef.current) return;
+    setQuickFilter(mode);
+    quickFilterRef.current = mode;
+    setAgentFilter(null);
+    setLoading(true);
+    setAllProposals([]);
+    const id = mode === 'mine' ? userIdRef.current : null;
+    load(id, authRef.current.token, true, 1, false);
   }
 
   async function handleLogout() {
@@ -802,6 +828,29 @@ export default function ProposalsScreen({ navigation, route }) {
       </View>
 
       {/* Barra de filtros fija */}
+      {isAdmin && (
+        <View style={styles.quickFilterBar}>
+          {[
+            { key: 'mine', label: 'Mis propuestas' },
+            { key: 'all',  label: 'Plataforma' },
+          ].map((qf) => {
+            const active = quickFilter === qf.key;
+            return (
+              <TouchableOpacity
+                key={qf.key}
+                style={[styles.quickFilterChip, active && styles.quickFilterChipActive]}
+                onPress={() => handleQuickFilter(qf.key)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.quickFilterChipText, active && styles.quickFilterChipTextActive]}>
+                  {qf.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+      {/* Barra de filtros de estado */}
       <View style={styles.filterBar}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
           {FILTERS.map((f) => {
@@ -864,6 +913,10 @@ export default function ProposalsScreen({ navigation, route }) {
           renderSectionHeader={renderSectionHeader}
           contentContainerStyle={styles.list}
           stickySectionHeadersEnabled={false}
+          onEndReached={() => {
+            if (hasMore && !loadingMore && !loading) loadMore();
+          }}
+          onEndReachedThreshold={0.3}
           refreshControl={
             <RefreshControl
               refreshing={false}
@@ -882,18 +935,8 @@ export default function ProposalsScreen({ navigation, route }) {
             ) : null
           }
           ListFooterComponent={
-            allProposals.length < totalDocs ? (
-              <TouchableOpacity
-                style={styles.loadMoreBtn}
-                onPress={loadMore}
-                disabled={loadingMore}
-                activeOpacity={0.8}
-              >
-                {loadingMore
-                  ? <ActivityIndicator size="small" color={COLORS.accent} />
-                  : <Text style={styles.loadMoreText}>Cargar más ({totalDocs - allProposals.length} restantes)</Text>
-                }
-              </TouchableOpacity>
+            loadingMore ? (
+              <ActivityIndicator size="small" color={COLORS.accent} style={{ marginVertical: 20 }} />
             ) : null
           }
           ListEmptyComponent={
@@ -2269,5 +2312,35 @@ function makeStyles(C) {
     alignItems: 'center', backgroundColor: C.accent + '10',
   },
   loadMoreText: { color: C.accent, fontWeight: '700', fontSize: 14 },
+  quickFilterBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+    backgroundColor: C.bg,
+  },
+  quickFilterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    backgroundColor: C.card,
+  },
+  quickFilterChipActive: {
+    borderColor: C.accent,
+    backgroundColor: C.accent,
+  },
+  quickFilterChipText: {
+    color: C.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  quickFilterChipTextActive: {
+    color: '#fff',
+    fontWeight: '700',
+  },
   });
 }
