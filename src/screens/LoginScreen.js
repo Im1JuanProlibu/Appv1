@@ -53,6 +53,7 @@ export default function LoginScreen({ navigation }) {
         email: data.email || email.trim(),
         firstName: data.firstName || '',
         lastName: data.lastName || '',
+        role: data.role || '',
       };
 
       if (!token) {

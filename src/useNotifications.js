@@ -261,6 +261,41 @@ export function useNotifications(token, auth) {
     AsyncStorage.removeItem(STORAGE_KEY);
   }, []);
 
+  const STATUS_LABEL_MAP = { Draft: 'Borrador', Ready: 'Lista', Approved: 'Aprobada', Denied: 'Negada' };
+
+  const addStatusChangeNotification = useCallback((proposalTitle, proposalId, fromStatus, toStatus) => {
+    const fromLabel = STATUS_LABEL_MAP[fromStatus] || fromStatus;
+    const toLabel = STATUS_LABEL_MAP[toStatus] || toStatus;
+    const notification = {
+      id: `sc-${Date.now()}-${proposalId}`,
+      type: 'status_change',
+      proposalTitle,
+      proposalId,
+      fromStatus,
+      toStatus,
+      timestamp: new Date().toISOString(),
+      read: false,
+    };
+    setNotifications((prev) => {
+      const updated = [notification, ...prev].slice(0, MAX_NOTIFICATIONS);
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+    setUnread((prev) => prev + 1);
+    if (notifPermittedRef.current) {
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: `📋 Propuesta ${toLabel}`,
+          body: `"${proposalTitle}" cambió de ${fromLabel} a ${toLabel}`,
+          sound: 'default',
+          data: { proposalId },
+          ...(Platform.OS === 'android' && { channelId: 'prolibu' }),
+        },
+        trigger: null,
+      }).catch(() => {});
+    }
+  }, []);
+
   // Última vista por proposalId, calculada desde el historial de notificaciones
   const lastViewed = {};
   for (const n of notifications) {
@@ -269,5 +304,5 @@ export function useNotifications(token, auth) {
     }
   }
 
-  return { notifications, unread, connected, liveViewing, lastViewed, markAllRead, clearAll, notifPermission, expoPushToken };
+  return { notifications, unread, connected, liveViewing, lastViewed, markAllRead, clearAll, notifPermission, expoPushToken, addStatusChangeNotification };
 }

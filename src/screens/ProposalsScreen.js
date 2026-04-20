@@ -60,6 +60,31 @@ const ACTIVITY_FILTERS = [
   { key: 'ready_viewed',    label: '● Lista + vista'    },
 ];
 
+const STATUS_CACHE_KEY = 'proposal_status_cache';
+
+async function checkStatusChanges(proposals, addNotif) {
+  try {
+    const cacheRaw = await AsyncStorage.getItem(STATUS_CACHE_KEY);
+    const cache = cacheRaw ? JSON.parse(cacheRaw) : null;
+    if (cache) {
+      for (const p of proposals) {
+        const id = p.id || p._id;
+        const current = p.status;
+        const cached = cache[id];
+        if (id && cached && cached !== current) {
+          addNotif(p.title || p.name || 'Propuesta', id, cached, current);
+        }
+      }
+    }
+    const newCache = {};
+    for (const p of proposals) {
+      const id = p.id || p._id;
+      if (id) newCache[id] = p.status;
+    }
+    await AsyncStorage.setItem(STATUS_CACHE_KEY, JSON.stringify(newCache));
+  } catch {}
+}
+
 function makeFilters(accent) {
   return [
     { key: 'all',      label: 'Todas',    color: accent,     fg: '#ffffff' },
@@ -125,17 +150,20 @@ export default function ProposalsScreen({ navigation, route }) {
   const [seguimientoModal, setSeguimientoModal] = useState({ visible: false, proposal: null, type: 'urgente' });
   const [msgTemplates, setMsgTemplates] = useState(null); // null = usar defaults
 
-  const { notifications, unread, connected, liveViewing, lastViewed, markAllRead, clearAll, notifPermission } = useNotifications(
+  const { notifications, unread, connected, liveViewing, lastViewed, markAllRead, clearAll, notifPermission, addStatusChangeNotification } = useNotifications(
     auth?.token ?? null,
     auth ?? null
   );
 
-  // Cargar plantillas de mensajes personalizadas
+  // Cargar plantillas de mensajes personalizadas (recarga al volver a esta pantalla)
   useEffect(() => {
-    AsyncStorage.getItem('message_templates').then(val => {
-      if (val) setMsgTemplates(JSON.parse(val));
+    const unsubscribe = navigation.addListener('focus', () => {
+      AsyncStorage.getItem('message_templates').then(val => {
+        setMsgTemplates(val ? JSON.parse(val) : null);
+      });
     });
-  }, []);
+    return unsubscribe;
+  }, [navigation]);
 
   useEffect(() => {
     AsyncStorage.getItem('auth').then((val) => {
@@ -186,6 +214,8 @@ export default function ProposalsScreen({ navigation, route }) {
       const valid = list.filter((p) => ['Ready', 'Draft', 'Approved', 'Denied'].includes(p.status));
       setAllProposals(valid);
       buildSections(valid, activeFilter, activeSort);
+      // Detectar cambios de estado respecto al caché anterior
+      checkStatusChanges(valid, addStatusChangeNotification);
     } catch (e) {
       Alert.alert('Error', 'No se pudieron cargar las propuestas: ' + e.message);
     } finally {
@@ -477,18 +507,6 @@ export default function ProposalsScreen({ navigation, route }) {
         onPress={() => navigation.navigate('Editor', { proposal: item, auth })}
         activeOpacity={0.75}
       >
-        {isLive && (
-          <View style={styles.liveBanner}>
-            <Eye size={13} color="#fff" weight="fill" />
-            <Text style={styles.liveBannerText}> Viendo ahora</Text>
-          </View>
-        )}
-        {!isLive && lastViewTs && (
-          <View style={styles.lastViewBanner}>
-            <Eye size={12} color="#60A5FA" weight="fill" />
-            <Text style={styles.lastViewText}> Última vista {timeAgo(lastViewTs)}</Text>
-          </View>
-        )}
         <View style={styles.cardTop}>
           <View style={{ flex: 1 }}>
             <Text style={styles.cardTitle} numberOfLines={2}>{title}</Text>
@@ -500,9 +518,17 @@ export default function ProposalsScreen({ navigation, route }) {
               return display ? <Text style={styles.cardLead} numberOfLines={1}>{display}</Text> : null;
             })()}
           </View>
-          <View style={[styles.badge, { backgroundColor: color + '18', borderColor: color + '60' }]}>
-            <View style={[styles.badgeDot, { backgroundColor: color }]} />
-            <Text style={[styles.badgeText, { color }]}>{STATUS_LABEL[item.status] || item.status}</Text>
+          <View style={{ alignItems: 'flex-end', gap: 5 }}>
+            <View style={[styles.badge, { backgroundColor: color + '18', borderColor: color + '60' }]}>
+              <View style={[styles.badgeDot, { backgroundColor: color }]} />
+              <Text style={[styles.badgeText, { color }]}>{STATUS_LABEL[item.status] || item.status}</Text>
+            </View>
+            {isLive && (
+              <View style={styles.livePill}>
+                <View style={styles.liveDot} />
+                <Text style={styles.livePillText}>En vivo</Text>
+              </View>
+            )}
           </View>
         </View>
         {/* Fila 1: fecha y moneda */}
@@ -524,7 +550,7 @@ export default function ProposalsScreen({ navigation, route }) {
           ) : null}
         </View>
         {/* Fila 2: temperatura y vistas */}
-        {(TEMP_CONFIG[item.rating] || (item.views ?? item.visits ?? item.opens ?? item.timesOpened ?? item.opened) != null) && (
+        {(TEMP_CONFIG[item.rating] || (item.views ?? item.visits ?? item.opens ?? item.timesOpened ?? item.opened) != null || (!isLive && lastViewTs)) && (
           <View style={styles.cardMetaBadges}>
             {TEMP_CONFIG[item.rating] && (() => {
               const tc = TEMP_CONFIG[item.rating];
@@ -546,6 +572,12 @@ export default function ProposalsScreen({ navigation, route }) {
                 </View>
               );
             })()}
+            {!isLive && lastViewTs && (
+              <View style={styles.lastViewBadge}>
+                <Eye size={11} color="#60A5FA" weight="fill" />
+                <Text style={styles.lastViewBadgeText}> {timeAgo(lastViewTs)}</Text>
+              </View>
+            )}
           </View>
         )}
         <View style={styles.cardFooter}>
@@ -1197,29 +1229,53 @@ export default function ProposalsScreen({ navigation, route }) {
             </View>
           ) : (
             <ScrollView style={styles.notifList} contentContainerStyle={{ paddingBottom: 32 }}>
-              {notifications.map((n) => (
-                <View key={n.id} style={[styles.notifItem, !n.read && styles.notifItemUnread]}>
-                  <View style={styles.notifItemIcon}>
-                    <Eye size={20} color={COLORS.accent} weight="fill" />
+              {notifications.map((n) => {
+                const isStatusChange = n.type === 'status_change';
+                const STATUS_LABEL_MAP = { Draft: 'Borrador', Ready: 'Lista', Approved: 'Aprobada', Denied: 'Negada' };
+                const STATUS_COLOR_MAP = { Draft: '#FDBD00', Ready: '#4285F4', Approved: '#39B54A', Denied: '#D4145A' };
+                return (
+                  <View key={n.id} style={[styles.notifItem, !n.read && styles.notifItemUnread]}>
+                    <View style={[styles.notifItemIcon, isStatusChange && { backgroundColor: (STATUS_COLOR_MAP[n.toStatus] || COLORS.accent) + '15' }]}>
+                      {isStatusChange
+                        ? <Text style={{ fontSize: 18 }}>📋</Text>
+                        : <Eye size={20} color={COLORS.accent} weight="fill" />
+                      }
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      {isStatusChange ? (
+                        <>
+                          <Text style={styles.notifItemTitle} numberOfLines={1}>
+                            Propuesta {STATUS_LABEL_MAP[n.toStatus] || n.toStatus}
+                          </Text>
+                          <Text style={styles.notifItemSub} numberOfLines={1}>
+                            {n.proposalTitle}
+                          </Text>
+                          <Text style={[styles.notifItemEmail, { color: STATUS_COLOR_MAP[n.toStatus] || COLORS.textMuted }]}>
+                            {STATUS_LABEL_MAP[n.fromStatus] || n.fromStatus} → {STATUS_LABEL_MAP[n.toStatus] || n.toStatus}
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text style={styles.notifItemTitle} numberOfLines={1}>
+                            {n.leadName || 'Cliente'} vio tu propuesta
+                          </Text>
+                          <Text style={styles.notifItemSub} numberOfLines={1}>
+                            {n.proposalTitle}{n.proposalNumber ? ` · #${n.proposalNumber}` : ''}
+                          </Text>
+                          {n.leadEmail ? (
+                            <Text style={styles.notifItemEmail} numberOfLines={1}>{n.leadEmail}</Text>
+                          ) : null}
+                        </>
+                      )}
+                      <Text style={styles.notifItemTime}>
+                        {new Date(n.timestamp).toLocaleString('es-CO', {
+                          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+                        })}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.notifItemTitle} numberOfLines={1}>
-                      {n.leadName || 'Cliente'} vio tu propuesta
-                    </Text>
-                    <Text style={styles.notifItemSub} numberOfLines={1}>
-                      {n.proposalTitle}{n.proposalNumber ? ` · #${n.proposalNumber}` : ''}
-                    </Text>
-                    {n.leadEmail ? (
-                      <Text style={styles.notifItemEmail} numberOfLines={1}>{n.leadEmail}</Text>
-                    ) : null}
-                    <Text style={styles.notifItemTime}>
-                      {new Date(n.timestamp).toLocaleString('es-CO', {
-                        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-                      })}
-                    </Text>
-                  </View>
-                </View>
-              ))}
+                );
+              })}
             </ScrollView>
           )}
         </SafeAreaView>
@@ -1630,32 +1686,20 @@ function makeStyles(C) {
     shadowColor: '#39B54A',
     shadowOpacity: 0.15,
   },
-  liveBanner: {
-    backgroundColor: '#39B54A18',
-    marginHorizontal: -16,
-    marginTop: -16,
-    marginBottom: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
+  livePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#22c55e18', borderWidth: 1, borderColor: '#22c55e60',
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
   },
-  liveBannerText: {
-    color: '#39B54A',
-    fontSize: 12,
-    fontWeight: '700',
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#22c55e' },
+  livePillText: { color: '#22c55e', fontSize: 11, fontWeight: '700' },
+  lastViewBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: 8, borderWidth: 1,
+    borderColor: '#60A5FA40', backgroundColor: '#60A5FA0D',
   },
-  lastViewBanner: {
-    backgroundColor: '#60A5FA12',
-    marginHorizontal: -16,
-    marginTop: -16,
-    marginBottom: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-  },
-  lastViewText: {
-    color: '#60A5FA',
-    fontSize: 11,
-    fontWeight: '600',
-  },
+  lastViewBadgeText: { color: '#60A5FA', fontSize: 11, fontWeight: '600' },
   cardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',

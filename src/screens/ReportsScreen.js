@@ -723,14 +723,15 @@ function makeStyles(C) {
 
     // Resultado
     resultBlock: { padding: 20 },
-    totalsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+    totalsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
     totalCard: {
-      flex: 1, backgroundColor: C.card,
+      width: '30.5%',
+      backgroundColor: C.card,
       borderRadius: 12, borderWidth: 1, borderColor: C.border,
-      padding: 10, alignItems: 'center',
+      padding: 12, alignItems: 'center',
     },
-    totalVal: { color: C.text, fontSize: 20, fontWeight: '800' },
-    totalLbl: { color: C.textMuted, fontSize: 10, marginTop: 2, fontWeight: '600' },
+    totalVal: { color: C.text, fontSize: 22, fontWeight: '800' },
+    totalLbl: { color: C.textMuted, fontSize: 11, marginTop: 3, fontWeight: '600', textAlign: 'center' },
 
     amtTotalCard: {
       backgroundColor: C.success + '12',
@@ -750,21 +751,21 @@ function makeStyles(C) {
     periodCard: {
       backgroundColor: C.card,
       borderRadius: 14, borderWidth: 1, borderColor: C.border,
-      padding: 14, marginBottom: 10,
+      padding: 16, marginBottom: 12,
     },
-    periodCardHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
-    periodCardLabel: { color: C.text, fontWeight: '700', fontSize: 15 },
-    periodCardDates: { color: C.textMuted, fontSize: 11, marginTop: 2 },
+    periodCardHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
+    periodCardLabel: { color: C.text, fontWeight: '800', fontSize: 16 },
+    periodCardDates: { color: C.textMuted, fontSize: 12, marginTop: 3 },
     activityBarTrack: {
-      flexDirection: 'row', height: 5,
+      flexDirection: 'row', height: 6,
       backgroundColor: C.border, borderRadius: 3,
-      overflow: 'hidden', marginBottom: 12,
+      overflow: 'hidden', marginBottom: 14,
     },
     activityBarFill: { backgroundColor: C.accent, borderRadius: 3 },
     periodCardStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 0 },
-    pStat: { flex: 1, alignItems: 'center', minWidth: 52 },
-    pStatVal: { color: C.text, fontWeight: '800', fontSize: 18 },
-    pStatLbl: { color: C.textMuted, fontSize: 10, marginTop: 2, fontWeight: '600' },
+    pStat: { flex: 1, alignItems: 'center', minWidth: 56, paddingVertical: 4 },
+    pStatVal: { color: C.text, fontWeight: '800', fontSize: 20 },
+    pStatLbl: { color: C.textMuted, fontSize: 11, marginTop: 3, fontWeight: '600', textAlign: 'center' },
     pStatDivider: { width: 1, backgroundColor: C.border, alignSelf: 'stretch' },
 
     emptyHint: { color: C.textMuted, fontSize: 13, textAlign: 'center', marginVertical: 16 },
