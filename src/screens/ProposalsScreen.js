@@ -20,7 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../ThemeContext';
-import { getProposals, getApiBase, generateShortUrl } from '../api';
+import { getProposals, getApiBase, generateShortUrl, getActiveUsers } from '../api';
 import { useNotifications } from '../useNotifications';
 import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
@@ -122,6 +122,7 @@ export default function ProposalsScreen({ navigation, route }) {
   const [auth, setAuth] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [agentsList, setAgentsList] = useState([]); // lista de agentes activos (solo admin)
   const authRef = React.useRef(null);
   const userIdRef = React.useRef(null);
   const isAdminRef = React.useRef(false);
@@ -193,6 +194,19 @@ export default function ProposalsScreen({ navigation, route }) {
       isAdminRef.current = adminFlag;
       // Admin loads ALL proposals (no inCharge filter); agent loads only their own
       load(adminFlag ? null : id, authData.token, true);
+      // Admin: cargar lista de agentes activos para el filtro
+      if (adminFlag) {
+        getActiveUsers(authData.token).then((res) => {
+          const all = res.docs || res.data || (Array.isArray(res) ? res : []);
+          // Agentes: home="/app/dashboard"; admins: home="/app"
+          const agents = all.filter((u) => u.home === '/app/dashboard' && u.status === 'active');
+          setAgentsList(agents.map((u) => ({
+            id: u.id || u._id,
+            name: u.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : (u.email || u.id),
+            email: u.email || '',
+          })));
+        }).catch(() => {});
+      }
     });
   }, []);
 
@@ -843,7 +857,7 @@ export default function ProposalsScreen({ navigation, route }) {
         onClose={() => setFilterPanelVisible(false)}
         initialValues={{ sort: activeSort, lf: leadFilter, af: activityFilter, rf: ratingFilter, vf: viewsFilter, df: dateFilter, dfrom: dateFrom, dto: dateTo, agf: agentFilter }}
         leads={getUniqueLeads(allProposals)}
-        agents={getUniqueAgents(allProposals)}
+        agents={agentsList}
         isAdmin={isAdmin}
         onApply={applyPanel}
       />

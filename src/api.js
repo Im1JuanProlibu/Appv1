@@ -271,3 +271,11 @@ export function downloadReport(id, token) {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
+
+// GET /v1/user?status=active&limit=200 — lista todos los usuarios activos
+// Los agentes tienen home="/app/dashboard"; admins tienen home="/app"
+export function getActiveUsers(token) {
+  return request('/user?status=active&limit=200&sort=firstName ASC', {
+    headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
+  });
+}
