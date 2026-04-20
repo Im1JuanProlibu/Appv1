@@ -16,10 +16,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../ThemeContext';
-import { getProposals, getReports, runReport, downloadReport } from '../api';
+import { getProposals, getReports, runReport, downloadReport, getActiveUsers } from '../api';
 import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
 import { ProlibuLoader, ProlibuSpinner } from '../components/ProlibuLoader';
+import { CaretDown, Check, X } from 'phosphor-react-native';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const RANGE_OPTIONS = [
@@ -191,6 +192,13 @@ export default function ReportsScreen({ navigation }) {
   const [isAdmin, setIsAdmin]     = useState(false);
   const [proposals, setProposals] = useState([]);
   const [loadingProposals, setLoadingProposals] = useState(true);
+  // Vista admin
+  const [viewMode, setViewMode]         = useState('mine'); // 'mine' | 'all' | 'agent'
+  const [agentsList, setAgentsList]     = useState([]);
+  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [agentPickerVisible, setAgentPickerVisible] = useState(false);
+  const authRef   = React.useRef(null);
+  const userIdRef = React.useRef(null);
 
   // Configuración del reporte
   const [rangeKey, setRangeKey]       = useState('6m');
@@ -220,19 +228,33 @@ export default function ReportsScreen({ navigation }) {
       const user = authData.user || {};
       const id   = authData.userId || user._id || user.id || '';
       const admin = isAdminUser(user);
+      authRef.current = authData;
+      userIdRef.current = id;
       setAuth(authData);
       setIsAdmin(admin);
-      loadProposals(id, authData.token);
+      loadProposals(id, authData.token, 200); // siempre arranca con "Mis datos"
       if (admin) {
-        setServerLoading(true);
         loadServerReports(authData.token);
+        getActiveUsers(authData.token).then(res => {
+          const all = res.docs || res.data || (Array.isArray(res) ? res : []);
+          setAgentsList(all
+            .filter(u => u.home === '/app/dashboard' && u.status === 'active')
+            .map(u => ({
+              id: u.id || u._id,
+              name: u.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : (u.email || u.id),
+            }))
+          );
+        }).catch(() => {});
       }
     });
   }, []);
 
-  async function loadProposals(id, token) {
+  async function loadProposals(agentId, token, limit = 200) {
+    setLoadingProposals(true);
+    setGenerated(false);
+    setReport(null);
     try {
-      const res = await getProposals(id, token);
+      const res = await getProposals(agentId, token, 1, limit);
       const raw = res.docs || res.data || (Array.isArray(res) ? res : []);
       setProposals((Array.isArray(raw) ? raw : []).filter(p =>
         ['Draft', 'Ready', 'Approved', 'Denied'].includes(p.status)
@@ -240,6 +262,17 @@ export default function ReportsScreen({ navigation }) {
     } catch { /* sin propuestas */ } finally {
       setLoadingProposals(false);
     }
+  }
+
+  function applyViewMode(mode, agent = null) {
+    setViewMode(mode);
+    setSelectedAgent(agent);
+    setAgentPickerVisible(false);
+    if (!authRef.current) return;
+    const token = authRef.current.token;
+    if (mode === 'mine')  loadProposals(userIdRef.current, token, 200);
+    if (mode === 'all')   loadProposals(null, token, 500);
+    if (mode === 'agent' && agent) loadProposals(agent.id, token, 200);
   }
 
   async function loadServerReports(token) {
@@ -419,6 +452,37 @@ export default function ReportsScreen({ navigation }) {
           <Text style={styles.headerSub}>{activRangeLabel()} · {PERIOD_OPTIONS.find(p => p.key === periodKey)?.label}</Text>
         )}
       </View>
+
+      {/* Selector de vista (solo admin) */}
+      {isAdmin && (
+        <View style={styles.viewSelector}>
+          {[
+            { mode: 'mine',  label: 'Mis datos' },
+            { mode: 'all',   label: 'Plataforma' },
+          ].map(opt => (
+            <TouchableOpacity
+              key={opt.mode}
+              style={[styles.viewChip, viewMode === opt.mode && styles.viewChipActive]}
+              onPress={() => applyViewMode(opt.mode)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.viewChipText, viewMode === opt.mode && styles.viewChipTextActive]}>
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={[styles.viewChip, styles.viewChipAgent, viewMode === 'agent' && styles.viewChipActive]}
+            onPress={() => setAgentPickerVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.viewChipText, viewMode === 'agent' && styles.viewChipTextActive]} numberOfLines={1}>
+              {viewMode === 'agent' ? selectedAgent?.name : 'Asesor'}
+            </Text>
+            <CaretDown size={13} color={viewMode === 'agent' ? '#fff' : COLORS.textMuted} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
@@ -669,6 +733,38 @@ export default function ReportsScreen({ navigation }) {
 
       <BottomTabBar active="Reports" navigation={navigation} />
       <ProlibuLoader visible={generating} background={isDark ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.8)'} />
+
+      {/* Modal picker de agentes */}
+      <Modal visible={agentPickerVisible} animationType="slide" transparent onRequestClose={() => setAgentPickerVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setAgentPickerVisible(false)} />
+          <View style={[styles.modalSheet, { maxHeight: '65%' }]}>
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.border, alignSelf: 'center', marginBottom: 20 }} />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ color: COLORS.text, fontSize: 17, fontWeight: '800' }}>Filtrar por asesor</Text>
+              <TouchableOpacity onPress={() => setAgentPickerVisible(false)}>
+                <X size={20} color={COLORS.text} weight="bold" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {agentsList.map(agent => {
+                const active = selectedAgent?.id === agent.id;
+                return (
+                  <TouchableOpacity
+                    key={agent.id}
+                    style={[styles.pickerItem, active && styles.pickerItemActive]}
+                    onPress={() => applyViewMode('agent', agent)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.pickerItemText, active && { color: COLORS.accent, fontWeight: '700' }]}>{agent.name}</Text>
+                    {active && <Check size={16} color={COLORS.accent} weight="bold" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -835,5 +931,28 @@ function makeStyles(C) {
       padding: 15, alignItems: 'center', marginTop: 10,
     },
     cancelBtnText: { color: C.textMuted, fontWeight: '600', fontSize: 15 },
+
+    // Selector de vista admin
+    viewSelector: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      paddingHorizontal: 16, paddingVertical: 10,
+      borderBottomWidth: 1, borderBottomColor: C.border,
+    },
+    viewChip: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      paddingHorizontal: 14, paddingVertical: 8,
+      borderRadius: 20, borderWidth: 1, borderColor: C.border, backgroundColor: C.card,
+    },
+    viewChipAgent: { flex: 1 },
+    viewChipActive: { backgroundColor: C.accent, borderColor: C.accent },
+    viewChipText: { color: C.textMuted, fontSize: 13, fontWeight: '600' },
+    viewChipTextActive: { color: '#fff' },
+    pickerItem: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingVertical: 14, paddingHorizontal: 4,
+      borderBottomWidth: 1, borderBottomColor: C.border,
+    },
+    pickerItemActive: { backgroundColor: C.accent + '10' },
+    pickerItemText: { color: C.text, fontSize: 15 },
   });
 }

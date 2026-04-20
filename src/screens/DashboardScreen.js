@@ -8,15 +8,16 @@ import {
   ScrollView,
   RefreshControl,
   Animated,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../ThemeContext';
-import { getProposals } from '../api';
+import { getProposals, getActiveUsers } from '../api';
 import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
 import { ProlibuLoader } from '../components/ProlibuLoader';
-import { Fire, Thermometer, Snowflake, ArrowClockwise } from 'phosphor-react-native';
+import { Fire, Thermometer, Snowflake, ArrowClockwise, CaretDown, X, Check } from 'phosphor-react-native';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 // Brand colors are the same in both themes — use hardcoded hex values
@@ -152,6 +153,14 @@ export default function DashboardScreen({ navigation }) {
   const [userName, setUserName]     = useState('');
   const [auth, setAuth]             = useState(null);
   const [userId, setUserId]         = useState(null);
+  const [isAdmin, setIsAdmin]       = useState(false);
+  // viewMode: 'mine' | 'all' | 'agent'
+  const [viewMode, setViewMode]     = useState('mine');
+  const [agentsList, setAgentsList] = useState([]);
+  const [selectedAgent, setSelectedAgent] = useState(null); // { id, name }
+  const [agentPickerVisible, setAgentPickerVisible] = useState(false);
+  const authRef  = useRef(null);
+  const userIdRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -163,17 +172,34 @@ export default function DashboardScreen({ navigation }) {
       const name = user.firstName
         ? `${user.firstName} ${user.lastName || ''}`.trim()
         : (user.name || user.email || 'Mi cuenta');
+      const adminFlag = user.isAdmin === true;
+      authRef.current = authData;
+      userIdRef.current = id;
       setAuth(authData);
       setUserId(id);
       setUserName(name);
-      load(id, authData.token);
+      setIsAdmin(adminFlag);
+      load(id, authData.token); // siempre arranca con "Mis datos"
+      if (adminFlag) {
+        getActiveUsers(authData.token).then(res => {
+          const all = res.docs || res.data || (Array.isArray(res) ? res : []);
+          setAgentsList(all
+            .filter(u => u.home === '/app/dashboard' && u.status === 'active')
+            .map(u => ({
+              id: u.id || u._id,
+              name: u.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : (u.email || u.id),
+            }))
+          );
+        }).catch(() => {});
+      }
     });
   }, []);
 
-  async function load(id, token) {
-    const minDelay = new Promise(r => setTimeout(r, 600));
+  async function load(agentId, token, limit = 200) {
+    fadeAnim.setValue(0);
+    const minDelay = new Promise(r => setTimeout(r, 400));
     try {
-      const [res] = await Promise.all([getProposals(id, token), minDelay]);
+      const [res] = await Promise.all([getProposals(agentId, token, 1, limit), minDelay]);
       const raw = res.docs || res.data || (Array.isArray(res) ? res : []);
       const proposals = (Array.isArray(raw) ? raw : []).filter(p =>
         ['Draft', 'Ready', 'Approved', 'Denied'].includes(p.status)
@@ -188,14 +214,34 @@ export default function DashboardScreen({ navigation }) {
     }
   }
 
+  function applyViewMode(mode, agent = null) {
+    setViewMode(mode);
+    setSelectedAgent(agent);
+    setAgentPickerVisible(false);
+    setLoading(true);
+    setStats(null);
+    if (!authRef.current) return;
+    const token = authRef.current.token;
+    if (mode === 'mine')  load(userIdRef.current, token, 200);
+    if (mode === 'all')   load(null, token, 500);
+    if (mode === 'agent' && agent) load(agent.id, token, 200);
+  }
+
   function onRefresh() {
-    if (!userId || !auth) return;
+    if (!authRef.current) return;
     setRefreshing(true);
-    fadeAnim.setValue(0);
-    load(userId, auth.token);
+    const token = authRef.current.token;
+    if (viewMode === 'mine')  load(userIdRef.current, token, 200);
+    if (viewMode === 'all')   load(null, token, 500);
+    if (viewMode === 'agent' && selectedAgent) load(selectedAgent.id, token, 200);
   }
 
   const styles = makeStyles(COLORS);
+
+  // Etiqueta del modo actual
+  const viewLabel = viewMode === 'mine' ? `Mis datos · ${userName}`
+    : viewMode === 'all'  ? 'Toda la plataforma'
+    : `Asesor: ${selectedAgent?.name || ''}`;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -205,11 +251,48 @@ export default function DashboardScreen({ navigation }) {
       <View style={styles.header}>
         <ProlibuLogoHorizontal scale={1} />
         <View style={{ flex: 1 }} />
-        {userName ? <Text style={styles.headerSub} numberOfLines={1}>{userName}</Text> : null}
         <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn} activeOpacity={0.7}>
           <ArrowClockwise size={22} color={COLORS.accent} />
         </TouchableOpacity>
       </View>
+
+      {/* Selector de vista (solo admin) */}
+      {isAdmin && (
+        <View style={styles.viewSelector}>
+          {[
+            { mode: 'mine',  label: 'Mis datos' },
+            { mode: 'all',   label: 'Plataforma' },
+          ].map(opt => (
+            <TouchableOpacity
+              key={opt.mode}
+              style={[styles.viewChip, viewMode === opt.mode && styles.viewChipActive]}
+              onPress={() => applyViewMode(opt.mode)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.viewChipText, viewMode === opt.mode && styles.viewChipTextActive]}>
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={[styles.viewChip, styles.viewChipAgent, viewMode === 'agent' && styles.viewChipActive]}
+            onPress={() => setAgentPickerVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.viewChipText, viewMode === 'agent' && styles.viewChipTextActive]} numberOfLines={1}>
+              {viewMode === 'agent' ? selectedAgent?.name : 'Asesor'}
+            </Text>
+            <CaretDown size={13} color={viewMode === 'agent' ? COLORS.accentFg : COLORS.textMuted} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Etiqueta de contexto */}
+      {!isAdmin && (
+        <View style={styles.contextRow}>
+          <Text style={styles.contextText}>{userName}</Text>
+        </View>
+      )}
 
       <View style={{ flex: 1 }}>
       {loading ? (
@@ -435,6 +518,38 @@ export default function DashboardScreen({ navigation }) {
       )}
       </View>
 
+      {/* Modal picker de agentes */}
+      <Modal visible={agentPickerVisible} animationType="slide" transparent onRequestClose={() => setAgentPickerVisible(false)}>
+        <View style={styles.pickerOverlay}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setAgentPickerVisible(false)} />
+          <View style={styles.pickerSheet}>
+            <View style={styles.pickerHandle} />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={styles.pickerTitle}>Filtrar por asesor</Text>
+              <TouchableOpacity onPress={() => setAgentPickerVisible(false)}>
+                <X size={20} color={COLORS.text} weight="bold" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {agentsList.map(agent => {
+                const active = selectedAgent?.id === agent.id;
+                return (
+                  <TouchableOpacity
+                    key={agent.id}
+                    style={[styles.pickerItem, active && styles.pickerItemActive]}
+                    onPress={() => applyViewMode('agent', agent)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.pickerItemText, active && styles.pickerItemTextActive]}>{agent.name}</Text>
+                    {active && <Check size={16} color={COLORS.accent} weight="bold" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       <BottomTabBar active="Dashboard" navigation={navigation} />
     </SafeAreaView>
   );
@@ -545,5 +660,48 @@ function makeStyles(C) {
       backgroundColor: C.accent + '10', padding: 16, alignItems: 'center',
     },
     reportsBtnText: { color: C.accent, fontWeight: '700', fontSize: 14 },
+
+    // Selector de vista (admin)
+    viewSelector: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      paddingHorizontal: 16, paddingVertical: 10,
+      borderBottomWidth: 1, borderBottomColor: C.border,
+    },
+    viewChip: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      paddingHorizontal: 14, paddingVertical: 8,
+      borderRadius: 20, borderWidth: 1, borderColor: C.border,
+      backgroundColor: C.card,
+    },
+    viewChipAgent: { flex: 1 },
+    viewChipActive: { backgroundColor: C.accent, borderColor: C.accent },
+    viewChipText: { color: C.textMuted, fontSize: 13, fontWeight: '600' },
+    viewChipTextActive: { color: '#fff' },
+    contextRow: {
+      paddingHorizontal: 20, paddingVertical: 8,
+      borderBottomWidth: 1, borderBottomColor: C.border,
+    },
+    contextText: { color: C.textMuted, fontSize: 12 },
+
+    // Agent picker modal
+    pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    pickerSheet: {
+      backgroundColor: C.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+      padding: 24, paddingBottom: 48, maxHeight: '70%',
+      borderWidth: 1, borderColor: C.border,
+    },
+    pickerHandle: {
+      width: 40, height: 4, borderRadius: 2,
+      backgroundColor: C.border, alignSelf: 'center', marginBottom: 20,
+    },
+    pickerTitle: { color: C.text, fontSize: 17, fontWeight: '800' },
+    pickerItem: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingVertical: 14, paddingHorizontal: 4,
+      borderBottomWidth: 1, borderBottomColor: C.border,
+    },
+    pickerItemActive: { backgroundColor: C.accent + '10' },
+    pickerItemText: { color: C.text, fontSize: 15 },
+    pickerItemTextActive: { color: C.accent, fontWeight: '700' },
   });
 }
