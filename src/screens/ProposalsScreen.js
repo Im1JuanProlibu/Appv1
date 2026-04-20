@@ -121,8 +121,10 @@ export default function ProposalsScreen({ navigation, route }) {
   const FILTERS = makeFilters(COLORS.accent);
   const [auth, setAuth] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const authRef = React.useRef(null);
   const userIdRef = React.useRef(null);
+  const isAdminRef = React.useRef(false);
   const lastLoadRef = React.useRef(0); // throttle: evita peticiones repetidas al backend
   const [userName, setUserName] = useState('');
   const [allProposals, setAllProposals] = useState([]);
@@ -132,6 +134,7 @@ export default function ProposalsScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [leadFilter, setLeadFilter] = useState(null);
+  const [agentFilter, setAgentFilter] = useState(null);
   const [activityFilter, setActivityFilter] = useState('all');
   const [ratingFilter, setRatingFilter] = useState('all');   // all | Hot | Warm | Cold
   const [viewsFilter, setViewsFilter] = useState('all');     // all | has_views | no_views | many_views
@@ -184,7 +187,12 @@ export default function ProposalsScreen({ navigation, route }) {
       setAuth(authData);
       setUserId(id);
       setUserName(name);
-      load(id, authData.token, true); // carga inicial: siempre forzar
+
+      const adminFlag = user.isAdmin === true;
+      setIsAdmin(adminFlag);
+      isAdminRef.current = adminFlag;
+      // Admin loads ALL proposals (no inCharge filter); agent loads only their own
+      load(adminFlag ? null : id, authData.token, true);
     });
   }, []);
 
@@ -193,7 +201,7 @@ export default function ProposalsScreen({ navigation, route }) {
     const unsubscribe = navigation.addListener('focus', () => {
       if (authRef.current && userIdRef.current) {
         setRefreshing(true);
-        load(userIdRef.current, authRef.current.token);
+        load(isAdminRef.current ? null : userIdRef.current, authRef.current.token);
       }
     });
     return unsubscribe;
@@ -241,6 +249,23 @@ export default function ProposalsScreen({ navigation, route }) {
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  function getUniqueAgents(proposals) {
+    const map = new Map();
+    proposals.forEach((p) => {
+      const agent = p.inCharge;
+      if (typeof agent === 'object' && agent) {
+        const id = agent._id || agent.id;
+        if (id && !map.has(id)) {
+          const name = agent.firstName
+            ? `${agent.firstName} ${agent.lastName || ''}`.trim()
+            : (agent.name || agent.email || id);
+          map.set(id, { id, name, email: agent.email || '' });
+        }
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   function sortProposals(list, sort) {
     const s = [...list];
     if (sort === 'updatedAt_asc') s.sort((a, b) => new Date(a.updatedAt || 0) - new Date(b.updatedAt || 0));
@@ -250,7 +275,7 @@ export default function ProposalsScreen({ navigation, route }) {
     return s;
   }
 
-  function applyAllFilters(list, { af, rf, vf, lf, df, dfrom, dto }) {
+  function applyAllFilters(list, { af, rf, vf, lf, df, dfrom, dto, agf }) {
     const now = Date.now();
     const DAY  = 24 * 60 * 60 * 1000;
     const WEEK = 7 * DAY;
@@ -260,6 +285,12 @@ export default function ProposalsScreen({ navigation, route }) {
         const lead = p.relatedLead;
         if (typeof lead !== 'object' || !lead) return false;
         if ((lead._id || lead.id) !== lf) return false;
+      }
+      // Agent filter (admin only)
+      if (agf) {
+        const agent = p.inCharge;
+        if (typeof agent !== 'object' || !agent) return false;
+        if ((agent._id || agent.id) !== agf) return false;
       }
       // Activity filter
       const raw = p.lastView || p.lastSeen || p.lastViewed;
@@ -299,8 +330,9 @@ export default function ProposalsScreen({ navigation, route }) {
     sort = activeSort, lf = leadFilter,
     af = activityFilter, rf = ratingFilter, vf = viewsFilter,
     df = dateFilter, dfrom = dateFrom, dto = dateTo,
+    agf = agentFilter,
   ) {
-    let base = applyAllFilters(proposals, { af, rf, vf, lf, df, dfrom, dto });
+    let base = applyAllFilters(proposals, { af, rf, vf, lf, df, dfrom, dto, agf });
     const sorted = sortProposals(base, sort);
     if (filter === 'all') {
       setSections(sorted.length > 0 ? [{ title: null, data: sorted }] : []);
@@ -312,22 +344,22 @@ export default function ProposalsScreen({ navigation, route }) {
 
   function handleFilter(key) {
     setActiveFilter(key);
-    buildSections(allProposals, key, activeSort, leadFilter, activityFilter, ratingFilter, viewsFilter, dateFilter, dateFrom, dateTo);
+    buildSections(allProposals, key, activeSort, leadFilter, activityFilter, ratingFilter, viewsFilter, dateFilter, dateFrom, dateTo, agentFilter);
   }
 
   function handleSort(key) {
     setActiveSort(key);
-    buildSections(allProposals, activeFilter, key, leadFilter, activityFilter, ratingFilter, viewsFilter, dateFilter, dateFrom, dateTo);
+    buildSections(allProposals, activeFilter, key, leadFilter, activityFilter, ratingFilter, viewsFilter, dateFilter, dateFrom, dateTo, agentFilter);
   }
 
   function handleLeadFilter(leadId) {
     setLeadFilter(leadId);
     setLeadPickerVisible(false);
     setLeadSearch('');
-    buildSections(allProposals, activeFilter, activeSort, leadId, activityFilter, ratingFilter, viewsFilter, dateFilter, dateFrom, dateTo);
+    buildSections(allProposals, activeFilter, activeSort, leadId, activityFilter, ratingFilter, viewsFilter, dateFilter, dateFrom, dateTo, agentFilter);
   }
 
-  function applyPanel({ sort, lf, af, rf, vf, df, dfrom, dto }) {
+  function applyPanel({ sort, lf, af, rf, vf, df, dfrom, dto, agf }) {
     setActiveSort(sort);
     setLeadFilter(lf);
     setActivityFilter(af);
@@ -336,8 +368,9 @@ export default function ProposalsScreen({ navigation, route }) {
     setDateFilter(df);
     setDateFrom(dfrom);
     setDateTo(dto);
+    setAgentFilter(agf ?? null);
     setFilterPanelVisible(false);
-    buildSections(allProposals, activeFilter, sort, lf, af, rf, vf, df, dfrom, dto);
+    buildSections(allProposals, activeFilter, sort, lf, af, rf, vf, df, dfrom, dto, agf ?? null);
   }
 
   const activeFilterCount = [
@@ -346,13 +379,14 @@ export default function ProposalsScreen({ navigation, route }) {
     viewsFilter    !== 'all',
     dateFilter     !== 'all',
     leadFilter     != null,
+    agentFilter    != null,
     activeSort     !== 'updatedAt_desc',
   ].filter(Boolean).length;
 
   function onRefresh() {
-    if (!userId || !auth) return;
+    if (!auth) return;
     setRefreshing(true);
-    load(userId, auth.token, true); // pull-to-refresh: siempre forzar
+    load(isAdminRef.current ? null : userId, auth.token, true); // pull-to-refresh: siempre forzar
   }
 
   async function handleLogout() {
@@ -516,6 +550,18 @@ export default function ProposalsScreen({ navigation, route }) {
               const leadEmail = typeof lead === 'object' ? (lead?.email || '') : '';
               const display = leadName || leadEmail;
               return display ? <Text style={styles.cardLead} numberOfLines={1}>{display}</Text> : null;
+            })()}
+            {isAdmin && (() => {
+              const agent = item.inCharge;
+              if (typeof agent !== 'object' || !agent) return null;
+              const agentName = agent.firstName
+                ? `${agent.firstName}${agent.lastName ? ' ' + agent.lastName : ''}`.trim()
+                : (agent.name || agent.email || '');
+              return agentName ? (
+                <View style={styles.agentBadge}>
+                  <Text style={styles.agentBadgeText}>{agentName}</Text>
+                </View>
+              ) : null;
             })()}
           </View>
           <View style={{ alignItems: 'flex-end', gap: 5 }}>
@@ -750,7 +796,7 @@ export default function ProposalsScreen({ navigation, route }) {
         {activeFilterCount > 0 && (
           <TouchableOpacity
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            onPress={() => applyPanel({ sort: activeSort, lf: null, af: 'all', rf: 'all', vf: 'all', df: 'all', dfrom: '', dto: '' })}
+            onPress={() => applyPanel({ sort: activeSort, lf: null, af: 'all', rf: 'all', vf: 'all', df: 'all', dfrom: '', dto: '', agf: null })}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 6 }}>
               <X size={13} color={COLORS.accentFg} weight="bold" />
@@ -795,8 +841,10 @@ export default function ProposalsScreen({ navigation, route }) {
       <FilterPanel
         visible={filterPanelVisible}
         onClose={() => setFilterPanelVisible(false)}
-        initialValues={{ sort: activeSort, lf: leadFilter, af: activityFilter, rf: ratingFilter, vf: viewsFilter, df: dateFilter, dfrom: dateFrom, dto: dateTo }}
+        initialValues={{ sort: activeSort, lf: leadFilter, af: activityFilter, rf: ratingFilter, vf: viewsFilter, df: dateFilter, dfrom: dateFrom, dto: dateTo, agf: agentFilter }}
         leads={getUniqueLeads(allProposals)}
+        agents={getUniqueAgents(allProposals)}
+        isAdmin={isAdmin}
         onApply={applyPanel}
       />
 
@@ -1287,7 +1335,7 @@ export default function ProposalsScreen({ navigation, route }) {
 }
 
 // ─── Panel de filtros avanzados ───────────────────────────────────────────────
-function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
+function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, onApply }) {
   const { colors: COLORS } = useTheme();
   const [sort,  setSort]  = useState(initialValues.sort);
   const [af,    setAf]    = useState(initialValues.af);
@@ -1297,8 +1345,11 @@ function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
   const [df,    setDf]    = useState(initialValues.df);
   const [dfrom, setDfrom] = useState(initialValues.dfrom);
   const [dto,   setDto]   = useState(initialValues.dto);
+  const [agf,   setAgf]   = useState(initialValues.agf ?? null);
   const [leadSearch, setLeadSearch] = useState('');
   const [leadDropOpen, setLeadDropOpen] = useState(false);
+  const [agentSearch, setAgentSearch] = useState('');
+  const [agentDropOpen, setAgentDropOpen] = useState(false);
 
   React.useEffect(() => {
     if (visible) {
@@ -1310,15 +1361,20 @@ function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
       setDf(initialValues.df);
       setDfrom(initialValues.dfrom);
       setDto(initialValues.dto);
+      setAgf(initialValues.agf ?? null);
       setLeadSearch('');
       setLeadDropOpen(false);
+      setAgentSearch('');
+      setAgentDropOpen(false);
     }
   }, [visible]);
 
   function clearAll() {
     setSort('updatedAt_desc'); setAf('all'); setRf('all');
     setVf('all'); setLf(null); setDf('all'); setDfrom(''); setDto('');
+    setAgf(null);
     setLeadSearch(''); setLeadDropOpen(false);
+    setAgentSearch(''); setAgentDropOpen(false);
   }
 
   // Chip toggle: si ya está activo, vuelve a 'all'
@@ -1365,6 +1421,12 @@ function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
     if (!leadSearch.trim()) return true;
     const q = leadSearch.toLowerCase();
     return l.name.toLowerCase().includes(q) || l.email.toLowerCase().includes(q);
+  });
+
+  const filteredAgents = (agents || []).filter((a) => {
+    if (!agentSearch.trim()) return true;
+    const q = agentSearch.toLowerCase();
+    return a.name.toLowerCase().includes(q) || a.email.toLowerCase().includes(q);
   });
 
   function PanelSection({ title, children }) {
@@ -1519,9 +1581,60 @@ function FilterPanel({ visible, onClose, initialValues, leads, onApply }) {
               )}
             </PanelSection>
 
+            {isAdmin && (
+              <PanelSection title="Asesor">
+                <TouchableOpacity
+                  style={styles.leadDropBtn}
+                  onPress={() => setAgentDropOpen((v) => !v)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.leadDropBtnText, agf && { color: COLORS.accent }]} numberOfLines={1}>
+                    {agf ? ((agents || []).find((a) => a.id === agf)?.name || 'Asesor seleccionado') : 'Todos los asesores'}
+                  </Text>
+                  <CaretDown
+                    size={16}
+                    color={COLORS.textMuted}
+                    style={{ transform: [{ rotate: agentDropOpen ? '180deg' : '0deg' }] }}
+                  />
+                </TouchableOpacity>
+
+                {agentDropOpen && (
+                  <View style={styles.leadDropList}>
+                    <TextInput
+                      style={[styles.emailSubjectInput, { marginBottom: 8, marginTop: 4 }]}
+                      value={agentSearch}
+                      onChangeText={setAgentSearch}
+                      placeholder="Buscar asesor..."
+                      placeholderTextColor={COLORS.textMuted}
+                      autoCapitalize="none"
+                    />
+                    <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} nestedScrollEnabled>
+                      {[{ id: null, name: 'Todos los asesores', email: '' }, ...filteredAgents].map((agent) => {
+                        const active = agf === agent.id;
+                        return (
+                          <TouchableOpacity
+                            key={agent.id ?? '__all_agents__'}
+                            style={[styles.panelLeadBtn, { marginBottom: 6 }, active && styles.panelLeadBtnActive]}
+                            onPress={() => { setAgf(active && agent.id !== null ? null : agent.id); setAgentDropOpen(false); setAgentSearch(''); }}
+                            activeOpacity={0.7}
+                          >
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.panelLeadBtnText, active && styles.panelLeadBtnTextActive]}>{agent.name}</Text>
+                              {agent.email ? <Text style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>{agent.email}</Text> : null}
+                            </View>
+                            {active && <Check size={16} color={COLORS.accent} weight="bold" />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
+              </PanelSection>
+            )}
+
             <TouchableOpacity
               style={styles.panelApplyBtn}
-              onPress={() => onApply({ sort, lf, af, rf, vf, df, dfrom, dto })}
+              onPress={() => onApply({ sort, lf, af, rf, vf, df, dfrom, dto, agf })}
               activeOpacity={0.8}
             >
               <Text style={styles.panelApplyText}>Aplicar filtros</Text>
@@ -1709,6 +1822,14 @@ function makeStyles(C) {
   },
   cardTitle: { color: C.text, fontWeight: '700', fontSize: 15 },
   cardLead: { color: C.textMuted, fontSize: 12, marginTop: 3 },
+  agentBadge: {
+    flexDirection: 'row', alignItems: 'center',
+    marginTop: 5, alignSelf: 'flex-start',
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 8, borderWidth: 1,
+    borderColor: C.accent + '40', backgroundColor: C.accent + '12',
+  },
+  agentBadgeText: { color: C.accent, fontSize: 11, fontWeight: '600' },
   badge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 9, paddingVertical: 4,

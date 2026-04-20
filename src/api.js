@@ -59,15 +59,15 @@ export function getAgents() {
   return request(`/publicservices/getAgents?${params}`);
 }
 
-// GET /v1/proposal?inCharge={agentId}&sort=updatedAt DESC&populate=all
+// GET /v1/proposal — si agentId es null carga todas las propuestas (admin)
 export function getProposals(agentId, token) {
   const params = new URLSearchParams({
-    inCharge: agentId,
     page: '1',
     limit: '200',
     sort: 'updatedAt DESC',
     populate: 'all',
   });
+  if (agentId) params.set('inCharge', agentId);
   return request(`/proposal?${params}`, {
     headers: { Authorization: `Bearer ${token}` },
   });

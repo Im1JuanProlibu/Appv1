@@ -76,10 +76,11 @@ function fmtAmount(n) {
 
 function isAdminUser(user) {
   if (!user) return false;
-  const role = user.role;
-  if (!role) return false;
-  const name = typeof role === 'string' ? role : (role.name || role.slug || '');
-  return ['admin', 'superadmin', 'super'].some(r => name.toLowerCase().includes(r));
+  // Nuevo: campo isAdmin guardado desde acl.roles en login
+  if (user.isAdmin === true) return true;
+  // Fallback: campo role como string
+  const role = typeof user.role === 'string' ? user.role : (user.role?.name || user.role?.slug || '');
+  return ['admin', 'superadmin', 'super'].some(r => role.toLowerCase().includes(r));
 }
 
 // ─── Calcular rango de fechas ─────────────────────────────────────────────────

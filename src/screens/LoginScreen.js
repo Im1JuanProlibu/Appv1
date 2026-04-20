@@ -48,12 +48,19 @@ export default function LoginScreen({ navigation }) {
       const userId = data.id || data._id || data.userId || data.agentId || '';
 
       // Los datos del usuario están en la raíz
+      // Extraer rol desde acl.roles (objeto con nombres de roles como claves)
+      const aclRoles = data.acl?.roles || {};
+      const roleKeys = Object.keys(aclRoles);
+      const isAdmin = roleKeys.some(r => ['admin', 'superadmin', 'super'].includes(r.toLowerCase()));
+      const role = roleKeys[0] || '';
+
       const user = {
         id: userId,
         email: data.email || email.trim(),
         firstName: data.firstName || '',
         lastName: data.lastName || '',
-        role: data.role || '',
+        role,
+        isAdmin,
       };
 
       if (!token) {
