@@ -75,32 +75,19 @@ export function useNotifications(token, auth) {
             const projectId =
               Constants.expoConfig?.extra?.eas?.projectId ??
               Constants.easConfig?.projectId;
-            console.log('[Notifications] projectId:', projectId);
-            console.log('[Notifications] auth completo:', JSON.stringify(auth));
-            console.log('[Notifications] token de auth:', token?.substring(0, 30));
             const pushTokenData = await Notifications.getExpoPushTokenAsync(
               projectId ? { projectId } : {}
             );
             const pushToken = pushTokenData.data;
             setExpoPushToken(pushToken);
-            console.log('[Notifications] Push token obtenido:', pushToken);
 
-            // Registrar en el backend si hay sesión
+            // Registrar en el backend (silencioso si el endpoint no existe)
             const userId = auth?.userId || auth?.user?.id || auth?.user?._id || null;
-            console.log('[Notifications] userId extraído:', userId);
             if (token && pushToken) {
-              console.log('[Notifications] Registrando en backend. pushToken:', pushToken, '| userId:', userId);
-              try {
-                await registerPushToken(pushToken, token, userId);
-                console.log('[Notifications] Push token registrado en backend OK');
-              } catch (e) {
-                console.log('[Notifications] Error al registrar push token:', e.message);
-              }
-            } else {
-              console.log('[Notifications] No se registra — token:', !!token, '| pushToken:', !!pushToken);
+              registerPushToken(pushToken, token, userId).catch(() => {});
             }
           } catch (e) {
-            console.log('[Notifications] ERROR al obtener push token:', e.message, e.stack);
+            // push tokens no disponibles en Expo Go SDK 53+ — ignorar
           }
         }
       } catch (e) {
