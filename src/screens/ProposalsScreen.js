@@ -850,8 +850,8 @@ export default function ProposalsScreen({ navigation, route }) {
           })}
         </View>
       )}
-      {/* Barra de filtros de estado */}
-      <View style={styles.filterBar}>
+      {/* Barra de filtros: chips de estado + botón filtros avanzados en la misma fila */}
+      <View style={styles.filterRow}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
           {FILTERS.map((f) => {
             const active = activeFilter === f.key;
@@ -872,7 +872,7 @@ export default function ProposalsScreen({ navigation, route }) {
                   {f.label}
                 </Text>
                 {count > 0 && (
-                  <View style={[styles.filterBadge, active && { backgroundColor: 'rgba(0,0,0,0.15)' }]}>
+                  <View style={[styles.filterBadge, active && { backgroundColor: 'rgba(0,0,0,0.18)' }]}>
                     <Text style={[styles.filterBadgeText, active && { color: f.fg }]}>{count}</Text>
                   </View>
                 )}
@@ -880,30 +880,38 @@ export default function ProposalsScreen({ navigation, route }) {
             );
           })}
         </ScrollView>
+        <TouchableOpacity
+          style={[styles.filterIconBtn, activeFilterCount > 0 && styles.filterIconBtnActive]}
+          onPress={() => setFilterPanelVisible(true)}
+          activeOpacity={0.75}
+        >
+          <SlidersHorizontal
+            size={17}
+            color={activeFilterCount > 0 ? '#fff' : COLORS.textMuted}
+            weight={activeFilterCount > 0 ? 'fill' : 'regular'}
+          />
+          {activeFilterCount > 0 && (
+            <View style={styles.filterIconBadge}>
+              <Text style={styles.filterIconBadgeText}>{activeFilterCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
-      {/* Botón de filtros avanzados */}
-      <TouchableOpacity
-        style={[styles.filterBarBtn, activeFilterCount > 0 && styles.filterBarBtnActive]}
-        onPress={() => setFilterPanelVisible(true)}
-        activeOpacity={0.85}
-      >
-        <SlidersHorizontal size={15} color={activeFilterCount > 0 ? COLORS.accentFg : COLORS.textMuted} />
-        <Text style={[styles.filterBarBtnText, activeFilterCount > 0 && { color: COLORS.accentFg }]}>
-          {activeFilterCount > 0 ? `Filtros activos (${activeFilterCount})` : 'Filtros avanzados'}
-        </Text>
-        {activeFilterCount > 0 && (
+      {/* Strip de filtros activos */}
+      {activeFilterCount > 0 && (
+        <View style={styles.activeFiltersStrip}>
+          <Text style={styles.activeFiltersText}>
+            {activeFilterCount} {activeFilterCount === 1 ? 'filtro activo' : 'filtros activos'} · {visibleCount} resultado{visibleCount !== 1 ? 's' : ''}
+          </Text>
           <TouchableOpacity
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             onPress={() => applyPanel({ sort: activeSort, lf: null, af: 'all', rf: 'all', vf: 'all', df: 'all', dfrom: '', dto: '', agf: null })}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 6 }}>
-              <X size={13} color={COLORS.accentFg} weight="bold" />
-              <Text style={{ color: COLORS.accentFg, fontSize: 13, fontWeight: '700' }}>Limpiar</Text>
-            </View>
+            <Text style={styles.activeFiltersClear}>✕ Limpiar</Text>
           </TouchableOpacity>
-        )}
-      </TouchableOpacity>
+        </View>
+      )}
 
       <View style={{ flex: 1 }}>
         <SectionList
@@ -1556,14 +1564,20 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
   }
 
   function ChipRow({ opts, value, onSelect }) {
+    const TEMP_COLORS = { Hot: '#FF5722', Warm: '#F59E0B', Cold: '#60A5FA' };
     return (
       <View style={styles.panelChipRow}>
         {opts.map((o) => {
           const active = value === o.key;
+          const tempColor = TEMP_COLORS[o.key];
+          const activeBg = tempColor || C.accent;
           return (
             <TouchableOpacity
               key={o.key}
-              style={[styles.panelChip, active && styles.panelChipActive]}
+              style={[
+                styles.panelChip,
+                active && { backgroundColor: activeBg, borderColor: activeBg },
+              ]}
               onPress={() => onSelect(active && o.key !== 'all' ? 'all' : o.key)}
               activeOpacity={0.7}
             >
@@ -1584,19 +1598,21 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={onClose} />
-        <View style={[styles.sendSheet, { maxHeight: '94%' }]}>
+        <View style={[styles.sendSheet, { maxHeight: '94%', paddingBottom: 0 }]}>
           <View style={styles.sendSheetHandle} />
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          {/* Header fijo */}
+          <View style={styles.panelHeader}>
             <View>
-              <Text style={styles.sendSheetTitle}>Filtros avanzados</Text>
-              <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 2 }}>Toca un filtro activo para desactivarlo</Text>
+              <Text style={styles.sendSheetTitle}>Filtros</Text>
+              <Text style={{ color: C.textMuted, fontSize: 12, marginTop: 2 }}>Toca un filtro activo para desactivarlo</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.notifCloseBtn}>
-              <X size={20} color={COLORS.text} weight="bold" />
+              <X size={20} color={C.text} weight="bold" />
             </TouchableOpacity>
           </View>
 
-          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          {/* Contenido scrollable */}
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
 
             <PanelSection title="Ordenar por">
               <ChipRow opts={SORT_OPTS} value={sort} onSelect={setSort} />
@@ -1625,12 +1641,12 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
                       value={dfrom}
                       onChangeText={setDfrom}
                       placeholder="AAAA-MM-DD"
-                      placeholderTextColor={COLORS.textMuted}
+                      placeholderTextColor={C.textMuted}
                       keyboardType="numeric"
                       maxLength={10}
                     />
                   </View>
-                  <ArrowRight size={16} color={COLORS.textMuted} style={{ alignSelf: 'flex-end', marginBottom: 12, marginHorizontal: 4 }} />
+                  <ArrowRight size={16} color={C.textMuted} style={{ alignSelf: 'flex-end', marginBottom: 12, marginHorizontal: 4 }} />
                   <View style={styles.dateInputWrap}>
                     <Text style={styles.dateInputLabel}>Hasta</Text>
                     <TextInput
@@ -1638,7 +1654,7 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
                       value={dto}
                       onChangeText={setDto}
                       placeholder="AAAA-MM-DD"
-                      placeholderTextColor={COLORS.textMuted}
+                      placeholderTextColor={C.textMuted}
                       keyboardType="numeric"
                       maxLength={10}
                     />
@@ -1648,23 +1664,20 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
             </PanelSection>
 
             <PanelSection title="Lead">
-              {/* Botón selector colapsable */}
               <TouchableOpacity
                 style={styles.leadDropBtn}
                 onPress={() => setLeadDropOpen((v) => !v)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.leadDropBtnText, lf && { color: COLORS.accent }]} numberOfLines={1}>
+                <Text style={[styles.leadDropBtnText, lf && { color: C.accent }]} numberOfLines={1}>
                   {lf ? (leads.find((l) => l.id === lf)?.name || 'Lead seleccionado') : 'Todos los leads'}
                 </Text>
                 <CaretDown
                   size={16}
-                  color={COLORS.textMuted}
+                  color={C.textMuted}
                   style={{ transform: [{ rotate: leadDropOpen ? '180deg' : '0deg' }] }}
                 />
               </TouchableOpacity>
-
-              {/* Lista desplegable */}
               {leadDropOpen && (
                 <View style={styles.leadDropList}>
                   <TextInput
@@ -1672,7 +1685,7 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
                     value={leadSearch}
                     onChangeText={setLeadSearch}
                     placeholder="Buscar lead..."
-                    placeholderTextColor={COLORS.textMuted}
+                    placeholderTextColor={C.textMuted}
                     autoCapitalize="none"
                   />
                   <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} nestedScrollEnabled>
@@ -1687,9 +1700,9 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
                         >
                           <View style={{ flex: 1 }}>
                             <Text style={[styles.panelLeadBtnText, active && styles.panelLeadBtnTextActive]}>{lead.name}</Text>
-                            {lead.email ? <Text style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>{lead.email}</Text> : null}
+                            {lead.email ? <Text style={{ color: C.textMuted, fontSize: 11, marginTop: 2 }}>{lead.email}</Text> : null}
                           </View>
-                          {active && <Check size={16} color={COLORS.accent} weight="bold" />}
+                          {active && <Check size={16} color={C.accent} weight="bold" />}
                         </TouchableOpacity>
                       );
                     })}
@@ -1705,16 +1718,15 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
                   onPress={() => setAgentDropOpen((v) => !v)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.leadDropBtnText, agf && { color: COLORS.accent }]} numberOfLines={1}>
+                  <Text style={[styles.leadDropBtnText, agf && { color: C.accent }]} numberOfLines={1}>
                     {agf ? ((agents || []).find((a) => a.id === agf)?.name || 'Asesor seleccionado') : 'Todos los asesores'}
                   </Text>
                   <CaretDown
                     size={16}
-                    color={COLORS.textMuted}
+                    color={C.textMuted}
                     style={{ transform: [{ rotate: agentDropOpen ? '180deg' : '0deg' }] }}
                   />
                 </TouchableOpacity>
-
                 {agentDropOpen && (
                   <View style={styles.leadDropList}>
                     <TextInput
@@ -1722,7 +1734,7 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
                       value={agentSearch}
                       onChangeText={setAgentSearch}
                       placeholder="Buscar asesor..."
-                      placeholderTextColor={COLORS.textMuted}
+                      placeholderTextColor={C.textMuted}
                       autoCapitalize="none"
                     />
                     <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} nestedScrollEnabled>
@@ -1737,9 +1749,9 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
                           >
                             <View style={{ flex: 1 }}>
                               <Text style={[styles.panelLeadBtnText, active && styles.panelLeadBtnTextActive]}>{agent.name}</Text>
-                              {agent.email ? <Text style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>{agent.email}</Text> : null}
+                              {agent.email ? <Text style={{ color: C.textMuted, fontSize: 11, marginTop: 2 }}>{agent.email}</Text> : null}
                             </View>
-                            {active && <Check size={16} color={COLORS.accent} weight="bold" />}
+                            {active && <Check size={16} color={C.accent} weight="bold" />}
                           </TouchableOpacity>
                         );
                       })}
@@ -1748,7 +1760,13 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
                 )}
               </PanelSection>
             )}
+          </ScrollView>
 
+          {/* Botones fijos al fondo del panel */}
+          <View style={styles.panelFooter}>
+            <TouchableOpacity style={styles.panelClearBtn} onPress={clearAll} activeOpacity={0.7}>
+              <Text style={styles.panelClearText}>Limpiar</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.panelApplyBtn}
               onPress={() => onApply({ sort, lf, af, rf, vf, df, dfrom, dto, agf })}
@@ -1756,11 +1774,7 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
             >
               <Text style={styles.panelApplyText}>Aplicar filtros</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.panelClearBtn} onPress={clearAll} activeOpacity={0.7}>
-              <Text style={styles.panelClearText}>Limpiar todo y cerrar</Text>
-            </TouchableOpacity>
-            <View style={{ height: 32 }} />
-          </ScrollView>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -1835,14 +1849,16 @@ function makeStyles(C) {
     backgroundColor: C.border,
   },
 
-  // Barra de filtros
-  filterBar: {
+  // Barra de filtros (chips + botón avanzados en una fila)
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: C.border,
     backgroundColor: C.bg,
   },
   filterScroll: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     gap: 8,
     flexDirection: 'row',
@@ -1851,8 +1867,8 @@ function makeStyles(C) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: C.border,
@@ -1872,6 +1888,59 @@ function makeStyles(C) {
   filterBadgeText: {
     color: C.textMuted,
     fontSize: 11,
+    fontWeight: '700',
+  },
+  filterIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    flexShrink: 0,
+  },
+  filterIconBtnActive: {
+    backgroundColor: C.accent,
+    borderColor: C.accent,
+  },
+  filterIconBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#FF5722',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  filterIconBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  activeFiltersStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    backgroundColor: C.accent + '12',
+    borderBottomWidth: 1,
+    borderBottomColor: C.accent + '30',
+  },
+  activeFiltersText: {
+    color: C.accent,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  activeFiltersClear: {
+    color: C.accent,
+    fontSize: 12,
     fontWeight: '700',
   },
 
@@ -2006,25 +2075,10 @@ function makeStyles(C) {
   filterPanelBtnActive: {},
   filterPanelBtnText: {},
   filterPanelBtnTextActive: {},
-  filterBarBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    paddingVertical: 11,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    backgroundColor: C.card,
-  },
-  filterBarBtnActive: {
-    backgroundColor: C.accent,
-    borderColor: C.accent,
-  },
-  filterBarBtnIcon: { fontSize: 15, color: C.textMuted },
-  filterBarBtnText: { color: C.textMuted, fontSize: 13, fontWeight: '700' },
+  filterBarBtn: {},        // legacy, reemplazado por filterIconBtn
+  filterBarBtnActive: {},
+  filterBarBtnIcon: {},
+  filterBarBtnText: {},
   dateRangeRow: {
     flexDirection: 'row', alignItems: 'center', marginTop: 10,
   },
@@ -2036,20 +2090,35 @@ function makeStyles(C) {
     paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
   },
   // Panel styles
-  panelSection: { marginBottom: 20 },
+  panelHeader: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 16,
+  },
+  panelFooter: {
+    flexDirection: 'row', gap: 10,
+    paddingTop: 12, paddingBottom: 16,
+    borderTopWidth: 1, borderTopColor: C.border,
+    backgroundColor: C.bg,
+  },
+  panelSection: {
+    marginBottom: 0,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
   panelSectionTitle: {
     color: C.textMuted, fontSize: 11, fontWeight: '800',
     textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10,
   },
   panelChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   panelChip: {
-    paddingHorizontal: 12, paddingVertical: 7,
-    borderRadius: 16, borderWidth: 1, borderColor: C.border,
+    paddingHorizontal: 13, paddingVertical: 8,
+    borderRadius: 20, borderWidth: 1, borderColor: C.border,
     backgroundColor: C.card,
   },
   panelChipActive: { borderColor: C.accent, backgroundColor: C.accent + '15' },
   panelChipText: { color: C.textMuted, fontSize: 13, fontWeight: '600' },
-  panelChipTextActive: { color: C.accent, fontWeight: '700' },
+  panelChipTextActive: { color: '#fff', fontWeight: '700' },
   leadDropBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     borderWidth: 1, borderColor: C.border, borderRadius: 10,
@@ -2070,13 +2139,13 @@ function makeStyles(C) {
   panelLeadBtnText: { color: C.textMuted, fontSize: 14 },
   panelLeadBtnTextActive: { color: C.accent, fontWeight: '600' },
   panelApplyBtn: {
-    backgroundColor: C.accent, borderRadius: 12,
-    paddingVertical: 14, alignItems: 'center', marginTop: 8,
+    flex: 1, backgroundColor: C.accent, borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center',
   },
-  panelApplyText: { color: C.accentFg, fontWeight: '800', fontSize: 16 },
+  panelApplyText: { color: '#fff', fontWeight: '800', fontSize: 15 },
   panelClearBtn: {
-    borderWidth: 1, borderColor: C.border, borderRadius: 12,
-    paddingVertical: 12, alignItems: 'center', marginTop: 8,
+    flex: 0, borderWidth: 1, borderColor: C.border, borderRadius: 12,
+    paddingVertical: 14, paddingHorizontal: 18, alignItems: 'center',
   },
   panelClearText: { color: C.textMuted, fontWeight: '600', fontSize: 14 },
   leadPickerItem: {
