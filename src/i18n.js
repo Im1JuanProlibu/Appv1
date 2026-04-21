@@ -1,4 +1,3 @@
-import { getLocales } from 'expo-localization';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
@@ -411,13 +410,8 @@ export const translations = {
 // ─── Detect default language ──────────────────────────────────────────────────
 
 function getDeviceLang() {
-  try {
-    const locales = getLocales();
-    const lang = locales?.[0]?.languageCode || 'es';
-    return lang.startsWith('en') ? 'en' : 'es';
-  } catch {
-    return 'es';
-  }
+  // Simple default — user can change in Settings
+  return 'es';
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────

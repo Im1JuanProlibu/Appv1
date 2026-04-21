@@ -1355,8 +1355,8 @@ export default function ProposalsScreen({ navigation, route }) {
             <View>
               <Text style={styles.notifTitle}>{t('notificationsTitle')}</Text>
               {connected
-                ? <Text style={styles.notifConnected}>&#x2714; {t('liveConnected') || 'Conectado en tiempo real'}</Text>
-                : <Text style={styles.notifDisconnected}>&#x25CB; {t('liveDisconnected') || 'Sin conexi\u00f3n en tiempo real'}</Text>}
+                ? <Text style={styles.notifConnected}>{'\u2714'} {t('liveConnected') || 'Conectado en tiempo real'}</Text>
+                : <Text style={styles.notifDisconnected}>{'\u25CB'} {t('liveDisconnected') || 'Sin conexi\u00f3n en tiempo real'}</Text>}
             </View>
             <View style={styles.notifHeaderRight}>
               {notifications.length > 0 && (
