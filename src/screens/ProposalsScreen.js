@@ -1344,7 +1344,7 @@ export default function ProposalsScreen({ navigation, route }) {
         </View>
       </Modal>
 
-      {/* Modal de notificaciones */}}
+      {/* Modal de notificaciones */}
       <Modal
         visible={showNotifications}
         animationType="slide"
