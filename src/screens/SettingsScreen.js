@@ -9,6 +9,7 @@ import { getApiBase } from '../api';
 import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
 import { useTheme } from '../ThemeContext';
+import { useTranslation } from '../i18n';
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
 export const DEFAULT_TEMPLATES = {
@@ -73,6 +74,7 @@ const TEMPLATE_FIELDS = [
 // ─── Pantalla ─────────────────────────────────────────────────────────────────
 export default function SettingsScreen({ navigation }) {
   const { isDark, toggleTheme, colors: COLORS } = useTheme();
+  const { t, lang, setLang } = useTranslation();
   const [user, setUser]           = useState({});
   const [domain, setDomain]       = useState('');
   const [templates, setTemplates] = useState({ ...DEFAULT_TEMPLATES });
@@ -183,7 +185,7 @@ export default function SettingsScreen({ navigation }) {
             disabled={saving}
             activeOpacity={0.8}
           >
-            <Text style={styles.saveBtnText}>{saving ? 'Guardando…' : 'Guardar'}</Text>
+            <Text style={styles.saveBtnText}>{saving ? t('saving') : t('save')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -191,13 +193,13 @@ export default function SettingsScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
 
         {/* ── Apariencia ── */}
-        <Text style={styles.sectionLabel}>APARIENCIA</Text>
+        <Text style={styles.sectionLabel}>{t('appearance')}</Text>
         <View style={styles.card}>
           <View style={styles.themeRow}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.themeLabel, { color: COLORS.text }]}>Modo oscuro</Text>
+              <Text style={[styles.themeLabel, { color: COLORS.text }]}>{t('darkMode')}</Text>
               <Text style={[styles.themeDesc, { color: COLORS.textMuted }]}>
-                Cambia entre tema claro y oscuro
+                {t('darkModeDesc')}
               </Text>
             </View>
             <TouchableOpacity
@@ -208,10 +210,37 @@ export default function SettingsScreen({ navigation }) {
               <View style={[styles.themeThumb, isDark && styles.themeThumbOn]} />
             </TouchableOpacity>
           </View>
+          <View style={styles.cardDivider} />
+          {/* Language toggle */}
+          <View style={styles.themeRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.themeLabel, { color: COLORS.text }]}>{t('language')}</Text>
+              <Text style={[styles.themeDesc, { color: COLORS.textMuted }]}>{t('languageDesc')}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {['es', 'en'].map((l) => (
+                <TouchableOpacity
+                  key={l}
+                  onPress={() => setLang(l)}
+                  activeOpacity={0.7}
+                  style={{
+                    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
+                    borderWidth: 1.5,
+                    borderColor: lang === l ? COLORS.accent : COLORS.border,
+                    backgroundColor: lang === l ? COLORS.accent : COLORS.card,
+                  }}
+                >
+                  <Text style={{ color: lang === l ? '#fff' : COLORS.text, fontWeight: '700', fontSize: 13 }}>
+                    {l.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         </View>
 
         {/* ── Cuenta ── */}
-        <Text style={styles.sectionLabel}>CUENTA</Text>
+        <Text style={styles.sectionLabel}>{t('account')}</Text>
         <View style={styles.card}>
           <View style={styles.accountRow}>
             <View style={styles.avatarCircle}>
@@ -231,7 +260,7 @@ export default function SettingsScreen({ navigation }) {
               <Text style={styles.linkBtnText}>Cambiar servidor</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.linkBtn, { borderColor: COLORS.error + '50' }]} onPress={handleLogout} activeOpacity={0.7}>
-              <Text style={[styles.linkBtnText, { color: COLORS.error }]}>Cerrar sesión</Text>
+              <Text style={[styles.linkBtnText, { color: COLORS.error }]}>{t('logout')}</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -25,6 +25,7 @@ import { useNotifications } from '../useNotifications';
 import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
 import { ProlibuLoader } from '../components/ProlibuLoader';
+import { useTranslation } from '../i18n';
 import {
   Bell, BellRinging, Eye, Fire, Thermometer, Snowflake, Phone, Envelope,
   WhatsappLogo, Export, ArrowRight, X, SlidersHorizontal, Check, CaretDown,
@@ -36,29 +37,13 @@ const STATUS_COLOR = {
   Approved: '#39B54A',
   Denied: '#D4145A',
 };
-const STATUS_LABEL = { Draft: 'Borrador', Ready: 'Lista', Approved: 'Aprobada', Denied: 'Negada' };
+const STATUS_COLOR_MAP = { Draft: '#FDBD00', Ready: '#4285F4', Approved: '#39B54A', Denied: '#D4145A' };
 
-const TEMP_CONFIG = {
-  Hot:  { label: 'Caliente', color: '#FF5722' },
-  Warm: { label: 'Tibia',    color: '#F59E0B' },
-  Cold: { label: 'Fria',     color: '#60A5FA' },
+const TEMP_COLOR = {
+  Hot:  '#FF5722',
+  Warm: '#F59E0B',
+  Cold: '#60A5FA',
 };
-
-const SORT_OPTIONS = [
-  { key: 'updatedAt_desc', label: 'Recientes'  },
-  { key: 'updatedAt_asc',  label: 'Antiguas'   },
-  { key: 'createdAt_desc', label: 'Creacion'   },
-  { key: 'title_asc',      label: 'A-Z'        },
-];
-
-const ACTIVITY_FILTERS = [
-  { key: 'all',             label: 'Toda actividad' },
-  { key: 'viewed_today',    label: '­ƒæü Vista hoy'       },
-  { key: 'viewed_week',     label: '­ƒæü Esta semana'     },
-  { key: 'not_viewed',      label: 'Ôùï Sin vistas'       },
-  { key: 'approved_viewed', label: 'Ô£ô Aprobada + vista' },
-  { key: 'ready_viewed',    label: 'ÔùÅ Lista + vista'    },
-];
 
 const STATUS_CACHE_KEY = 'proposal_status_cache';
 
@@ -85,13 +70,14 @@ async function checkStatusChanges(proposals, addNotif) {
   } catch {}
 }
 
-function makeFilters(accent) {
+function makeFilters(accent, t) {
+  const label = t || ((k) => k);
   return [
-    { key: 'all',      label: 'Todas',    color: accent,     fg: '#ffffff' },
-    { key: 'Draft',    label: 'Borrador', color: '#FDBD00',  fg: '#000000' },
-    { key: 'Ready',    label: 'Lista',    color: '#4285F4',  fg: '#ffffff' },
-    { key: 'Approved', label: 'Aprobada', color: '#39B54A',  fg: '#ffffff' },
-    { key: 'Denied',   label: 'Negada',   color: '#D4145A',  fg: '#ffffff' },
+    { key: 'all',      label: label('statusAll'),      color: accent,     fg: '#ffffff' },
+    { key: 'Draft',    label: label('statusDraft'),    color: '#FDBD00',  fg: '#000000' },
+    { key: 'Ready',    label: label('statusReady'),    color: '#4285F4',  fg: '#ffffff' },
+    { key: 'Approved', label: label('statusApproved'), color: '#39B54A',  fg: '#ffffff' },
+    { key: 'Denied',   label: label('statusDenied'),   color: '#D4145A',  fg: '#ffffff' },
   ];
 }
 
@@ -113,12 +99,23 @@ function timeAgo(isoString) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `hace ${hrs} h`;
   const days = Math.floor(hrs / 24);
-  return `hace ${days} d├¡a${days > 1 ? 's' : ''}`;
+  return days === 1 ? `hace ${days} día` : `hace ${days} días`;
 }
 
 export default function ProposalsScreen({ navigation, route }) {
   const { colors: COLORS, isDark } = useTheme();
-  const FILTERS = makeFilters(COLORS.accent);
+  const { t } = useTranslation();
+  const FILTERS = makeFilters(COLORS.accent, t);
+
+  const STATUS_LABEL = {
+    Draft: t('statusDraft'), Ready: t('statusReady'),
+    Approved: t('statusApproved'), Denied: t('statusDenied'),
+  };
+  const TEMP_CONFIG = {
+    Hot:  { label: t('tempHot'),  color: TEMP_COLOR.Hot  },
+    Warm: { label: t('tempWarm'), color: TEMP_COLOR.Warm },
+    Cold: { label: t('tempCold'), color: TEMP_COLOR.Cold },
+  };
   const [auth, setAuth] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -704,7 +701,7 @@ export default function ProposalsScreen({ navigation, route }) {
         )}
         <View style={styles.cardFooter}>
           <View style={styles.editHint}>
-            <Text style={styles.editHintText}>Toca para editar</Text>
+            <Text style={styles.editHintText}>{t('tapToEdit')}</Text>
           </View>
           <View style={styles.cardFooterRight}>
             <TouchableOpacity
@@ -712,7 +709,7 @@ export default function ProposalsScreen({ navigation, route }) {
               onPress={() => openSendModal(item, 'whatsapp')}
               activeOpacity={0.7}
             >
-              <Text style={styles.sendBtnText}>Enviar Ôåù</Text>
+              <Text style={styles.sendBtnText}>{t('sendBtn')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -727,7 +724,7 @@ export default function ProposalsScreen({ navigation, route }) {
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Fire size={15} color="#FF5722" weight="fill" />
-              <Text style={styles.urgentBtnText}>Llamarlo ahora</Text>
+              <Text style={styles.urgentBtnText}>{t('urgentFollowup')}</Text>
             </View>
             <ArrowRight size={16} color="#AAAAAA" />
           </TouchableOpacity>
@@ -740,7 +737,7 @@ export default function ProposalsScreen({ navigation, route }) {
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Envelope size={15} color="#16A34A" weight="fill" />
-              <Text style={styles.emailFollowupBtnText}>Seguimiento por correo</Text>
+              <Text style={styles.emailFollowupBtnText}>{t('followupByEmail')}</Text>
             </View>
             <ArrowRight size={16} color="#AAAAAA" />
           </TouchableOpacity>
@@ -753,7 +750,7 @@ export default function ProposalsScreen({ navigation, route }) {
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Phone size={15} color="#3B82F6" weight="fill" />
-              <Text style={styles.noVistaBtnText}>Sin vistas ÔÇö Llamar ahora</Text>
+              <Text style={styles.noVistaBtnText}>{t('noViewsCallNow')}</Text>
             </View>
             <ArrowRight size={16} color="#AAAAAA" />
           </TouchableOpacity>
@@ -766,7 +763,7 @@ export default function ProposalsScreen({ navigation, route }) {
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Envelope size={15} color="#16A34A" weight="fill" />
-              <Text style={styles.emailFollowupBtnText}>Sin vistas ÔÇö Enviar correo</Text>
+              <Text style={styles.emailFollowupBtnText}>{t('noViewsSendEmail')}</Text>
             </View>
             <ArrowRight size={16} color="#AAAAAA" />
           </TouchableOpacity>
@@ -821,7 +818,7 @@ export default function ProposalsScreen({ navigation, route }) {
               onPress={() => navigation.navigate('CreateProposal', { auth })}
               activeOpacity={0.8}
             >
-              <Text style={styles.newBtnText}>+ Nueva</Text>
+              <Text style={styles.newBtnText}>{t('newProposal')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -831,8 +828,8 @@ export default function ProposalsScreen({ navigation, route }) {
       {isAdmin && (
         <View style={styles.quickFilterBar}>
           {[
-            { key: 'mine', label: 'Mis propuestas' },
-            { key: 'all',  label: 'Plataforma' },
+            { key: 'mine', label: t('myProposals') },
+            { key: 'all',  label: t('platform') },
           ].map((qf) => {
             const active = quickFilter === qf.key;
             return (
@@ -890,7 +887,7 @@ export default function ProposalsScreen({ navigation, route }) {
       >
         <SlidersHorizontal size={15} color={activeFilterCount > 0 ? COLORS.accentFg : COLORS.textMuted} />
         <Text style={[styles.filterBarBtnText, activeFilterCount > 0 && { color: COLORS.accentFg }]}>
-          {activeFilterCount > 0 ? `Filtros activos (${activeFilterCount})` : 'Filtros avanzados'}
+          {activeFilterCount > 0 ? `${t('activeFilters')} (${activeFilterCount})` : t('advancedFilters')}
         </Text>
         {activeFilterCount > 0 && (
           <TouchableOpacity
@@ -899,7 +896,7 @@ export default function ProposalsScreen({ navigation, route }) {
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 6 }}>
               <X size={13} color={COLORS.accentFg} weight="bold" />
-              <Text style={{ color: COLORS.accentFg, fontSize: 13, fontWeight: '700' }}>Limpiar</Text>
+              <Text style={{ color: COLORS.accentFg, fontSize: 13, fontWeight: '700' }}>{t('clearFilters')}</Text>
             </View>
           </TouchableOpacity>
         )}
@@ -929,7 +926,7 @@ export default function ProposalsScreen({ navigation, route }) {
             totalDocs > 0 ? (
               <View style={styles.paginationInfo}>
                 <Text style={styles.paginationInfoText}>
-                  {allProposals.length} de {totalDocs} propuestas
+                  {allProposals.length} / {totalDocs} {t('proposalsTitle').toLowerCase()}
                 </Text>
               </View>
             ) : null
@@ -941,8 +938,8 @@ export default function ProposalsScreen({ navigation, route }) {
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>ÔÇö</Text>
-              <Text style={styles.emptyText}>Sin propuestas</Text>
+              <Text style={styles.emptyIcon}>—</Text>
+              <Text style={styles.emptyText}>{t('noProposals')}</Text>
               <Text style={styles.emptyHint}>
                 {activeFilter === 'all' ? 'Desliza hacia abajo para recargar' : `No hay propuestas con estado "${FILTERS.find(f => f.key === activeFilter)?.label}"`}
               </Text>
@@ -1154,7 +1151,7 @@ export default function ProposalsScreen({ navigation, route }) {
                     returnKeyType="done"
                     blurOnSubmit
                   />
-                  <Text style={styles.waMsgHint}>Puedes editar el mensaje y la URL antes de enviar</Text>
+                  <Text style={styles.waMsgHint}>{t('sendEditHint')}</Text>
                 </>
               )}
 
@@ -1231,9 +1228,9 @@ export default function ProposalsScreen({ navigation, route }) {
                    sendModal.channel === 'email'    ? <Envelope size={18} color="#fff" /> :
                                                       <Export size={18} color="#fff" />}
                   <Text style={styles.sendConfirmText}>
-                    {sendModal.channel === 'whatsapp' ? 'Enviar por WhatsApp' :
-                     sendModal.channel === 'email'    ? 'Enviar por Correo'   :
-                                                        'Compartir enlace'}
+                    {sendModal.channel === 'whatsapp' ? t('sendViaWhatsApp') :
+                     sendModal.channel === 'email'    ? t('sendViaEmail')    :
+                                                        t('sendViaShare')}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -1279,7 +1276,7 @@ export default function ProposalsScreen({ navigation, route }) {
               <>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Phone size={20} color="#3B82F6" weight="fill" />
-                  <Text style={styles.sendSheetTitle}>Sin vistas ÔÇö Llamar ahora</Text>
+                  <Text style={styles.sendSheetTitle}>{t('noViewsCallNow')}</Text>
                 </View>
                 <Text style={styles.sendSheetSub}>
                   Esta propuesta lleva m├ís de una semana sin ser vista. Recu├®rdale al lead.
@@ -1315,7 +1312,7 @@ export default function ProposalsScreen({ navigation, route }) {
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <WhatsappLogo size={18} color="#fff" />
-                <Text style={[styles.seguimientoBtnText, { color: '#fff' }]}>Contactar por WhatsApp</Text>
+              <Text style={[styles.seguimientoBtnText, { color: '#fff' }]}>{t('send')} WhatsApp</Text>
               </View>
             </TouchableOpacity>
 
@@ -1330,7 +1327,7 @@ export default function ProposalsScreen({ navigation, route }) {
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Phone size={18} color="#fff" />
-                  <Text style={[styles.seguimientoBtnText, { color: '#fff' }]}>Llamar</Text>
+                  <Text style={[styles.seguimientoBtnText, { color: '#fff' }]}>{t('send')} WhatsApp</Text>
                 </View>
               </TouchableOpacity>
             ) : null}
@@ -1340,13 +1337,13 @@ export default function ProposalsScreen({ navigation, route }) {
               onPress={() => setSeguimientoModal({ ...seguimientoModal, visible: false })}
               activeOpacity={0.7}
             >
-              <Text style={styles.sendCancelText}>Cancelar</Text>
+              <Text style={styles.sendCancelText}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* Modal de notificaciones */}
+      {/* Modal de notificaciones */}}
       <Modal
         visible={showNotifications}
         animationType="slide"
@@ -1356,15 +1353,15 @@ export default function ProposalsScreen({ navigation, route }) {
         <SafeAreaView style={styles.notifSafe} edges={['top', 'bottom']}>
           <View style={styles.notifHeader}>
             <View>
-              <Text style={styles.notifTitle}>Notificaciones</Text>
+              <Text style={styles.notifTitle}>{t('notificationsTitle')}</Text>
               {connected
-                ? <Text style={styles.notifConnected}>ÔùÅ Conectado en tiempo real</Text>
-                : <Text style={styles.notifDisconnected}>Ôùï Sin conexi├│n en tiempo real</Text>}
+                ? <Text style={styles.notifConnected}>&#x2714; {t('liveConnected') || 'Conectado en tiempo real'}</Text>
+                : <Text style={styles.notifDisconnected}>&#x25CB; {t('liveDisconnected') || 'Sin conexi\u00f3n en tiempo real'}</Text>}
             </View>
             <View style={styles.notifHeaderRight}>
               {notifications.length > 0 && (
                 <TouchableOpacity onPress={clearAll} style={styles.notifClearBtn}>
-                  <Text style={styles.notifClearText}>Limpiar</Text>
+                  <Text style={styles.notifClearText}>{t('clearAll')}</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={() => setShowNotifications(false)} style={styles.notifCloseBtn}>
@@ -1389,7 +1386,7 @@ export default function ProposalsScreen({ navigation, route }) {
           {notifications.length === 0 ? (
             <View style={styles.notifEmpty}>
               <BellRinging size={48} color={COLORS.textMuted} />
-              <Text style={styles.notifEmptyText}>Sin notificaciones</Text>
+              <Text style={styles.notifEmptyText}>{t('noNotifications')}</Text>
               <Text style={styles.notifEmptyHint}>Cuando un cliente abra una propuesta aparecer├í aqu├¡</Text>
             </View>
           ) : (
@@ -1454,6 +1451,7 @@ export default function ProposalsScreen({ navigation, route }) {
 // ÔöÇÔöÇÔöÇ Panel de filtros avanzados ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, onApply }) {
   const { colors: COLORS } = useTheme();
+  const { t } = useTranslation();
   const [sort,  setSort]  = useState(initialValues.sort);
   const [af,    setAf]    = useState(initialValues.af);
   const [rf,    setRf]    = useState(initialValues.rf);
@@ -1500,38 +1498,38 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
   }
 
   const SORT_OPTS = [
-    { key: 'updatedAt_desc', label: 'Ôåô M├ís recientes' },
-    { key: 'updatedAt_asc',  label: 'Ôåæ M├ís antiguas'  },
-    { key: 'createdAt_desc', label: '+ Por creaci├│n'  },
-    { key: 'title_asc',      label: 'AÔÇôZ T├¡tulo'      },
+    { key: 'updatedAt_desc', label: t('sortRecent')    },
+    { key: 'updatedAt_asc',  label: t('sortOldest')    },
+    { key: 'createdAt_desc', label: t('sortCreation')  },
+    { key: 'title_asc',      label: t('sortAZ')        },
   ];
   const ACTIVITY_OPTS = [
-    { key: 'all',             label: 'Toda actividad'      },
-    { key: 'viewed_today',    label: '­ƒæü Vista hoy'         },
-    { key: 'viewed_week',     label: '­ƒæü Esta semana'       },
-    { key: 'not_viewed',      label: 'Ôùï Sin vistas'         },
-    { key: 'approved_viewed', label: 'Ô£ô Aprobada + vista'  },
-    { key: 'ready_viewed',    label: 'ÔùÅ Lista + vista'      },
+    { key: 'all',             label: t('activityAll')            },
+    { key: 'viewed_today',    label: t('activityViewedToday')    },
+    { key: 'viewed_week',     label: t('activityViewedWeek')     },
+    { key: 'not_viewed',      label: t('activityNotViewed')      },
+    { key: 'approved_viewed', label: t('activityApprovedViewed') },
+    { key: 'ready_viewed',    label: t('activityReadyViewed')    },
   ];
   const RATING_OPTS = [
-    { key: 'all',  label: 'Cualquiera'   },
-    { key: 'Hot',  label: '­ƒöÑ Caliente'  },
-    { key: 'Warm', label: '­ƒîñ Tibia'     },
-    { key: 'Cold', label: '­ƒºè Fr├¡a'      },
+    { key: 'all',  label: t('viewsAll')  },
+    { key: 'Hot',  label: t('tempHot')   },
+    { key: 'Warm', label: t('tempWarm')  },
+    { key: 'Cold', label: t('tempCold')  },
   ];
   const VIEWS_OPTS = [
-    { key: 'all',        label: 'Cualquiera'   },
-    { key: 'has_views',  label: 'ÔùÄ Con vistas' },
-    { key: 'no_views',   label: 'Ôùï Sin vistas' },
-    { key: 'many_views', label: 'ÔùÄÔùÄ 5+ vistas' },
+    { key: 'all',        label: t('viewsAll')       },
+    { key: 'has_views',  label: t('viewsHasViews')  },
+    { key: 'no_views',   label: t('viewsNoViews')   },
+    { key: 'many_views', label: t('viewsManyViews') },
   ];
   const DATE_OPTS = [
-    { key: 'all',     label: 'Cualquier fecha' },
-    { key: 'today',   label: 'Hoy'             },
-    { key: 'week',    label: '├Ültima semana'   },
-    { key: 'month',   label: '├Ültimo mes'      },
-    { key: '3months', label: '├Ültimos 3 meses' },
-    { key: 'custom',  label: 'Ô£Ä Personalizado' },
+    { key: 'all',     label: t('dateAll')     },
+    { key: 'today',   label: t('dateToday')   },
+    { key: 'week',    label: t('dateWeek')    },
+    { key: 'month',   label: t('dateMonth')   },
+    { key: '3months', label: t('date3Months') },
+    { key: 'custom',  label: t('dateCustom')  },
   ];
 
   const filteredLeads = leads.filter((l) => {
@@ -1588,8 +1586,8 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
           <View style={styles.sendSheetHandle} />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
             <View>
-              <Text style={styles.sendSheetTitle}>Filtros avanzados</Text>
-              <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 2 }}>Toca un filtro activo para desactivarlo</Text>
+              <Text style={styles.sendSheetTitle}>{t('advancedFilters')}</Text>
+              <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 2 }}>{t('tapFilterToDisable') || 'Toca un filtro activo para desactivarlo'}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.notifCloseBtn}>
               <X size={20} color={COLORS.text} weight="bold" />
@@ -1598,28 +1596,28 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
 
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-            <PanelSection title="Ordenar por">
+            <PanelSection title={t('sortBy')}>
               <ChipRow opts={SORT_OPTS} value={sort} onSelect={setSort} />
             </PanelSection>
 
-            <PanelSection title="Actividad de vista">
+            <PanelSection title={t('filterByActivity')}>
               <ChipRow opts={ACTIVITY_OPTS} value={af} onSelect={setAf} />
             </PanelSection>
 
-            <PanelSection title="Temperatura del lead">
+            <PanelSection title={t('filterByRating')}>
               <ChipRow opts={RATING_OPTS} value={rf} onSelect={setRf} />
             </PanelSection>
 
-            <PanelSection title="Contador de vistas">
+            <PanelSection title={t('filterByViews')}>
               <ChipRow opts={VIEWS_OPTS} value={vf} onSelect={setVf} />
             </PanelSection>
 
-            <PanelSection title="Rango de fecha (vista o modificaci├│n)">
+            <PanelSection title={t('filterByDate')}>
               <ChipRow opts={DATE_OPTS} value={df} onSelect={setDf} />
               {df === 'custom' && (
                 <View style={styles.dateRangeRow}>
                   <View style={styles.dateInputWrap}>
-                    <Text style={styles.dateInputLabel}>Desde</Text>
+                    <Text style={styles.dateInputLabel}>{t('dateFrom')}</Text>
                     <TextInput
                       style={styles.dateInput}
                       value={dfrom}
@@ -1632,7 +1630,7 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
                   </View>
                   <ArrowRight size={16} color={COLORS.textMuted} style={{ alignSelf: 'flex-end', marginBottom: 12, marginHorizontal: 4 }} />
                   <View style={styles.dateInputWrap}>
-                    <Text style={styles.dateInputLabel}>Hasta</Text>
+                    <Text style={styles.dateInputLabel}>{t('dateTo')}</Text>
                     <TextInput
                       style={styles.dateInput}
                       value={dto}
@@ -1647,7 +1645,7 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
               )}
             </PanelSection>
 
-            <PanelSection title="Lead">
+            <PanelSection title={t('filterByAgent') || 'Lead'}>
               {/* Bot├│n selector colapsable */}
               <TouchableOpacity
                 style={styles.leadDropBtn}
@@ -1699,7 +1697,7 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
             </PanelSection>
 
             {isAdmin && (
-              <PanelSection title="Asesor">
+              <PanelSection title={t('agent') || 'Asesor'}>
                 <TouchableOpacity
                   style={styles.leadDropBtn}
                   onPress={() => setAgentDropOpen((v) => !v)}
@@ -1754,10 +1752,10 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
               onPress={() => onApply({ sort, lf, af, rf, vf, df, dfrom, dto, agf })}
               activeOpacity={0.8}
             >
-              <Text style={styles.panelApplyText}>Aplicar filtros</Text>
+              <Text style={styles.panelApplyText}>{t('applyFilters')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.panelClearBtn} onPress={clearAll} activeOpacity={0.7}>
-              <Text style={styles.panelClearText}>Limpiar todo y cerrar</Text>
+              <Text style={styles.panelClearText}>{t('clearFilters')}</Text>
             </TouchableOpacity>
             <View style={{ height: 32 }} />
           </ScrollView>

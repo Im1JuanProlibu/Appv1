@@ -19,9 +19,11 @@ import { login, getApiBase } from '../api';
 import { ProlibuLogoVertical } from '../components/ProlibuLogo';
 import { ProlibuSpinner } from '../components/ProlibuLoader';
 import { Eye, EyeSlash } from 'phosphor-react-native';
+import { useTranslation } from '../i18n';
 
 export default function LoginScreen({ navigation }) {
   const { colors: COLORS, isDark } = useTheme();
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,7 +31,7 @@ export default function LoginScreen({ navigation }) {
 
   async function handleLogin() {
     if (!email.trim() || !password) {
-      Alert.alert('Campos requeridos', 'Ingresa tu email y contraseña.');
+      Alert.alert(t('loginRequiredTitle'), t('loginRequiredMsg'));
       return;
     }
     setLoading(true);
@@ -79,7 +81,7 @@ export default function LoginScreen({ navigation }) {
       await AsyncStorage.setItem('auth', JSON.stringify(authData));
       navigation.replace('Proposals');
     } catch (e) {
-      Alert.alert('Error al ingresar', e.message || 'Credenciales incorrectas o sin conexión.');
+      Alert.alert(t('loginErrorTitle'), e.message || t('loginErrorMsg'));
     } finally {
       setLoading(false);
     }
@@ -102,9 +104,9 @@ export default function LoginScreen({ navigation }) {
 
           {/* Card */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Iniciar sesión</Text>
+            <Text style={styles.cardTitle}>{t('loginTitle')}</Text>
 
-            <Text style={styles.label}>Usuario</Text>
+            <Text style={styles.label}>{t('emailPlaceholder')}</Text>
             <TextInput
               style={styles.input}
               placeholder="usuario@prolibu.com"
@@ -117,7 +119,7 @@ export default function LoginScreen({ navigation }) {
               returnKeyType="next"
             />
 
-            <Text style={styles.label}>Contraseña</Text>
+            <Text style={styles.label}>{t('passwordPlaceholder')}</Text>
             <View style={styles.inputRow}>
               <TextInput
                 style={styles.inputFlex}
@@ -145,7 +147,7 @@ export default function LoginScreen({ navigation }) {
               {loading ? (
                 <ProlibuSpinner />
               ) : (
-                <Text style={styles.btnText}>Ingresar</Text>
+                <Text style={styles.btnText}>{t('loginBtn')}</Text>
               )}
             </TouchableOpacity>
           </View>

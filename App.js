@@ -18,6 +18,7 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import { COLORS } from './src/theme';
 import { setApiDomain, getProposal } from './src/api';
 import { ThemeProvider } from './src/ThemeContext';
+import { LanguageProvider } from './src/i18n';
 
 const Stack = createNativeStackNavigator();
 
@@ -77,6 +78,7 @@ export default function App() {
   }
 
   return (
+    <LanguageProvider>
     <ThemeProvider>
       <SafeAreaProvider>
         <NavigationContainer ref={navigationRef}>
@@ -97,5 +99,6 @@ export default function App() {
         </NavigationContainer>
       </SafeAreaProvider>
     </ThemeProvider>
+    </LanguageProvider>
   );
 }
