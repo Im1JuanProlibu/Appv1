@@ -15,8 +15,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../theme';
 import { getAgents } from '../api';
 import { Check, ArrowRight } from 'phosphor-react-native';
+import { useTranslation } from '../i18n';
 
 export default function AgentsScreen({ navigation }) {
+  const { t } = useTranslation();
   const [agents, setAgents] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -80,7 +82,7 @@ export default function AgentsScreen({ navigation }) {
 
   function handleNext() {
     if (!selected) {
-      Alert.alert('Selecciona un asesor', 'Toca un asesor de la lista para continuar.');
+      Alert.alert(t('error'), t('selectAgentHint') || 'Selecciona un asesor de la lista para continuar.');
       return;
     }
     navigation.navigate('Proposals', { agent: selected, auth });
@@ -130,7 +132,7 @@ export default function AgentsScreen({ navigation }) {
       {/* Search */}
       <TextInput
         style={styles.search}
-        placeholder="Buscar por nombre o email..."
+        placeholder={t('searchAgentPlaceholder')}
         placeholderTextColor={COLORS.textMuted}
         value={search}
         onChangeText={setSearch}
@@ -165,7 +167,7 @@ export default function AgentsScreen({ navigation }) {
             </Text>
           </View>
         ) : (
-          <Text style={styles.footerHint}>Selecciona un asesor para continuar</Text>
+          <Text style={styles.footerHint}>{t('selectAgentHint') || 'Selecciona un asesor para continuar'}</Text>
         )}
         <TouchableOpacity
           style={[styles.nextBtn, !selected && styles.nextBtnDisabled]}
@@ -173,7 +175,7 @@ export default function AgentsScreen({ navigation }) {
           activeOpacity={0.8}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={styles.nextText}>Ver propuestas</Text>
+            <Text style={styles.nextText}>{t('proposalsTitle')}</Text>
             <ArrowRight size={18} color="#fff" />
           </View>
         </TouchableOpacity>

@@ -19,6 +19,7 @@ import { useTheme } from '../ThemeContext';
 import { getProposal, saveProposal, changeProposalStatus, saveDenialReason, getProducts, getPackages, getCurrencies, searchCurrencies, getApiBase, createProduct } from '../api';
 import { ProlibuSpinner } from '../components/ProlibuLoader';
 import { ArrowLeft, ArrowRight, CheckCircle, X, Check } from 'phosphor-react-native';
+import { useTranslation } from '../i18n';
 
 const STATUSES = ['Draft', 'Ready', 'Approved', 'Denied'];
 const STATUS_LABEL = { Draft: 'Borrador', Ready: 'Lista', Approved: 'Aprobada', Denied: 'Negada' };
@@ -110,6 +111,7 @@ function SuccessScreen({ propUrl, proposal, status, onBack }) {
 // ─── Main EditorScreen ────────────────────────────────────────────────────────
 export default function EditorScreen({ navigation, route }) {
   const { colors: COLORS, isDark } = useTheme();
+  const { t } = useTranslation();
   const { proposal: propSummary, auth } = route.params;
   const proposalId = propSummary.id || propSummary._id;
 
@@ -413,7 +415,7 @@ export default function EditorScreen({ navigation, route }) {
     return (
       <SafeAreaView style={[styles.safe, styles.centered]} edges={['top']}>
         <ProlibuSpinner />
-        <Text style={styles.loadingText}>Cargando propuesta...</Text>
+        <Text style={styles.loadingText}>{t('loadingProposalScreen')}</Text>
       </SafeAreaView>
     );
   }
@@ -464,7 +466,7 @@ export default function EditorScreen({ navigation, route }) {
         {/* ── Razón de negación ── */}
         {status === 'Denied' && (
           <View style={styles.denialWrap}>
-            <Text style={styles.sectionLabel}>Razón de negación</Text>
+            <Text style={styles.sectionLabel}>{t('denialReason')}</Text>
             <TextInput
               style={styles.denialInput}
               placeholder="Escribe la razón por la que se niega la propuesta..."
@@ -527,7 +529,7 @@ export default function EditorScreen({ navigation, route }) {
         </View>
 
         {products.length === 0 && (
-          <Text style={styles.noProducts}>Sin productos. Agrega desde el catálogo.</Text>
+          <Text style={styles.noProducts}>{t('noProducts')}</Text>
         )}
 
         {products.map((p, i) => {
@@ -680,7 +682,7 @@ export default function EditorScreen({ navigation, route }) {
             onPress={() => { setCatalogSearch(''); setSelectedItem(null); setCatalogTab('products'); setShowCatalog(true); }}
             activeOpacity={0.7}
           >
-            <Text style={styles.addBtnSecondaryText}>Del catálogo</Text>
+            <Text style={styles.addBtnSecondaryText}>{t('fromCatalog')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -694,7 +696,7 @@ export default function EditorScreen({ navigation, route }) {
           {saving ? (
             <ProlibuSpinner />
           ) : (
-            <Text style={styles.saveBtnText}>Guardar cambios</Text>
+            <Text style={styles.saveBtnText}>{t('saveChanges')}</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -708,7 +710,7 @@ export default function EditorScreen({ navigation, route }) {
       >
         <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Nuevo producto</Text>
+            <Text style={styles.modalTitle}>{t('newProduct')}</Text>
             <TouchableOpacity onPress={() => setShowCreate(false)} style={styles.modalCloseBtn}>
               <X size={20} color={COLORS.textMuted} />
             </TouchableOpacity>
@@ -762,7 +764,7 @@ export default function EditorScreen({ navigation, route }) {
             >
               {creatingProduct
                 ? <ProlibuSpinner />
-                : <Text style={styles.modalAddBtnText}>Agregar producto</Text>}
+                : <Text style={styles.modalAddBtnText}>{t('addProduct')}</Text>}
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -810,7 +812,7 @@ export default function EditorScreen({ navigation, route }) {
           {/* Search */}
           <TextInput
             style={styles.modalSearch}
-            placeholder="Buscar por nombre o SKU..."
+            placeholder={t('productSearchPlaceholder')}
             placeholderTextColor={COLORS.textMuted}
             value={catalogSearch}
             onChangeText={setCatalogSearch}
@@ -870,7 +872,7 @@ export default function EditorScreen({ navigation, route }) {
                   onPress={addCatalogItem}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.modalAddBtnText}>Agregar</Text>
+                  <Text style={styles.modalAddBtnText}>{t('addFromCatalog')}</Text>
                 </TouchableOpacity>
               </View>
             </View>

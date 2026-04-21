@@ -21,22 +21,23 @@ import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
 import { ProlibuLoader, ProlibuSpinner } from '../components/ProlibuLoader';
 import { CaretDown, Check, X } from 'phosphor-react-native';
+import { useTranslation } from '../i18n';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const RANGE_OPTIONS = [
-  { key: '3m',   label: '3 meses',   months: 3  },
-  { key: '6m',   label: '6 meses',   months: 6  },
-  { key: 'year', label: 'Este año',   months: null },
-  { key: 'prev', label: 'Año pasado', months: null },
-  { key: 'custom', label: 'Personalizado' },
+  { key: '3m',     tKey: 'range3m',     months: 3    },
+  { key: '6m',     tKey: 'range6m',     months: 6    },
+  { key: 'year',   tKey: 'rangeYear',   months: null },
+  { key: 'prev',   tKey: 'rangePrev',   months: null },
+  { key: 'custom', tKey: 'rangeCustom' },
 ];
 
 const PERIOD_OPTIONS = [
-  { key: 'daily',     label: 'Diario'     },
-  { key: 'weekly',    label: 'Semanal'    },
-  { key: 'monthly',   label: 'Mensual'    },
-  { key: 'quarterly', label: 'Trimestral' },
-  { key: 'annual',    label: 'Anual'      },
+  { key: 'daily',     tKey: 'periodDaily'     },
+  { key: 'weekly',    tKey: 'periodWeekly'    },
+  { key: 'monthly',   tKey: 'periodMonthly'   },
+  { key: 'quarterly', tKey: 'periodQuarterly' },
+  { key: 'annual',    tKey: 'periodAnnual'    },
 ];
 
 const PERIOD_LABELS_SERVER = {
@@ -188,6 +189,7 @@ function generateReport(proposals, rangeKey, periodKey, customStart, customEnd) 
 // ─── Componente ───────────────────────────────────────────────────────────────
 export default function ReportsScreen({ navigation }) {
   const { colors: COLORS, isDark } = useTheme();
+  const { t } = useTranslation();
   const [auth, setAuth]           = useState(null);
   const [isAdmin, setIsAdmin]     = useState(false);
   const [proposals, setProposals] = useState([]);
@@ -373,34 +375,34 @@ export default function ReportsScreen({ navigation }) {
         <View style={styles.periodCardStats}>
           <View style={styles.pStat}>
             <Text style={styles.pStatVal}>{p.created}</Text>
-            <Text style={styles.pStatLbl}>Creadas</Text>
+            <Text style={styles.pStatLbl}>{t('createdLabel')}</Text>
           </View>
           <View style={styles.pStatDivider} />
           <View style={styles.pStat}>
             <Text style={[styles.pStatVal, { color: COLORS.success }]}>{p.approved}</Text>
-            <Text style={styles.pStatLbl}>Aprobadas</Text>
+            <Text style={styles.pStatLbl}>{t('approvedLabel')}</Text>
           </View>
           <View style={styles.pStatDivider} />
           <View style={styles.pStat}>
             <Text style={[styles.pStatVal, { color: COLORS.error }]}>{p.denied}</Text>
-            <Text style={styles.pStatLbl}>Negadas</Text>
+            <Text style={styles.pStatLbl}>{t('deniedLabel')}</Text>
           </View>
           <View style={styles.pStatDivider} />
           <View style={styles.pStat}>
             <Text style={[styles.pStatVal, { color: '#10B981' }]}>{p.ready}</Text>
-            <Text style={styles.pStatLbl}>Lista</Text>
+            <Text style={styles.pStatLbl}>{t('readyLabel')}</Text>
           </View>
           <View style={styles.pStatDivider} />
           <View style={styles.pStat}>
             <Text style={[styles.pStatVal, { color: '#F59E0B' }]}>{p.draft}</Text>
-            <Text style={styles.pStatLbl}>Borrador</Text>
+            <Text style={styles.pStatLbl}>{t('draftLabel')}</Text>
           </View>
           {hasAmt && (
             <>
               <View style={styles.pStatDivider} />
               <View style={styles.pStat}>
                 <Text style={[styles.pStatVal, { color: COLORS.success, fontSize: 13 }]}>{fmtAmount(p.approvedAmt)}</Text>
-                <Text style={styles.pStatLbl}>$ Aprobado</Text>
+                <Text style={styles.pStatLbl}>{t('approvedAmtLabel')}</Text>
               </View>
             </>
           )}
@@ -411,7 +413,7 @@ export default function ReportsScreen({ navigation }) {
 
   // ── Renderizar resultados del servidor ──
   function renderServerResult(data) {
-    if (!data) return <Text style={styles.emptyHint}>Sin datos.</Text>;
+    if (!data) return <Text style={styles.emptyHint}>{t('noDataHint')}</Text>;
     const periods = data.periods || data.docs || (Array.isArray(data) ? data : null);
     if (Array.isArray(periods) && periods.length > 0) {
       return periods.map((p, i) => (
@@ -422,9 +424,9 @@ export default function ReportsScreen({ navigation }) {
           )}
           <View style={styles.periodCardStats}>
             {[
-              { val: p.created || 0, lbl: 'Creadas', color: COLORS.text },
-              { val: p.approved || 0, lbl: 'Aprobadas', color: COLORS.success },
-              { val: p.denied || 0, lbl: 'Negadas', color: COLORS.error },
+              { val: p.created || 0, lbl: t('createdLabel'), color: COLORS.text },
+              { val: p.approved || 0, lbl: t('approvedLabel'), color: COLORS.success },
+              { val: p.denied || 0, lbl: t('deniedLabel'), color: COLORS.error },
             ].map(s => (
               <View key={s.lbl} style={styles.pStat}>
                 <Text style={[styles.pStatVal, { color: s.color }]}>{s.val}</Text>
@@ -435,7 +437,7 @@ export default function ReportsScreen({ navigation }) {
         </View>
       ));
     }
-    return <Text style={styles.emptyHint}>Sin datos para mostrar.</Text>;
+    return <Text style={styles.emptyHint}>{t('noDataHint2')}</Text>;
   }
 
   const styles = makeStyles(COLORS);
@@ -477,7 +479,7 @@ export default function ReportsScreen({ navigation }) {
             activeOpacity={0.7}
           >
             <Text style={[styles.viewChipText, viewMode === 'agent' && styles.viewChipTextActive]} numberOfLines={1}>
-              {viewMode === 'agent' ? selectedAgent?.name : 'Asesor'}
+              {viewMode === 'agent' ? selectedAgent?.name : t('agent')}
             </Text>
             <CaretDown size={13} color={viewMode === 'agent' ? '#fff' : COLORS.textMuted} />
           </TouchableOpacity>
@@ -488,7 +490,7 @@ export default function ReportsScreen({ navigation }) {
 
         {/* ── Configuración ── */}
         <View style={styles.configBlock}>
-          <Text style={styles.configLabel}>RANGO DE TIEMPO</Text>
+          <Text style={styles.configLabel}>{t('rangeLabel')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
             {RANGE_OPTIONS.map(r => {
               const active = rangeKey === r.key;
@@ -505,14 +507,14 @@ export default function ReportsScreen({ navigation }) {
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                    {r.key === 'custom' && customStart ? `${fmtDate(customStart)} — ${fmtDate(customEnd)}` : r.label}
+                    {r.key === 'custom' && customStart ? `${fmtDate(customStart)} — ${fmtDate(customEnd)}` : t(r.tKey)}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
 
-          <Text style={[styles.configLabel, { marginTop: 14 }]}>AGRUPACIÓN POR PERÍODO</Text>
+          <Text style={[styles.configLabel, { marginTop: 14 }]}>{t('periodLabel')}</Text>
           <View style={styles.periodRow}>
             {PERIOD_OPTIONS.map(p => {
               const active = periodKey === p.key;
@@ -523,7 +525,7 @@ export default function ReportsScreen({ navigation }) {
                   onPress={() => { setPeriodKey(p.key); setGenerated(false); setReport(null); }}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.periodChipText, active && styles.periodChipTextActive]}>{p.label}</Text>
+                  <Text style={[styles.periodChipText, active && styles.periodChipTextActive]}>{t(p.tKey)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -533,7 +535,7 @@ export default function ReportsScreen({ navigation }) {
             <ProlibuSpinner style={{ marginTop: 20, alignSelf: 'center' }} />
           ) : (
             <TouchableOpacity style={styles.generateBtn} onPress={handleGenerate} disabled={generating} activeOpacity={0.85}>
-              {generating ? <ProlibuSpinner /> : <Text style={styles.generateBtnText}>▶  Generar reporte</Text>}
+              {generating ? <ProlibuSpinner /> : <Text style={styles.generateBtnText}>{t('generateBtn')}</Text>}
             </TouchableOpacity>
           )}
         </View>
@@ -549,29 +551,29 @@ export default function ReportsScreen({ navigation }) {
                 <View style={styles.totalsRow}>
                   <View style={styles.totalCard}>
                     <Text style={styles.totalVal}>{report.totals.created}</Text>
-                    <Text style={styles.totalLbl}>Creadas</Text>
+          <Text style={styles.totalLbl}>{t('createdLabel')}</Text>
                   </View>
                   <View style={[styles.totalCard, { borderColor: COLORS.success + '60' }]}>
                     <Text style={[styles.totalVal, { color: COLORS.success }]}>{report.totals.approved}</Text>
-                    <Text style={styles.totalLbl}>Aprobadas</Text>
+                    <Text style={styles.totalLbl}>{t('approvedLabel')}</Text>
                   </View>
                   <View style={[styles.totalCard, { borderColor: COLORS.error + '60' }]}>
                     <Text style={[styles.totalVal, { color: COLORS.error }]}>{report.totals.denied}</Text>
-                    <Text style={styles.totalLbl}>Negadas</Text>
+                    <Text style={styles.totalLbl}>{t('deniedLabel')}</Text>
                   </View>
                   <View style={[styles.totalCard, { borderColor: '#10B98160' }]}>
                     <Text style={[styles.totalVal, { color: '#10B981' }]}>{totReady}</Text>
-                    <Text style={styles.totalLbl}>Lista</Text>
+                    <Text style={styles.totalLbl}>{t('readyLabel')}</Text>
                   </View>
                   <View style={[styles.totalCard, { borderColor: '#F59E0B60' }]}>
                     <Text style={[styles.totalVal, { color: '#F59E0B' }]}>{totDraft}</Text>
-                    <Text style={styles.totalLbl}>Borrador</Text>
+                    <Text style={styles.totalLbl}>{t('draftLabel')}</Text>
                   </View>
                   <View style={[styles.totalCard, { borderColor: COLORS.accent + '60' }]}>
                     <Text style={[styles.totalVal, { color: COLORS.accent }]}>
                       {report.totals.conversion !== null ? `${report.totals.conversion}%` : '—'}
                     </Text>
-                    <Text style={styles.totalLbl}>Conversión</Text>
+                    <Text style={styles.totalLbl}>{t('conversionLabel')}</Text>
                   </View>
                 </View>
               );
@@ -589,7 +591,7 @@ export default function ReportsScreen({ navigation }) {
               {report.periods.length} período{report.periods.length !== 1 ? 's' : ''} · {PERIOD_OPTIONS.find(p => p.key === periodKey)?.label}
             </Text>
             {report.periods.length === 0 ? (
-              <Text style={styles.emptyHint}>Sin propuestas en este rango de fechas.</Text>
+              <Text style={styles.emptyHint}>{t('noProposalsRange')}</Text>
             ) : (
               report.periods.map(p => renderPeriod(p, report.maxCreated)).reverse()
             )}
@@ -670,7 +672,7 @@ export default function ReportsScreen({ navigation }) {
           <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={() => setDateModal(false)} />
           <View style={styles.modalSheet}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Rango personalizado</Text>
+            <Text style={styles.sheetTitle}>{t('customRange')}</Text>
             <Text style={styles.dateInputLabel}>Desde (DD/MM/AAAA)</Text>
             <TextInput
               style={styles.dateInput}
@@ -694,7 +696,7 @@ export default function ReportsScreen({ navigation }) {
               <Text style={styles.applyBtnText}>Aplicar</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancelBtn} onPress={() => setDateModal(false)} activeOpacity={0.7}>
-              <Text style={styles.cancelBtnText}>Cancelar</Text>
+              <Text style={styles.cancelBtnText}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -725,7 +727,7 @@ export default function ReportsScreen({ navigation }) {
               onPress={() => setResultModal({ visible: false, report: null, data: null })}
               activeOpacity={0.7}
             >
-              <Text style={styles.cancelBtnText}>Cerrar</Text>
+              <Text style={styles.cancelBtnText}>{t('close')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -741,7 +743,7 @@ export default function ReportsScreen({ navigation }) {
           <View style={[styles.modalSheet, { maxHeight: '65%' }]}>
             <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.border, alignSelf: 'center', marginBottom: 20 }} />
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={{ color: COLORS.text, fontSize: 17, fontWeight: '800' }}>Filtrar por asesor</Text>
+              <Text style={{ color: COLORS.text, fontSize: 17, fontWeight: '800' }}>{t('filterByAgentDash')}</Text>
               <TouchableOpacity onPress={() => setAgentPickerVisible(false)}>
                 <X size={20} color={COLORS.text} weight="bold" />
               </TouchableOpacity>

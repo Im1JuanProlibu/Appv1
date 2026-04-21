@@ -15,11 +15,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../ThemeContext';
 import { setApiDomain } from '../api';
 import { ProlibuLogoVertical } from '../components/ProlibuLogo';
+import { useTranslation } from '../i18n';
 
 const SUFFIXES = ['.prolibu.com', '.nodriza.io'];
 
 export default function DomainScreen({ navigation }) {
   const { colors: COLORS, isDark } = useTheme();
+  const { t } = useTranslation();
   const [subdomain, setSubdomain] = useState('');
   const [suffix, setSuffix] = useState('.prolibu.com');
 
@@ -53,10 +55,8 @@ export default function DomainScreen({ navigation }) {
             <ProlibuLogoVertical scale={0.85} tagline="Gestión de propuestas" />
           </View>
 
-          <Text style={styles.title}>Configura tu cuenta</Text>
-          <Text style={styles.desc}>
-            Ingresa el subdominio de tu cuenta Prolibu para conectarte.
-          </Text>
+          <Text style={styles.title}>{t('domainSetup')}</Text>
+          <Text style={styles.desc}>{t('domainSetupDesc')}</Text>
 
           {/* Subdomain input */}
           <Text style={styles.label}>Subdominio</Text>
@@ -94,7 +94,7 @@ export default function DomainScreen({ navigation }) {
 
           {/* Preview */}
           <View style={styles.previewBox}>
-            <Text style={styles.previewLabel}>URL que se usará:</Text>
+            <Text style={styles.previewLabel}>{t('domainUrlPreview')}</Text>
             <Text style={styles.previewUrl} numberOfLines={1}>
               {'https://'}
               {subdomain.trim() || 'mi-empresa'}

@@ -19,6 +19,7 @@ import { useTheme } from '../ThemeContext';
 import { checkLeadByEmail, searchLeadByEmail, createLead, createProposal, getProducts, getPackages, getCurrencies, searchCurrencies, getNextNumber } from '../api';
 import { ProlibuSpinner } from '../components/ProlibuLoader';
 import { ArrowLeft, ArrowRight, Check, X } from 'phosphor-react-native';
+import { useTranslation } from '../i18n';
 
 const COUNTRY_CODES = [
   { code: '+57',  flag: '🇨🇴', name: 'CO' },
@@ -40,6 +41,7 @@ function genProposalNumber() {
 
 export default function CreateProposalScreen({ navigation, route }) {
   const { colors: COLORS, isDark } = useTheme();
+  const { t } = useTranslation();
   const { auth } = route.params;
 
   const [proposalNumber, setProposalNumber] = useState(() => genProposalNumber());
@@ -287,7 +289,7 @@ export default function CreateProposalScreen({ navigation, route }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ArrowLeft size={22} color={COLORS.accent} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Nueva propuesta</Text>
+        <Text style={styles.headerTitle}>{t('createProposalTitle')}</Text>
       </View>
 
       {/* Toggle Básico / Avanzado */}
@@ -311,7 +313,7 @@ export default function CreateProposalScreen({ navigation, route }) {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
 
         {/* Título */}
-        <Text style={styles.label}>Título</Text>
+        <Text style={styles.label}>{t('fieldTitle')}</Text>
         <TextInput
           style={styles.input}
           placeholder="Ej: Propuesta pintura vial 2025"
@@ -333,7 +335,7 @@ export default function CreateProposalScreen({ navigation, route }) {
         </TouchableOpacity>
 
         {/* Cliente */}
-        <Text style={styles.label}>Cliente (Lead)</Text>
+        <Text style={styles.label}>{t('fieldClient')}</Text>
         {!leadFound && !leadNotFound && (
           <View style={styles.searchRow}>
             <TextInput
@@ -381,8 +383,8 @@ export default function CreateProposalScreen({ navigation, route }) {
               <Text style={styles.notFoundEmail}>{email}</Text>
               <TouchableOpacity onPress={clearLead}><Text style={styles.retryText}>Buscar otro email</Text></TouchableOpacity>
             </View>
-            <Text style={styles.label}>Crear cliente nuevo</Text>
-            <TextInput style={styles.input} placeholder="Nombre *" placeholderTextColor={COLORS.textMuted} value={firstName} onChangeText={setFirstName} returnKeyType="next" />
+            <Text style={styles.label}>{t('createNewClient')}</Text>
+            <TextInput style={styles.input} placeholder={`${t('clientName')} *`} placeholderTextColor={COLORS.textMuted} value={firstName} onChangeText={setFirstName} returnKeyType="next" />
             <TextInput style={[styles.input, { marginTop: 8 }]} placeholder="Apellido" placeholderTextColor={COLORS.textMuted} value={lastName} onChangeText={setLastName} returnKeyType="next" />
             <Text style={[styles.label, { marginTop: 16 }]}>Celular (opcional)</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.countryRow}>
@@ -499,7 +501,7 @@ export default function CreateProposalScreen({ navigation, route }) {
         >
           {catalogLoading
             ? <ProlibuSpinner />
-            : <Text style={styles.addCatalogBtnText}>+ Agregar del catálogo</Text>
+            : <Text style={styles.addCatalogBtnText}>{t('addFromCatalogBtn')}</Text>
           }
         </TouchableOpacity>
 
@@ -642,7 +644,7 @@ export default function CreateProposalScreen({ navigation, route }) {
         >
           {creating ? <ProlibuSpinner /> : (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={styles.createBtnText}>Crear propuesta</Text>
+              <Text style={styles.createBtnText}>{t('createProposalBtn')}</Text>
               <ArrowRight size={18} color="#fff" />
             </View>
           )}
@@ -741,7 +743,7 @@ export default function CreateProposalScreen({ navigation, route }) {
           </View>
           <TextInput
             style={styles.modalSearch}
-            placeholder="Buscar por nombre o SKU..."
+            placeholder={t('productSearchPlaceholder')}
             placeholderTextColor={COLORS.textMuted}
             value={catalogSearch}
             onChangeText={setCatalogSearch}

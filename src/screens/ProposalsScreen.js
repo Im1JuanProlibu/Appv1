@@ -980,7 +980,7 @@ export default function ProposalsScreen({ navigation, route }) {
           />
           <View style={[styles.sendSheet, { maxHeight: '75%' }]}>
             <View style={styles.sendSheetHandle} />
-            <Text style={styles.sendSheetTitle}>Filtrar por lead</Text>
+            <Text style={styles.sendSheetTitle}>{t('filterByAgentPickerTitle')}</Text>
             <TextInput
               style={[styles.emailSubjectInput, { marginTop: 12, marginBottom: 10 }]}
               value={leadSearch}
@@ -997,9 +997,7 @@ export default function ProposalsScreen({ navigation, route }) {
                 onPress={() => handleLeadFilter(null)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.leadPickerName, !leadFilter && { color: COLORS.accent }]}>
-                  Todos los leads
-                </Text>
+                <Text style={[styles.leadPickerName, !leadFilter && { color: COLORS.accent }]}>{t('filterAllLeads')}</Text>
               </TouchableOpacity>
               {getUniqueLeads(allProposals)
                 .filter((l) => {
@@ -1095,7 +1093,7 @@ export default function ProposalsScreen({ navigation, route }) {
               </View>
 
               {/* ÔöÇÔöÇ Tipo de URL ÔöÇÔöÇ */}
-              <Text style={styles.sendSheetLabel}>Tipo de URL</Text>
+              <Text style={styles.sendSheetLabel}>{t('urlTypeLabel')}</Text>
               <View style={styles.urlTypeRow}>
                 {(() => {
                   const canClient = sendModal.proposal?.status === 'Ready';
@@ -1132,8 +1130,8 @@ export default function ProposalsScreen({ navigation, route }) {
                   }}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.urlTypeBtnTitle, sendModal.urlType === 'anonymous' && { color: COLORS.accent }]}>URL An├│nima</Text>
-                  <Text style={styles.urlTypeBtnDesc}>URL larga ┬À Sin seguimiento</Text>
+                  <Text style={[styles.urlTypeBtnTitle, sendModal.urlType === 'anonymous' && { color: COLORS.accent }]}>{t('urlTypeLabel')}</Text>
+                  <Text style={styles.urlTypeBtnDesc}>{t('urlTypeLong')}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -1147,7 +1145,7 @@ export default function ProposalsScreen({ navigation, route }) {
                     onChangeText={(v) => setSendModal({ ...sendModal, waMsg: v })}
                     multiline
                     placeholderTextColor={COLORS.textMuted}
-                    placeholder="Escribe el mensaje..."
+                    placeholder={t('writeMessage')}
                     returnKeyType="done"
                     blurOnSubmit
                   />
@@ -1163,7 +1161,7 @@ export default function ProposalsScreen({ navigation, route }) {
                     value={sendModal.emailSubject}
                     onChangeText={(v) => setSendModal({ ...sendModal, emailSubject: v })}
                     placeholderTextColor={COLORS.textMuted}
-                    placeholder="Asunto del correo..."
+                    placeholder={t('emailSubjectPlaceholder')}
                     returnKeyType="done"
                     blurOnSubmit
                   />
@@ -1174,20 +1172,18 @@ export default function ProposalsScreen({ navigation, route }) {
                     onChangeText={(v) => setSendModal({ ...sendModal, emailMsg: v })}
                     multiline
                     placeholderTextColor={COLORS.textMuted}
-                    placeholder="Escribe el mensaje..."
+                    placeholder={t('writeMessage')}
                     returnKeyType="done"
                     blurOnSubmit
                   />
-                  <Text style={styles.waMsgHint}>La URL se adjunta automáticamente al final</Text>
+                  <Text style={styles.waMsgHint}>{t('autoAttachUrl') || 'La URL se adjunta automáticamente al final'}</Text>
                 </>
               )}
 
               {sendModal.channel === 'share' && (
                 <View style={styles.shareInfo}>
                   <Export size={18} color={COLORS.accent} />
-                  <Text style={styles.shareInfoText}>
-                    Se compartir├í el mensaje con el template y el enlace de la propuesta
-                  </Text>
+                  <Text style={styles.shareInfoText}>{t('shareTemplateHint')}</Text>
                 </View>
               )}
 
@@ -1240,7 +1236,7 @@ export default function ProposalsScreen({ navigation, route }) {
                 onPress={() => setSendModal({ ...sendModal, visible: false })}
                 activeOpacity={0.7}
               >
-                <Text style={styles.sendCancelText}>Cancelar</Text>
+                <Text style={styles.sendCancelText}>{t('cancel')}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -1268,9 +1264,7 @@ export default function ProposalsScreen({ navigation, route }) {
                   <Fire size={20} color="#FF5722" weight="fill" />
                   <Text style={styles.sendSheetTitle}>Llamarlo ahora</Text>
                 </View>
-                <Text style={styles.sendSheetSub}>
-                  El cliente vio la propuesta hace menos de 1 hora. ┬íEs el momento de contactar!
-                </Text>
+                <Text style={styles.sendSheetSub}>{t('urgentFollowupDesc')}</Text>
               </>
             ) : (
               <>
@@ -1278,9 +1272,7 @@ export default function ProposalsScreen({ navigation, route }) {
                   <Phone size={20} color="#3B82F6" weight="fill" />
                   <Text style={styles.sendSheetTitle}>{t('noViewsCallNow')}</Text>
                 </View>
-                <Text style={styles.sendSheetSub}>
-                  Esta propuesta lleva m├ís de una semana sin ser vista. Recu├®rdale al lead.
-                </Text>
+                <Text style={styles.sendSheetSub}>{t('noViewsFollowupDesc')}</Text>
               </>
             )}
 
@@ -1379,7 +1371,7 @@ export default function ProposalsScreen({ navigation, route }) {
               activeOpacity={0.8}
             >
               <Text style={styles.notifPermBannerText}>
-                {'⚠️'} Los banners están desactivados. Toca aquí para activar notificaciones en Ajustes.
+                {'⚠️'} {t('notifBannerDisabled')}.
               </Text>
             </TouchableOpacity>
           )}
@@ -1388,7 +1380,7 @@ export default function ProposalsScreen({ navigation, route }) {
             <View style={styles.notifEmpty}>
               <BellRinging size={48} color={COLORS.textMuted} />
               <Text style={styles.notifEmptyText}>{t('noNotifications')}</Text>
-              <Text style={styles.notifEmptyHint}>Cuando un cliente abra una propuesta aparecerá aquí</Text>
+              <Text style={styles.notifEmptyHint}>{t('notifEmptyHint')}</Text>
             </View>
           ) : (
             <ScrollView style={styles.notifList} contentContainerStyle={{ paddingBottom: 32 }}>
@@ -1423,7 +1415,7 @@ export default function ProposalsScreen({ navigation, route }) {
                       ) : (
                         <>
                           <Text style={styles.notifItemTitle} numberOfLines={1}>
-                            {n.leadName || 'Cliente'}{' '}{t('viewedProposal') || 'vio tu propuesta'}
+                            {n.leadName || 'Cliente'}{' '}{t('viewedProposal') || t('viewedProposal')}
                           </Text>
                           <Text style={styles.notifItemSub} numberOfLines={1}>
                             {n.proposalTitle}{n.proposalNumber ? ` \u00B7 #${n.proposalNumber}` : ''}
@@ -1591,7 +1583,7 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
             <View>
               <Text style={styles.sendSheetTitle}>{t('advancedFilters')}</Text>
-              <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 2 }}>{t('tapFilterToDisable') || 'Toca un filtro activo para desactivarlo'}</Text>
+              <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 2 }}>{t('tapFilterToDisable') || 'Tap a filter to deactivate it'}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.notifCloseBtn}>
               <X size={20} color={COLORS.text} weight="bold" />

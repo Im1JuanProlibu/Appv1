@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../ThemeContext';
+import { useTranslation } from '../i18n';
 import { getProposals, getActiveUsers } from '../api';
 import BottomTabBar from '../components/BottomTabBar';
 import { ProlibuLogoHorizontal } from '../components/ProlibuLogo';
@@ -22,7 +23,7 @@ import { Fire, Thermometer, Snowflake, ArrowClockwise, CaretDown, X, Check } fro
 // ─── Config ───────────────────────────────────────────────────────────────────
 // Brand colors are the same in both themes — use hardcoded hex values
 const STATUS_CONFIG = [
-  { key: 'Draft',    label: 'Borrador', color: '#FDBD00' },
+  { key: 'Draft',    label: () => t('statusDraft'),    color: '#FDBD00' },
   { key: 'Ready',    label: 'Lista',    color: '#4285F4' },
   { key: 'Approved', label: 'Aprobada', color: '#39B54A' },
   { key: 'Denied',   label: 'Negada',   color: '#D4145A' },
@@ -147,6 +148,7 @@ function ProgressRow({ label, value, total, color, sub, styles }) {
 // ─── Pantalla ─────────────────────────────────────────────────────────────────
 export default function DashboardScreen({ navigation }) {
   const { colors: COLORS, isDark } = useTheme();
+  const { t } = useTranslation();
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats]           = useState(null);
@@ -239,9 +241,9 @@ export default function DashboardScreen({ navigation }) {
   const styles = makeStyles(COLORS);
 
   // Etiqueta del modo actual
-  const viewLabel = viewMode === 'mine' ? `Mis datos · ${userName}`
-    : viewMode === 'all'  ? 'Toda la plataforma'
-    : `Asesor: ${selectedAgent?.name || ''}`;
+  const viewLabel = viewMode === 'mine' ? `${t('myData')} · ${userName}`
+    : viewMode === 'all'  ? t('wholeplatform')
+    : `${t('agent')}: ${selectedAgent?.name || ''}`;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -260,8 +262,8 @@ export default function DashboardScreen({ navigation }) {
       {isAdmin && (
         <View style={styles.viewSelector}>
           {[
-            { mode: 'mine',  label: 'Mis datos' },
-            { mode: 'all',   label: 'Plataforma' },
+            { mode: 'mine',  label: t('myData') },
+            { mode: 'all',   label: t('platform') },
           ].map(opt => (
             <TouchableOpacity
               key={opt.mode}
@@ -280,7 +282,7 @@ export default function DashboardScreen({ navigation }) {
             activeOpacity={0.7}
           >
             <Text style={[styles.viewChipText, viewMode === 'agent' && styles.viewChipTextActive]} numberOfLines={1}>
-              {viewMode === 'agent' ? selectedAgent?.name : 'Asesor'}
+              {viewMode === 'agent' ? selectedAgent?.name : t('agent')}
             </Text>
             <CaretDown size={13} color={viewMode === 'agent' ? COLORS.accentFg : COLORS.textMuted} />
           </TouchableOpacity>
@@ -300,7 +302,7 @@ export default function DashboardScreen({ navigation }) {
       ) : !stats ? (
         <View style={styles.errorContainer}>
           <Text style={{ fontSize: 40, marginBottom: 16 }}>📊</Text>
-          <Text style={styles.errorText}>No se pudieron cargar las estadísticas</Text>
+          <Text style={styles.errorText}>{t('noDataStats')}</Text>
           <TouchableOpacity onPress={onRefresh} style={styles.retryBtn} activeOpacity={0.8}>
             <Text style={styles.retryText}>Reintentar</Text>
           </TouchableOpacity>
@@ -322,7 +324,7 @@ export default function DashboardScreen({ navigation }) {
               {/* Card grande — total */}
               <View style={[styles.kpiCard, styles.kpiCardAccent]}>
                 <Text style={[styles.kpiValue, { color: COLORS.accent, fontSize: 42 }]}>{stats.total}</Text>
-                <Text style={styles.kpiLabel}>Propuestas totales</Text>
+                <Text style={styles.kpiLabel}>{t('totalProposals')}</Text>
                 <View style={styles.kpiTagRow}>
                   <View style={[styles.kpiTag, { backgroundColor: COLORS.accent + '20' }]}>
                     <Text style={[styles.kpiTagText, { color: COLORS.accent }]}>7d · {stats.recent7}</Text>
@@ -345,14 +347,14 @@ export default function DashboardScreen({ navigation }) {
                   }]}>
                     {stats.conversionRate !== null ? `${stats.conversionRate}%` : '—'}
                   </Text>
-                  <Text style={styles.kpiLabel}>Tasa de cierre</Text>
+                  <Text style={styles.kpiLabel}>{t('conversionRate')}</Text>
                 </View>
                 {/* Pérdida */}
                 <View style={[styles.kpiCard, { borderColor: COLORS.denied + '40' }]}>
                   <Text style={[styles.kpiValue, { color: COLORS.denied, fontSize: 26 }]}>
                     {stats.lossRate !== null ? `${stats.lossRate}%` : '—'}
                   </Text>
-                  <Text style={styles.kpiLabel}>Tasa de pérdida</Text>
+                  <Text style={styles.kpiLabel}>{t('lossRate')}</Text>
                 </View>
               </View>
             </View>
@@ -374,7 +376,7 @@ export default function DashboardScreen({ navigation }) {
             </View>
 
             {/* ══ Distribución por estado ══ */}
-            <Text style={styles.sectionLabel}>DISTRIBUCIÓN POR ESTADO</Text>
+            <Text style={styles.sectionLabel}>{t('distributionByStatus')}</Text>
             <View style={styles.card}>
               <SegmentedBar
                 segments={STATUS_CONFIG.map(s => ({ key: s.key, value: stats.byStatus[s.key] || 0, color: s.color }))}
@@ -404,7 +406,7 @@ export default function DashboardScreen({ navigation }) {
             </View>
 
             {/* ══ Gráfica de columnas ══ */}
-            <Text style={styles.sectionLabel}>COMPARATIVA DE ESTADOS</Text>
+            <Text style={styles.sectionLabel}>{t('statusComparison')}</Text>
             <View style={styles.card}>
               <ColumnChart
                 bars={STATUS_CONFIG.map(s => ({
@@ -438,7 +440,7 @@ export default function DashboardScreen({ navigation }) {
             {/* ══ Embudo de cierre ══ */}
             {stats.byStatus.Approved + stats.byStatus.Denied > 0 && (
               <>
-                <Text style={styles.sectionLabel}>EMBUDO DE CIERRE</Text>
+                <Text style={styles.sectionLabel}>{t('closingFunnel')}</Text>
                 <View style={styles.card}>
                   <ProgressRow
                     label="Aprobadas"
@@ -457,7 +459,7 @@ export default function DashboardScreen({ navigation }) {
                     styles={styles}
                   />
                   <Text style={styles.funnelNote}>
-                    {stats.byStatus.Approved + stats.byStatus.Denied} propuestas cerradas en total
+                    {stats.byStatus.Approved + stats.byStatus.Denied} {t('totalClosed')}
                   </Text>
                 </View>
               </>
@@ -507,7 +509,7 @@ export default function DashboardScreen({ navigation }) {
               onPress={() => navigation.navigate('Reports')}
               activeOpacity={0.85}
             >
-              <Text style={styles.reportsBtnText}>≡  Ver reporte detallado por período →</Text>
+              <Text style={styles.reportsBtnText}>{t('viewDetailedReport')}</Text>
             </TouchableOpacity>
 
           </Animated.View>
@@ -525,7 +527,7 @@ export default function DashboardScreen({ navigation }) {
           <View style={styles.pickerSheet}>
             <View style={styles.pickerHandle} />
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={styles.pickerTitle}>Filtrar por asesor</Text>
+              <Text style={styles.pickerTitle}>{t('filterByAgentDash')}</Text>
               <TouchableOpacity onPress={() => setAgentPickerVisible(false)}>
                 <X size={20} color={COLORS.text} weight="bold" />
               </TouchableOpacity>

@@ -283,7 +283,7 @@ export default function SettingsScreen({ navigation }) {
         </View>
 
         {/* ── Plantillas de mensaje ── */}
-        <Text style={styles.sectionLabel}>PLANTILLAS DE MENSAJE</Text>
+        <Text style={styles.sectionLabel}>{t('templatesSection')}</Text>
         {TEMPLATE_FIELDS.map(f => {
           const val = templates[f.key] || '';
           const maxLen = MAX_CHAR[f.key];

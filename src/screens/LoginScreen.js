@@ -162,7 +162,7 @@ export default function LoginScreen({ navigation }) {
                 navigation.replace('Domain');
               }}
             >
-              <Text style={styles.footerLink}>Cambiar cuenta</Text>
+              <Text style={styles.footerLink}>{t('changeAccount')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
