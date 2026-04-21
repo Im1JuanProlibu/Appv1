@@ -1462,6 +1462,7 @@ export default function ProposalsScreen({ navigation, route }) {
 // ─── Panel de filtros avanzados ───────────────────────────────────────────────
 function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, onApply }) {
   const { colors: COLORS } = useTheme();
+  const C = COLORS; // alias para makeStyles y JSX inline
   const [sort,  setSort]  = useState(initialValues.sort);
   const [af,    setAf]    = useState(initialValues.af);
   const [rf,    setRf]    = useState(initialValues.rf);
