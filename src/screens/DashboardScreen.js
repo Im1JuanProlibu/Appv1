@@ -23,10 +23,10 @@ import { Fire, Thermometer, Snowflake, ArrowClockwise, CaretDown, X, Check } fro
 // ─── Config ───────────────────────────────────────────────────────────────────
 // Brand colors are the same in both themes — use hardcoded hex values
 const STATUS_CONFIG = [
-  { key: 'Draft',    label: () => t('statusDraft'),    color: '#FDBD00' },
-  { key: 'Ready',    label: 'Lista',    color: '#4285F4' },
-  { key: 'Approved', label: 'Aprobada', color: '#39B54A' },
-  { key: 'Denied',   label: 'Negada',   color: '#D4145A' },
+  { key: 'Draft',    labelKey: 'statusDraft',    color: '#FDBD00' },
+  { key: 'Ready',    labelKey: 'statusReady',    color: '#4285F4' },
+  { key: 'Approved', labelKey: 'statusApproved', color: '#39B54A' },
+  { key: 'Denied',   labelKey: 'statusDenied',   color: '#D4145A' },
 ];
 
 const TEMP_CONFIG = [
@@ -390,7 +390,7 @@ export default function DashboardScreen({ navigation }) {
                   return (
                     <View key={s.key} style={styles.legendItem}>
                       <View style={[styles.legendDot, { backgroundColor: s.color }]} />
-                      <Text style={styles.legendLabel}>{s.label}</Text>
+                      <Text style={styles.legendLabel}>{t(s.labelKey)}</Text>
                       <View style={{ flex: 1, marginHorizontal: 10 }}>
                         <View style={styles.legendTrack}>
                           <View style={{ flex: count / (stats.total || 1), backgroundColor: s.color, borderRadius: 3 }} />
@@ -410,7 +410,7 @@ export default function DashboardScreen({ navigation }) {
             <View style={styles.card}>
               <ColumnChart
                 bars={STATUS_CONFIG.map(s => ({
-                  key: s.key, label: s.label,
+                  key: s.key, label: t(s.labelKey),
                   value: stats.byStatus[s.key] || 0,
                   color: s.color,
                 }))}
