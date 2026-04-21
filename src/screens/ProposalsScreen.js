@@ -1064,7 +1064,7 @@ export default function ProposalsScreen({ navigation, route }) {
             >
               <Text style={styles.sendSheetTitle}>Enviar propuesta</Text>
               {sendModal.proposal && (
-                <Text style={styles.sendSheetSub} numberOfLines={1}>
+                <Text style={styles.sendSheetSub}>
                   {sendModal.proposal.title || sendModal.proposal.name}
                 </Text>
               )}
@@ -1178,7 +1178,7 @@ export default function ProposalsScreen({ navigation, route }) {
                     returnKeyType="done"
                     blurOnSubmit
                   />
-                  <Text style={styles.waMsgHint}>La URL se adjunta autom├íticamente al final</Text>
+                  <Text style={styles.waMsgHint}>La URL se adjunta automáticamente al final</Text>
                 </>
               )}
 
@@ -1296,11 +1296,12 @@ export default function ProposalsScreen({ navigation, route }) {
                 const url = urlType === 'client'
                   ? await buildClientShortUrl(p)
                   : buildProposalUrl(p, 'anonymous');
+                const propTitle = p.title || p.name || '';
                 const applyTpl = (tpl) =>
-                  tpl.replace('{nombre}', name).replace('{propuesta}', t).replace('{url}', url);
+                  tpl.replace('{nombre}', name).replace('{propuesta}', propTitle).replace('{url}', url);
                 const defaults = {
-                  urgente: `Hola${name ? ` ${name}` : ''}, ┬┐qu├® te pareci├│${t ? ` "${t}"` : ' nuestra propuesta'}? Quedo atento a tus comentarios ­ƒÿè\n${url}`,
-                  novista: `Hola${name ? ` ${name}` : ''}, quer├¡a recordarte que tienes una propuesta disponible${t ? `: "${t}"` : ''}. ┬┐Tienes alguna duda? Con gusto te ayudo.\n${url}`,
+                  urgente: `Hola${name ? ` ${name}` : ''}, \u00bfqu\u00e9 te pareci\u00f3${propTitle ? ` "${propTitle}"` : ' nuestra propuesta'}? Quedo atento a tus comentarios.\n${url}`,
+                  novista: `Hola${name ? ` ${name}` : ''}, quer\u00eda recordarte que tienes una propuesta disponible${propTitle ? `: "${propTitle}"` : ''}. \u00bfTienes alguna duda? Con gusto te ayudo.\n${url}`,
                 };
                 const tplKey = seguimientoModal.type === 'urgente' ? 'urgente' : 'novista';
                 const tplRaw = msgTemplates?.[tplKey];
@@ -1378,7 +1379,7 @@ export default function ProposalsScreen({ navigation, route }) {
               activeOpacity={0.8}
             >
               <Text style={styles.notifPermBannerText}>
-                ÔÜá´©Å Los banners est├ín desactivados. Toca aqu├¡ para activar notificaciones en Ajustes.
+                {'⚠️'} Los banners están desactivados. Toca aquí para activar notificaciones en Ajustes.
               </Text>
             </TouchableOpacity>
           )}
@@ -1387,19 +1388,22 @@ export default function ProposalsScreen({ navigation, route }) {
             <View style={styles.notifEmpty}>
               <BellRinging size={48} color={COLORS.textMuted} />
               <Text style={styles.notifEmptyText}>{t('noNotifications')}</Text>
-              <Text style={styles.notifEmptyHint}>Cuando un cliente abra una propuesta aparecer├í aqu├¡</Text>
+              <Text style={styles.notifEmptyHint}>Cuando un cliente abra una propuesta aparecerá aquí</Text>
             </View>
           ) : (
             <ScrollView style={styles.notifList} contentContainerStyle={{ paddingBottom: 32 }}>
               {notifications.map((n) => {
                 const isStatusChange = n.type === 'status_change';
-                const STATUS_LABEL_MAP = { Draft: 'Borrador', Ready: 'Lista', Approved: 'Aprobada', Denied: 'Negada' };
+                const SL = {
+                  Draft: t('statusDraft'), Ready: t('statusReady'),
+                  Approved: t('statusApproved'), Denied: t('statusDenied'),
+                };
                 const STATUS_COLOR_MAP = { Draft: '#FDBD00', Ready: '#4285F4', Approved: '#39B54A', Denied: '#D4145A' };
                 return (
                   <View key={n.id} style={[styles.notifItem, !n.read && styles.notifItemUnread]}>
                     <View style={[styles.notifItemIcon, isStatusChange && { backgroundColor: (STATUS_COLOR_MAP[n.toStatus] || COLORS.accent) + '15' }]}>
                       {isStatusChange
-                        ? <Text style={{ fontSize: 18 }}>­ƒôï</Text>
+                        ? <Text style={{ fontSize: 18 }}>{'\uD83D\uDCCB'}</Text>
                         : <Eye size={20} color={COLORS.accent} weight="fill" />
                       }
                     </View>
@@ -1407,22 +1411,22 @@ export default function ProposalsScreen({ navigation, route }) {
                       {isStatusChange ? (
                         <>
                           <Text style={styles.notifItemTitle} numberOfLines={1}>
-                            Propuesta {STATUS_LABEL_MAP[n.toStatus] || n.toStatus}
+                            {t('statusChanged') || 'Estado'}: {SL[n.toStatus] || n.toStatus}
                           </Text>
                           <Text style={styles.notifItemSub} numberOfLines={1}>
                             {n.proposalTitle}
                           </Text>
                           <Text style={[styles.notifItemEmail, { color: STATUS_COLOR_MAP[n.toStatus] || COLORS.textMuted }]}>
-                            {STATUS_LABEL_MAP[n.fromStatus] || n.fromStatus} ÔåÆ {STATUS_LABEL_MAP[n.toStatus] || n.toStatus}
+                            {SL[n.fromStatus] || n.fromStatus} {'\u2192'} {SL[n.toStatus] || n.toStatus}
                           </Text>
                         </>
                       ) : (
                         <>
                           <Text style={styles.notifItemTitle} numberOfLines={1}>
-                            {n.leadName || 'Cliente'} vio tu propuesta
+                            {n.leadName || 'Cliente'}{' '}{t('viewedProposal') || 'vio tu propuesta'}
                           </Text>
                           <Text style={styles.notifItemSub} numberOfLines={1}>
-                            {n.proposalTitle}{n.proposalNumber ? ` ┬À #${n.proposalNumber}` : ''}
+                            {n.proposalTitle}{n.proposalNumber ? ` \u00B7 #${n.proposalNumber}` : ''}
                           </Text>
                           {n.leadEmail ? (
                             <Text style={styles.notifItemEmail} numberOfLines={1}>{n.leadEmail}</Text>
