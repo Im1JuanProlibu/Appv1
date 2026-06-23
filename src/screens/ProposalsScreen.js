@@ -37,10 +37,9 @@ const STATUS_COLOR = {
   Approved: '#39B54A',
   Denied: '#D4145A',
 };
-const STATUS_COLOR_MAP = { Draft: '#FDBD00', Ready: '#4285F4', Approved: '#39B54A', Denied: '#D4145A' };
 
 const TEMP_COLOR = {
-  Hot:  '#FF5722',
+  Hot: '#FF5722',
   Warm: '#F59E0B',
   Cold: '#60A5FA',
 };
@@ -67,17 +66,17 @@ async function checkStatusChanges(proposals, addNotif) {
       if (id) newCache[id] = p.status;
     }
     await AsyncStorage.setItem(STATUS_CACHE_KEY, JSON.stringify(newCache));
-  } catch {}
+  } catch { }
 }
 
 function makeFilters(accent, t) {
   const label = t || ((k) => k);
   return [
-    { key: 'all',      label: label('statusAll'),      color: accent,     fg: '#ffffff' },
-    { key: 'Draft',    label: label('statusDraft'),    color: '#FDBD00',  fg: '#000000' },
-    { key: 'Ready',    label: label('statusReady'),    color: '#4285F4',  fg: '#ffffff' },
-    { key: 'Approved', label: label('statusApproved'), color: '#39B54A',  fg: '#ffffff' },
-    { key: 'Denied',   label: label('statusDenied'),   color: '#D4145A',  fg: '#ffffff' },
+    { key: 'all', label: label('statusAll'), color: accent, fg: '#ffffff' },
+    { key: 'Draft', label: label('statusDraft'), color: '#FDBD00', fg: '#000000' },
+    { key: 'Ready', label: label('statusReady'), color: '#4285F4', fg: '#ffffff' },
+    { key: 'Approved', label: label('statusApproved'), color: '#39B54A', fg: '#ffffff' },
+    { key: 'Denied', label: label('statusDenied'), color: '#D4145A', fg: '#ffffff' },
   ];
 }
 
@@ -112,7 +111,7 @@ export default function ProposalsScreen({ navigation, route }) {
     Approved: t('statusApproved'), Denied: t('statusDenied'),
   };
   const TEMP_CONFIG = {
-    Hot:  { label: t('tempHot'),  color: TEMP_COLOR.Hot  },
+    Hot: { label: t('tempHot'), color: TEMP_COLOR.Hot },
     Warm: { label: t('tempWarm'), color: TEMP_COLOR.Warm },
     Cold: { label: t('tempCold'), color: TEMP_COLOR.Cold },
   };
@@ -209,7 +208,7 @@ export default function ProposalsScreen({ navigation, route }) {
             name: u.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : (u.email || u.id),
             email: u.email || '',
           })));
-        }).catch(() => {});
+        }).catch(() => { });
       }
     });
   }, []);
@@ -250,9 +249,9 @@ export default function ProposalsScreen({ navigation, route }) {
 
       const merged = append
         ? [...allProposals, ...valid.filter((p) => {
-            const pid = p.id || p._id;
-            return !allProposals.some((e) => (e.id || e._id) === pid);
-          })]
+          const pid = p.id || p._id;
+          return !allProposals.some((e) => (e.id || e._id) === pid);
+        })]
         : valid;
 
       // hasMore: si el servidor informa el total, lo usamos; si no, asumimos que hay m├ís
@@ -326,7 +325,7 @@ export default function ProposalsScreen({ navigation, route }) {
 
   function applyAllFilters(list, { af, rf, vf, lf, df, dfrom, dto, agf }) {
     const now = Date.now();
-    const DAY  = 24 * 60 * 60 * 1000;
+    const DAY = 24 * 60 * 60 * 1000;
     const WEEK = 7 * DAY;
     return list.filter((p) => {
       // Lead filter
@@ -343,31 +342,31 @@ export default function ProposalsScreen({ navigation, route }) {
       }
       // Activity filter
       const raw = p.lastView || p.lastSeen || p.lastViewed;
-      const ts  = raw ? new Date(raw).getTime() : null;
-      if (af === 'viewed_today'    && !(ts != null && (now - ts) < DAY))  return false;
-      if (af === 'viewed_week'     && !(ts != null && (now - ts) < WEEK)) return false;
-      if (af === 'not_viewed'      && ts != null)                         return false;
+      const ts = raw ? new Date(raw).getTime() : null;
+      if (af === 'viewed_today' && !(ts != null && (now - ts) < DAY)) return false;
+      if (af === 'viewed_week' && !(ts != null && (now - ts) < WEEK)) return false;
+      if (af === 'not_viewed' && ts != null) return false;
       if (af === 'approved_viewed' && !(p.status === 'Approved' && ts != null)) return false;
-      if (af === 'ready_viewed'    && !(p.status === 'Ready'    && ts != null)) return false;
+      if (af === 'ready_viewed' && !(p.status === 'Ready' && ts != null)) return false;
       // Rating filter
       if (rf !== 'all' && p.rating !== rf) return false;
       // Views filter
       const views = p.views ?? p.visits ?? p.opens ?? p.timesOpened ?? p.opened ?? null;
-      if (vf === 'has_views'  && !(views != null && views > 0))  return false;
-      if (vf === 'no_views'   && !(views == null || views === 0)) return false;
+      if (vf === 'has_views' && !(views != null && views > 0)) return false;
+      if (vf === 'no_views' && !(views == null || views === 0)) return false;
       if (vf === 'many_views' && !(views != null && views >= 5)) return false;
       // Date range filter (aplica sobre ├║ltima vista, o si no hay, sobre updatedAt)
       if (df !== 'all') {
         const refRaw = p.lastView || p.lastSeen || p.lastViewed || p.updatedAt;
-        const refTs  = refRaw ? new Date(refRaw).getTime() : null;
+        const refTs = refRaw ? new Date(refRaw).getTime() : null;
         if (!refTs) return false;
-        if (df === 'today')   { if ((now - refTs) > DAY)       return false; }
-        if (df === 'week')    { if ((now - refTs) > WEEK)      return false; }
-        if (df === 'month')   { if ((now - refTs) > 30 * DAY)  return false; }
-        if (df === '3months') { if ((now - refTs) > 90 * DAY)  return false; }
+        if (df === 'today') { if ((now - refTs) > DAY) return false; }
+        if (df === 'week') { if ((now - refTs) > WEEK) return false; }
+        if (df === 'month') { if ((now - refTs) > 30 * DAY) return false; }
+        if (df === '3months') { if ((now - refTs) > 90 * DAY) return false; }
         if (df === 'custom') {
           if (dfrom) { const from = new Date(dfrom).getTime(); if (refTs < from) return false; }
-          if (dto)   { const to   = new Date(dto + 'T23:59:59').getTime(); if (refTs > to) return false; }
+          if (dto) { const to = new Date(dto + 'T23:59:59').getTime(); if (refTs > to) return false; }
         }
       }
       return true;
@@ -434,12 +433,12 @@ export default function ProposalsScreen({ navigation, route }) {
 
   const activeFilterCount = [
     activityFilter !== 'all',
-    ratingFilter   !== 'all',
-    viewsFilter    !== 'all',
-    dateFilter     !== 'all',
-    leadFilter     != null,
-    agentFilter    != null,
-    activeSort     !== 'updatedAt_desc',
+    ratingFilter !== 'all',
+    viewsFilter !== 'all',
+    dateFilter !== 'all',
+    leadFilter != null,
+    agentFilter != null,
+    activeSort !== 'updatedAt_desc',
   ].filter(Boolean).length;
 
   function onRefresh() {
@@ -589,7 +588,7 @@ export default function ProposalsScreen({ navigation, route }) {
         title: proposal.title || proposal.name || 'Propuesta',
       });
     } catch {
-      Linking.openURL(url).catch(() => {});
+      Linking.openURL(url).catch(() => { });
     }
   }
 
@@ -797,7 +796,6 @@ export default function ProposalsScreen({ navigation, route }) {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <ProlibuLogoHorizontal scale={1} />
-          <Text style={styles.headerSub} numberOfLines={1}>{userName}</Text>
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
@@ -829,7 +827,7 @@ export default function ProposalsScreen({ navigation, route }) {
         <View style={styles.quickFilterBar}>
           {[
             { key: 'mine', label: t('myProposals') },
-            { key: 'all',  label: t('platform') },
+            { key: 'all', label: t('platform') },
           ].map((qf) => {
             const active = quickFilter === qf.key;
             return (
@@ -1071,9 +1069,9 @@ export default function ProposalsScreen({ navigation, route }) {
               <Text style={styles.sendSheetLabel}>Canal</Text>
               <View style={styles.channelRow}>
                 {[
-                  { key: 'whatsapp', Icon: WhatsappLogo, label: 'WhatsApp',  color: '#25D366' },
-                  { key: 'email',    Icon: Envelope,     label: 'Correo',    color: '#4A90E2' },
-                  { key: 'share',    Icon: Export,       label: 'Compartir', color: COLORS.accent },
+                  { key: 'whatsapp', Icon: WhatsappLogo, label: 'WhatsApp', color: '#25D366' },
+                  { key: 'email', Icon: Envelope, label: 'Correo', color: '#4A90E2' },
+                  { key: 'share', Icon: Export, label: 'Compartir', color: COLORS.accent },
                 ].map((ch) => {
                   const active = sendModal.channel === ch.key;
                   return (
@@ -1192,8 +1190,8 @@ export default function ProposalsScreen({ navigation, route }) {
                 style={[
                   styles.sendConfirmBtn,
                   sendModal.channel === 'whatsapp' && { backgroundColor: '#25D366' },
-                  sendModal.channel === 'email'    && { backgroundColor: '#4A90E2' },
-                  sendModal.channel === 'share'    && { backgroundColor: COLORS.accent },
+                  sendModal.channel === 'email' && { backgroundColor: '#4A90E2' },
+                  sendModal.channel === 'share' && { backgroundColor: COLORS.accent },
                 ]}
                 activeOpacity={0.8}
                 onPress={async () => {
@@ -1214,19 +1212,19 @@ export default function ProposalsScreen({ navigation, route }) {
                         message: shareMsg,
                         title: sendModal.proposal?.title || sendModal.proposal?.name || 'Propuesta',
                       });
-                    } catch {}
+                    } catch { }
                     setSendModal({ ...sendModal, visible: false });
                   }
                 }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   {sendModal.channel === 'whatsapp' ? <WhatsappLogo size={18} color="#fff" /> :
-                   sendModal.channel === 'email'    ? <Envelope size={18} color="#fff" /> :
-                                                      <Export size={18} color="#fff" />}
+                    sendModal.channel === 'email' ? <Envelope size={18} color="#fff" /> :
+                      <Export size={18} color="#fff" />}
                   <Text style={styles.sendConfirmText}>
                     {sendModal.channel === 'whatsapp' ? t('sendViaWhatsApp') :
-                     sendModal.channel === 'email'    ? t('sendViaEmail')    :
-                                                        t('sendViaShare')}
+                      sendModal.channel === 'email' ? t('sendViaEmail') :
+                        t('sendViaShare')}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -1305,7 +1303,7 @@ export default function ProposalsScreen({ navigation, route }) {
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <WhatsappLogo size={18} color="#fff" />
-              <Text style={[styles.seguimientoBtnText, { color: '#fff' }]}>{t('send')} WhatsApp</Text>
+                <Text style={[styles.seguimientoBtnText, { color: '#fff' }]}>{t('send')} WhatsApp</Text>
               </View>
             </TouchableOpacity>
 
@@ -1390,7 +1388,7 @@ export default function ProposalsScreen({ navigation, route }) {
                   Draft: t('statusDraft'), Ready: t('statusReady'),
                   Approved: t('statusApproved'), Denied: t('statusDenied'),
                 };
-                const STATUS_COLOR_MAP = { Draft: '#FDBD00', Ready: '#4285F4', Approved: '#39B54A', Denied: '#D4145A' };
+                const STATUS_COLOR_MAP = STATUS_COLOR;
                 return (
                   <View key={n.id} style={[styles.notifItem, !n.read && styles.notifItemUnread]}>
                     <View style={[styles.notifItemIcon, isStatusChange && { backgroundColor: (STATUS_COLOR_MAP[n.toStatus] || COLORS.accent) + '15' }]}>
@@ -1448,15 +1446,15 @@ export default function ProposalsScreen({ navigation, route }) {
 function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, onApply }) {
   const { colors: COLORS } = useTheme();
   const { t } = useTranslation();
-  const [sort,  setSort]  = useState(initialValues.sort);
-  const [af,    setAf]    = useState(initialValues.af);
-  const [rf,    setRf]    = useState(initialValues.rf);
-  const [vf,    setVf]    = useState(initialValues.vf);
-  const [lf,    setLf]    = useState(initialValues.lf);
-  const [df,    setDf]    = useState(initialValues.df);
+  const [sort, setSort] = useState(initialValues.sort);
+  const [af, setAf] = useState(initialValues.af);
+  const [rf, setRf] = useState(initialValues.rf);
+  const [vf, setVf] = useState(initialValues.vf);
+  const [lf, setLf] = useState(initialValues.lf);
+  const [df, setDf] = useState(initialValues.df);
   const [dfrom, setDfrom] = useState(initialValues.dfrom);
-  const [dto,   setDto]   = useState(initialValues.dto);
-  const [agf,   setAgf]   = useState(initialValues.agf ?? null);
+  const [dto, setDto] = useState(initialValues.dto);
+  const [agf, setAgf] = useState(initialValues.agf ?? null);
   const [leadSearch, setLeadSearch] = useState('');
   const [leadDropOpen, setLeadDropOpen] = useState(false);
   const [agentSearch, setAgentSearch] = useState('');
@@ -1494,38 +1492,38 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
   }
 
   const SORT_OPTS = [
-    { key: 'updatedAt_desc', label: t('sortRecent')    },
-    { key: 'updatedAt_asc',  label: t('sortOldest')    },
-    { key: 'createdAt_desc', label: t('sortCreation')  },
-    { key: 'title_asc',      label: t('sortAZ')        },
+    { key: 'updatedAt_desc', label: t('sortRecent') },
+    { key: 'updatedAt_asc', label: t('sortOldest') },
+    { key: 'createdAt_desc', label: t('sortCreation') },
+    { key: 'title_asc', label: t('sortAZ') },
   ];
   const ACTIVITY_OPTS = [
-    { key: 'all',             label: t('activityAll')            },
-    { key: 'viewed_today',    label: t('activityViewedToday')    },
-    { key: 'viewed_week',     label: t('activityViewedWeek')     },
-    { key: 'not_viewed',      label: t('activityNotViewed')      },
+    { key: 'all', label: t('activityAll') },
+    { key: 'viewed_today', label: t('activityViewedToday') },
+    { key: 'viewed_week', label: t('activityViewedWeek') },
+    { key: 'not_viewed', label: t('activityNotViewed') },
     { key: 'approved_viewed', label: t('activityApprovedViewed') },
-    { key: 'ready_viewed',    label: t('activityReadyViewed')    },
+    { key: 'ready_viewed', label: t('activityReadyViewed') },
   ];
   const RATING_OPTS = [
-    { key: 'all',  label: t('viewsAll')  },
-    { key: 'Hot',  label: t('tempHot')   },
-    { key: 'Warm', label: t('tempWarm')  },
-    { key: 'Cold', label: t('tempCold')  },
+    { key: 'all', label: t('viewsAll') },
+    { key: 'Hot', label: t('tempHot') },
+    { key: 'Warm', label: t('tempWarm') },
+    { key: 'Cold', label: t('tempCold') },
   ];
   const VIEWS_OPTS = [
-    { key: 'all',        label: t('viewsAll')       },
-    { key: 'has_views',  label: t('viewsHasViews')  },
-    { key: 'no_views',   label: t('viewsNoViews')   },
+    { key: 'all', label: t('viewsAll') },
+    { key: 'has_views', label: t('viewsHasViews') },
+    { key: 'no_views', label: t('viewsNoViews') },
     { key: 'many_views', label: t('viewsManyViews') },
   ];
   const DATE_OPTS = [
-    { key: 'all',     label: t('dateAll')     },
-    { key: 'today',   label: t('dateToday')   },
-    { key: 'week',    label: t('dateWeek')    },
-    { key: 'month',   label: t('dateMonth')   },
+    { key: 'all', label: t('dateAll') },
+    { key: 'today', label: t('dateToday') },
+    { key: 'week', label: t('dateWeek') },
+    { key: 'month', label: t('dateMonth') },
     { key: '3months', label: t('date3Months') },
-    { key: 'custom',  label: t('dateCustom')  },
+    { key: 'custom', label: t('dateCustom') },
   ];
 
   const filteredLeads = leads.filter((l) => {
@@ -1763,578 +1761,578 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
 
 function makeStyles(C) {
   return StyleSheet.create({
-  safe: { flex: 1, backgroundColor: C.bg },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    backgroundColor: C.bg,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  headerLeft: { flex: 1, marginRight: 12 },
-  headerSub: { color: C.textMuted, fontSize: 11, marginTop: 4 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  countBadge: {
-    backgroundColor: C.accent,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  countText: { color: C.accentFg, fontWeight: '700', fontSize: 13 },
-  newBtn: {
-    backgroundColor: C.accent,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  newBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  logoutBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  logoutText: { color: C.textMuted, fontWeight: '600', fontSize: 13 },
+    safe: { flex: 1, backgroundColor: C.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      backgroundColor: C.bg,
+      borderBottomWidth: 1,
+      borderBottomColor: C.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.04,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    headerLeft: { flex: 1, marginRight: 12 },
+    headerSub: { color: C.textMuted, fontSize: 11, marginTop: 4 },
+    headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    countBadge: {
+      backgroundColor: C.accent,
+      borderRadius: 12,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    countText: { color: C.accentFg, fontWeight: '700', fontSize: 13 },
+    newBtn: {
+      backgroundColor: C.accent,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 10,
+    },
+    newBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+    logoutBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    logoutText: { color: C.textMuted, fontWeight: '600', fontSize: 13 },
 
-  // Barra de acceso rapido
-  quickNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    backgroundColor: C.card,
-  },
-  quickNavBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  quickNavText: {
-    color: C.accent,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  quickNavSep: {
-    width: 1,
-    alignSelf: 'stretch',
-    backgroundColor: C.border,
-  },
+    // Barra de acceso rapido
+    quickNav: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderBottomWidth: 1,
+      borderBottomColor: C.border,
+      backgroundColor: C.card,
+    },
+    quickNavBtn: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    quickNavText: {
+      color: C.accent,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    quickNavSep: {
+      width: 1,
+      alignSelf: 'stretch',
+      backgroundColor: C.border,
+    },
 
-  // Barra de filtros
-  filterBar: {
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    backgroundColor: C.bg,
-  },
-  filterScroll: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
-    flexDirection: 'row',
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: C.border,
-    backgroundColor: C.card,
-  },
-  filterChipText: {
-    color: C.textMuted,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  filterBadge: {
-    backgroundColor: C.border,
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-  },
-  filterBadgeText: {
-    color: C.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-  },
+    // Barra de filtros
+    filterBar: {
+      borderBottomWidth: 1,
+      borderBottomColor: C.border,
+      backgroundColor: C.bg,
+    },
+    filterScroll: {
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      gap: 8,
+      flexDirection: 'row',
+    },
+    filterChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: C.border,
+      backgroundColor: C.card,
+    },
+    filterChipText: {
+      color: C.textMuted,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    filterBadge: {
+      backgroundColor: C.border,
+      borderRadius: 10,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+    },
+    filterBadgeText: {
+      color: C.textMuted,
+      fontSize: 11,
+      fontWeight: '700',
+    },
 
-  loader: { marginTop: 60 },
-  list: { padding: 16, paddingBottom: 20 },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
-    marginTop: 8,
-  },
-  sectionDot: { width: 8, height: 8, borderRadius: 4 },
-  sectionTitle: { fontWeight: '700', fontSize: 14, flex: 1 },
-  sectionCount: {
-    color: C.textMuted,
-    fontSize: 12,
-    backgroundColor: C.card,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  card: {
-    backgroundColor: C.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 16,
-    marginBottom: 10,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardLive: {
-    borderColor: '#39B54A',
-    borderWidth: 1.5,
-    shadowColor: '#39B54A',
-    shadowOpacity: 0.15,
-  },
-  livePill: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#22c55e18', borderWidth: 1, borderColor: '#22c55e60',
-    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
-  },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#22c55e' },
-  livePillText: { color: '#22c55e', fontSize: 11, fontWeight: '700' },
-  lastViewBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    paddingHorizontal: 8, paddingVertical: 4,
-    borderRadius: 8, borderWidth: 1,
-    borderColor: '#60A5FA40', backgroundColor: '#60A5FA0D',
-  },
-  lastViewBadgeText: { color: '#60A5FA', fontSize: 11, fontWeight: '600' },
-  cardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 10,
-  },
-  cardTitle: { color: C.text, fontWeight: '700', fontSize: 15 },
-  cardLead: { color: C.textMuted, fontSize: 12, marginTop: 3 },
-  agentBadge: {
-    flexDirection: 'row', alignItems: 'center',
-    marginTop: 5, alignSelf: 'flex-start',
-    paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: 8, borderWidth: 1,
-    borderColor: C.accent + '40', backgroundColor: C.accent + '12',
-  },
-  agentBadgeText: { color: C.accent, fontSize: 11, fontWeight: '600' },
-  badge: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 9, paddingVertical: 4,
-    borderRadius: 20, borderWidth: 1,
-  },
-  badgeDot: { width: 6, height: 6, borderRadius: 3 },
-  badgeText: { fontSize: 11, fontWeight: '700' },
-  cardMetaRow: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 8, marginBottom: 8, flexWrap: 'wrap',
-  },
-  cardMetaBadges: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 8, marginBottom: 12,
-  },
-  metaItem: { color: C.textMuted, fontSize: 12 },
-  metaChip: {
-    backgroundColor: C.card, borderRadius: 6,
-    paddingHorizontal: 7, paddingVertical: 3,
-    borderWidth: 1, borderColor: C.border,
-  },
-  metaChipText: { color: C.textMuted, fontSize: 11, fontWeight: '600' },
-  cardDivider: { height: 1, backgroundColor: C.border, marginVertical: 10 },
-  editHint: { flex: 1 },
-  editHintText: { color: C.textMuted, fontSize: 11 },
-  emptyContainer: { alignItems: 'center', marginTop: 80 },
-  emptyIcon: { fontSize: 40, marginBottom: 12 },
-  emptyText: { color: C.text, fontSize: 16, fontWeight: '600', marginBottom: 6 },
-  emptyHint: { color: C.textMuted, fontSize: 13, textAlign: 'center', paddingHorizontal: 32 },
-  sortBar: {
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    backgroundColor: C.bg,
-  },
-  sortScroll: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 6,
-    flexDirection: 'row',
-  },
-  sortChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: C.border,
-    backgroundColor: C.card,
-  },
-  sortChipActive: {
-    backgroundColor: C.accent + '20',
-    borderColor: C.accent,
-  },
-  sortChipText: { color: C.textMuted, fontSize: 12, fontWeight: '600' },
-  sortChipTextActive: { color: C.accent },
-  sortSep: { width: 1, backgroundColor: C.border, marginHorizontal: 4, alignSelf: 'stretch' },
-  filterPanelBtn: {},  // legacy, unused
-  filterPanelBtnActive: {},
-  filterPanelBtnText: {},
-  filterPanelBtnTextActive: {},
-  filterBarBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    paddingVertical: 11,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    backgroundColor: C.card,
-  },
-  filterBarBtnActive: {
-    backgroundColor: C.accent,
-    borderColor: C.accent,
-  },
-  filterBarBtnIcon: { fontSize: 15, color: C.textMuted },
-  filterBarBtnText: { color: C.textMuted, fontSize: 13, fontWeight: '700' },
-  dateRangeRow: {
-    flexDirection: 'row', alignItems: 'center', marginTop: 10,
-  },
-  dateInputWrap: { flex: 1 },
-  dateInputLabel: { color: C.textMuted, fontSize: 11, fontWeight: '700', marginBottom: 4 },
-  dateInput: {
-    backgroundColor: C.card, color: C.text,
-    borderWidth: 1, borderColor: C.border, borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
-  },
-  // Panel styles
-  panelSection: { marginBottom: 20 },
-  panelSectionTitle: {
-    color: C.textMuted, fontSize: 11, fontWeight: '800',
-    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10,
-  },
-  panelChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  panelChip: {
-    paddingHorizontal: 12, paddingVertical: 7,
-    borderRadius: 16, borderWidth: 1, borderColor: C.border,
-    backgroundColor: C.card,
-  },
-  panelChipActive: { borderColor: C.accent, backgroundColor: C.accent + '15' },
-  panelChipText: { color: C.textMuted, fontSize: 13, fontWeight: '600' },
-  panelChipTextActive: { color: C.accent, fontWeight: '700' },
-  leadDropBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderWidth: 1, borderColor: C.border, borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 12, backgroundColor: C.card,
-  },
-  leadDropBtnText: { color: C.textMuted, fontSize: 14, flex: 1, marginRight: 8 },
-  leadDropList: {
-    borderWidth: 1, borderColor: C.border, borderRadius: 10,
-    marginTop: 6, paddingHorizontal: 10, paddingTop: 4, paddingBottom: 6,
-    backgroundColor: C.card, maxHeight: 280,
-  },
-  panelLeadBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderWidth: 1, borderColor: C.border, borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 12, backgroundColor: C.bg,
-  },
-  panelLeadBtnActive: { borderColor: C.accent, backgroundColor: C.accent + '10' },
-  panelLeadBtnText: { color: C.textMuted, fontSize: 14 },
-  panelLeadBtnTextActive: { color: C.accent, fontWeight: '600' },
-  panelApplyBtn: {
-    backgroundColor: C.accent, borderRadius: 12,
-    paddingVertical: 14, alignItems: 'center', marginTop: 8,
-  },
-  panelApplyText: { color: C.accentFg, fontWeight: '800', fontSize: 16 },
-  panelClearBtn: {
-    borderWidth: 1, borderColor: C.border, borderRadius: 12,
-    paddingVertical: 12, alignItems: 'center', marginTop: 8,
-  },
-  panelClearText: { color: C.textMuted, fontWeight: '600', fontSize: 14 },
-  leadPickerItem: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 12, paddingHorizontal: 4,
-    borderBottomWidth: 1, borderBottomColor: C.border,
-  },
-  leadPickerItemActive: { backgroundColor: C.accent + '10' },
-  leadPickerName: { color: C.text, fontSize: 14, fontWeight: '600' },
-  leadPickerEmail: { color: C.textMuted, fontSize: 12, marginTop: 2 },
-  leadPickerCount: {
-    backgroundColor: C.border, borderRadius: 10,
-    paddingHorizontal: 8, paddingVertical: 2, marginLeft: 8,
-  },
-  leadPickerCountText: { color: C.textMuted, fontSize: 12, fontWeight: '700' },
-  tempBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 9, paddingVertical: 4,
-    borderRadius: 8, borderWidth: 1,
-  },
-  tempText: { fontSize: 12, fontWeight: '700' },
-  viewsBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 9, paddingVertical: 4,
-    borderRadius: 8, borderWidth: 1,
-    borderColor: C.border, backgroundColor: C.card,
-  },
-  viewsText: { fontSize: 12, fontWeight: '600', color: C.textMuted },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
-  cardFooterRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sendBtn: {
-    backgroundColor: C.accent, borderRadius: 10,
-    paddingHorizontal: 16, paddingVertical: 8,
-    shadowColor: C.accent,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  sendBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'flex-end',
-  },
-  sendSheet: {
-    backgroundColor: C.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: 24, paddingBottom: 40,
-    borderWidth: 1, borderColor: C.border,
-  },
-  sendSheetHandle: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: C.border, alignSelf: 'center', marginBottom: 20,
-  },
-  sendSheetTitle: { color: C.text, fontSize: 18, fontWeight: '800', marginBottom: 4 },
-  sendSheetSub: { color: C.textMuted, fontSize: 13, marginBottom: 20 },
-  sendSheetLabel: {
-    color: C.textMuted, fontSize: 11, fontWeight: '700',
-    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, marginTop: 16,
-  },
-  urlTypeRow: { flexDirection: 'row', gap: 10 },
-  urlTypeBtn: {
-    flex: 1, borderRadius: 12, borderWidth: 1, borderColor: C.border,
-    backgroundColor: C.card, padding: 14,
-  },
-  urlTypeBtnActive: { borderColor: C.accent, backgroundColor: C.accent + '15' },
-  urlTypeBtnTitle: { color: C.text, fontWeight: '700', fontSize: 14, marginBottom: 4 },
-  urlTypeBtnDesc: { color: C.textMuted, fontSize: 11 },
-  waMsgInput: {
-    backgroundColor: C.card, color: C.text,
-    borderWidth: 1, borderColor: C.border, borderRadius: 10,
-    padding: 12, fontSize: 14, minHeight: 80, textAlignVertical: 'top',
-  },
-  emailSubjectInput: {
-    backgroundColor: C.card, color: C.text,
-    borderWidth: 1, borderColor: C.border, borderRadius: 10,
-    padding: 12, fontSize: 14,
-  },
-  waMsgHint: { color: C.textMuted, fontSize: 11, marginTop: 4, marginBottom: 4 },
-  channelRow: { flexDirection: 'row', gap: 8 },
-  channelBtn: {
-    flex: 1, borderRadius: 12, borderWidth: 1.5, borderColor: C.border,
-    backgroundColor: C.card, paddingVertical: 12, alignItems: 'center', gap: 4,
-  },
-  channelBtnIcon: { fontSize: 20, color: C.textMuted },
-  channelBtnLabel: { color: C.textMuted, fontSize: 12, fontWeight: '600' },
-  shareInfo: {
-    marginTop: 12, borderRadius: 12, borderWidth: 1, borderColor: C.border,
-    backgroundColor: C.card, padding: 16, alignItems: 'center', gap: 8,
-  },
-  shareInfoIcon: { fontSize: 28, color: C.text },
-  shareInfoText: { color: C.textMuted, fontSize: 13, textAlign: 'center' },
-  sendConfirmBtn: {
-    marginTop: 20, borderRadius: 12, padding: 16, alignItems: 'center',
-  },
-  sendConfirmText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  sendCancelBtn: {
-    marginTop: 20, padding: 16, borderRadius: 12,
-    borderWidth: 1, borderColor: C.border, alignItems: 'center',
-  },
-  sendCancelText: { color: C.textMuted, fontWeight: '600', fontSize: 15 },
-  fab: {
-    position: 'absolute',
-    bottom: 28,
-    right: 20,
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: C.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: C.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  fabText: { color: C.accentFg, fontSize: 30, fontWeight: '300', lineHeight: 34 },
+    loader: { marginTop: 60 },
+    list: { padding: 16, paddingBottom: 20 },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 10,
+      marginTop: 8,
+    },
+    sectionDot: { width: 8, height: 8, borderRadius: 4 },
+    sectionTitle: { fontWeight: '700', fontSize: 14, flex: 1 },
+    sectionCount: {
+      color: C.textMuted,
+      fontSize: 12,
+      backgroundColor: C.card,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    card: {
+      backgroundColor: C.card,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: C.border,
+      padding: 16,
+      marginBottom: 10,
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    cardLive: {
+      borderColor: '#39B54A',
+      borderWidth: 1.5,
+      shadowColor: '#39B54A',
+      shadowOpacity: 0.15,
+    },
+    livePill: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      backgroundColor: '#22c55e18', borderWidth: 1, borderColor: '#22c55e60',
+      borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
+    },
+    liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#22c55e' },
+    livePillText: { color: '#22c55e', fontSize: 11, fontWeight: '700' },
+    lastViewBadge: {
+      flexDirection: 'row', alignItems: 'center', gap: 3,
+      paddingHorizontal: 8, paddingVertical: 4,
+      borderRadius: 8, borderWidth: 1,
+      borderColor: '#60A5FA40', backgroundColor: '#60A5FA0D',
+    },
+    lastViewBadgeText: { color: '#60A5FA', fontSize: 11, fontWeight: '600' },
+    cardTop: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: 10,
+      marginBottom: 10,
+    },
+    cardTitle: { color: C.text, fontWeight: '700', fontSize: 15 },
+    cardLead: { color: C.textMuted, fontSize: 12, marginTop: 3 },
+    agentBadge: {
+      flexDirection: 'row', alignItems: 'center',
+      marginTop: 5, alignSelf: 'flex-start',
+      paddingHorizontal: 8, paddingVertical: 3,
+      borderRadius: 8, borderWidth: 1,
+      borderColor: C.accent + '40', backgroundColor: C.accent + '12',
+    },
+    agentBadgeText: { color: C.accent, fontSize: 11, fontWeight: '600' },
+    badge: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      paddingHorizontal: 9, paddingVertical: 4,
+      borderRadius: 20, borderWidth: 1,
+    },
+    badgeDot: { width: 6, height: 6, borderRadius: 3 },
+    badgeText: { fontSize: 11, fontWeight: '700' },
+    cardMetaRow: {
+      flexDirection: 'row', alignItems: 'center',
+      gap: 8, marginBottom: 8, flexWrap: 'wrap',
+    },
+    cardMetaBadges: {
+      flexDirection: 'row', alignItems: 'center',
+      gap: 8, marginBottom: 12,
+    },
+    metaItem: { color: C.textMuted, fontSize: 12 },
+    metaChip: {
+      backgroundColor: C.card, borderRadius: 6,
+      paddingHorizontal: 7, paddingVertical: 3,
+      borderWidth: 1, borderColor: C.border,
+    },
+    metaChipText: { color: C.textMuted, fontSize: 11, fontWeight: '600' },
+    cardDivider: { height: 1, backgroundColor: C.border, marginVertical: 10 },
+    editHint: { flex: 1 },
+    editHintText: { color: C.textMuted, fontSize: 11 },
+    emptyContainer: { alignItems: 'center', marginTop: 80 },
+    emptyIcon: { fontSize: 40, marginBottom: 12 },
+    emptyText: { color: C.text, fontSize: 16, fontWeight: '600', marginBottom: 6 },
+    emptyHint: { color: C.textMuted, fontSize: 13, textAlign: 'center', paddingHorizontal: 32 },
+    sortBar: {
+      borderBottomWidth: 1,
+      borderBottomColor: C.border,
+      backgroundColor: C.bg,
+    },
+    sortScroll: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      gap: 6,
+      flexDirection: 'row',
+    },
+    sortChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: C.border,
+      backgroundColor: C.card,
+    },
+    sortChipActive: {
+      backgroundColor: C.accent + '20',
+      borderColor: C.accent,
+    },
+    sortChipText: { color: C.textMuted, fontSize: 12, fontWeight: '600' },
+    sortChipTextActive: { color: C.accent },
+    sortSep: { width: 1, backgroundColor: C.border, marginHorizontal: 4, alignSelf: 'stretch' },
+    filterPanelBtn: {},  // legacy, unused
+    filterPanelBtnActive: {},
+    filterPanelBtnText: {},
+    filterPanelBtnTextActive: {},
+    filterBarBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      marginHorizontal: 16,
+      marginVertical: 8,
+      paddingVertical: 11,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: C.border,
+      backgroundColor: C.card,
+    },
+    filterBarBtnActive: {
+      backgroundColor: C.accent,
+      borderColor: C.accent,
+    },
+    filterBarBtnIcon: { fontSize: 15, color: C.textMuted },
+    filterBarBtnText: { color: C.textMuted, fontSize: 13, fontWeight: '700' },
+    dateRangeRow: {
+      flexDirection: 'row', alignItems: 'center', marginTop: 10,
+    },
+    dateInputWrap: { flex: 1 },
+    dateInputLabel: { color: C.textMuted, fontSize: 11, fontWeight: '700', marginBottom: 4 },
+    dateInput: {
+      backgroundColor: C.card, color: C.text,
+      borderWidth: 1, borderColor: C.border, borderRadius: 8,
+      paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
+    },
+    // Panel styles
+    panelSection: { marginBottom: 20 },
+    panelSectionTitle: {
+      color: C.textMuted, fontSize: 11, fontWeight: '800',
+      textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10,
+    },
+    panelChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    panelChip: {
+      paddingHorizontal: 12, paddingVertical: 7,
+      borderRadius: 16, borderWidth: 1, borderColor: C.border,
+      backgroundColor: C.card,
+    },
+    panelChipActive: { borderColor: C.accent, backgroundColor: C.accent + '15' },
+    panelChipText: { color: C.textMuted, fontSize: 13, fontWeight: '600' },
+    panelChipTextActive: { color: C.accent, fontWeight: '700' },
+    leadDropBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      borderWidth: 1, borderColor: C.border, borderRadius: 10,
+      paddingHorizontal: 14, paddingVertical: 12, backgroundColor: C.card,
+    },
+    leadDropBtnText: { color: C.textMuted, fontSize: 14, flex: 1, marginRight: 8 },
+    leadDropList: {
+      borderWidth: 1, borderColor: C.border, borderRadius: 10,
+      marginTop: 6, paddingHorizontal: 10, paddingTop: 4, paddingBottom: 6,
+      backgroundColor: C.card, maxHeight: 280,
+    },
+    panelLeadBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      borderWidth: 1, borderColor: C.border, borderRadius: 10,
+      paddingHorizontal: 14, paddingVertical: 12, backgroundColor: C.bg,
+    },
+    panelLeadBtnActive: { borderColor: C.accent, backgroundColor: C.accent + '10' },
+    panelLeadBtnText: { color: C.textMuted, fontSize: 14 },
+    panelLeadBtnTextActive: { color: C.accent, fontWeight: '600' },
+    panelApplyBtn: {
+      backgroundColor: C.accent, borderRadius: 12,
+      paddingVertical: 14, alignItems: 'center', marginTop: 8,
+    },
+    panelApplyText: { color: C.accentFg, fontWeight: '800', fontSize: 16 },
+    panelClearBtn: {
+      borderWidth: 1, borderColor: C.border, borderRadius: 12,
+      paddingVertical: 12, alignItems: 'center', marginTop: 8,
+    },
+    panelClearText: { color: C.textMuted, fontWeight: '600', fontSize: 14 },
+    leadPickerItem: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingVertical: 12, paddingHorizontal: 4,
+      borderBottomWidth: 1, borderBottomColor: C.border,
+    },
+    leadPickerItemActive: { backgroundColor: C.accent + '10' },
+    leadPickerName: { color: C.text, fontSize: 14, fontWeight: '600' },
+    leadPickerEmail: { color: C.textMuted, fontSize: 12, marginTop: 2 },
+    leadPickerCount: {
+      backgroundColor: C.border, borderRadius: 10,
+      paddingHorizontal: 8, paddingVertical: 2, marginLeft: 8,
+    },
+    leadPickerCountText: { color: C.textMuted, fontSize: 12, fontWeight: '700' },
+    tempBadge: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      paddingHorizontal: 9, paddingVertical: 4,
+      borderRadius: 8, borderWidth: 1,
+    },
+    tempText: { fontSize: 12, fontWeight: '700' },
+    viewsBadge: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      paddingHorizontal: 9, paddingVertical: 4,
+      borderRadius: 8, borderWidth: 1,
+      borderColor: C.border, backgroundColor: C.card,
+    },
+    viewsText: { fontSize: 12, fontWeight: '600', color: C.textMuted },
+    cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
+    cardFooterRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    sendBtn: {
+      backgroundColor: C.accent, borderRadius: 10,
+      paddingHorizontal: 16, paddingVertical: 8,
+      shadowColor: C.accent,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    sendBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+    modalOverlay: {
+      flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
+      justifyContent: 'flex-end',
+    },
+    sendSheet: {
+      backgroundColor: C.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+      padding: 24, paddingBottom: 40,
+      borderWidth: 1, borderColor: C.border,
+    },
+    sendSheetHandle: {
+      width: 40, height: 4, borderRadius: 2,
+      backgroundColor: C.border, alignSelf: 'center', marginBottom: 20,
+    },
+    sendSheetTitle: { color: C.text, fontSize: 18, fontWeight: '800', marginBottom: 4 },
+    sendSheetSub: { color: C.textMuted, fontSize: 13, marginBottom: 20 },
+    sendSheetLabel: {
+      color: C.textMuted, fontSize: 11, fontWeight: '700',
+      textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, marginTop: 16,
+    },
+    urlTypeRow: { flexDirection: 'row', gap: 10 },
+    urlTypeBtn: {
+      flex: 1, borderRadius: 12, borderWidth: 1, borderColor: C.border,
+      backgroundColor: C.card, padding: 14,
+    },
+    urlTypeBtnActive: { borderColor: C.accent, backgroundColor: C.accent + '15' },
+    urlTypeBtnTitle: { color: C.text, fontWeight: '700', fontSize: 14, marginBottom: 4 },
+    urlTypeBtnDesc: { color: C.textMuted, fontSize: 11 },
+    waMsgInput: {
+      backgroundColor: C.card, color: C.text,
+      borderWidth: 1, borderColor: C.border, borderRadius: 10,
+      padding: 12, fontSize: 14, minHeight: 80, textAlignVertical: 'top',
+    },
+    emailSubjectInput: {
+      backgroundColor: C.card, color: C.text,
+      borderWidth: 1, borderColor: C.border, borderRadius: 10,
+      padding: 12, fontSize: 14,
+    },
+    waMsgHint: { color: C.textMuted, fontSize: 11, marginTop: 4, marginBottom: 4 },
+    channelRow: { flexDirection: 'row', gap: 8 },
+    channelBtn: {
+      flex: 1, borderRadius: 12, borderWidth: 1.5, borderColor: C.border,
+      backgroundColor: C.card, paddingVertical: 12, alignItems: 'center', gap: 4,
+    },
+    channelBtnIcon: { fontSize: 20, color: C.textMuted },
+    channelBtnLabel: { color: C.textMuted, fontSize: 12, fontWeight: '600' },
+    shareInfo: {
+      marginTop: 12, borderRadius: 12, borderWidth: 1, borderColor: C.border,
+      backgroundColor: C.card, padding: 16, alignItems: 'center', gap: 8,
+    },
+    shareInfoIcon: { fontSize: 28, color: C.text },
+    shareInfoText: { color: C.textMuted, fontSize: 13, textAlign: 'center' },
+    sendConfirmBtn: {
+      marginTop: 20, borderRadius: 12, padding: 16, alignItems: 'center',
+    },
+    sendConfirmText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+    sendCancelBtn: {
+      marginTop: 20, padding: 16, borderRadius: 12,
+      borderWidth: 1, borderColor: C.border, alignItems: 'center',
+    },
+    sendCancelText: { color: C.textMuted, fontWeight: '600', fontSize: 15 },
+    fab: {
+      position: 'absolute',
+      bottom: 28,
+      right: 20,
+      width: 58,
+      height: 58,
+      borderRadius: 29,
+      backgroundColor: C.accent,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: C.accent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.5,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+    fabText: { color: C.accentFg, fontSize: 30, fontWeight: '300', lineHeight: 34 },
 
-  // Bell
-  bellBtn: { position: 'relative', padding: 4 },
-  bellIcon: { fontSize: 22 },
-  bellBadge: {
-    position: 'absolute', top: 0, right: 0,
-    backgroundColor: '#EF4444', borderRadius: 8,
-    minWidth: 16, height: 16, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3,
-  },
-  bellBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
+    // Bell
+    bellBtn: { position: 'relative', padding: 4 },
+    bellIcon: { fontSize: 22 },
+    bellBadge: {
+      position: 'absolute', top: 0, right: 0,
+      backgroundColor: '#EF4444', borderRadius: 8,
+      minWidth: 16, height: 16, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3,
+    },
+    bellBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
 
-  // Notification modal
-  notifSafe: { flex: 1, backgroundColor: C.bg },
-  notifHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 16,
-    borderBottomWidth: 1, borderBottomColor: C.border,
-  },
-  notifTitle: { color: C.text, fontSize: 18, fontWeight: '800' },
-  notifConnected: { color: '#22c55e', fontSize: 11, marginTop: 2 },
-  notifDisconnected: { color: C.textMuted, fontSize: 11, marginTop: 2 },
-  notifPermBanner: {
-    backgroundColor: '#FDBD0020',
-    borderWidth: 1,
-    borderColor: '#FDBD00',
-    borderRadius: 10,
-    marginHorizontal: 16,
-    marginBottom: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  notifPermBannerText: { color: C.text, fontSize: 13, lineHeight: 18 },
-  notifHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  notifClearBtn: { paddingHorizontal: 10, paddingVertical: 6 },
-  notifClearText: { color: C.textMuted, fontSize: 13 },
-  notifCloseBtn: {
-    width: 32, height: 32, borderRadius: 8,
-    backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  notifCloseText: { color: C.text, fontSize: 14, fontWeight: '700' },
-  notifList: { flex: 1 },
-  notifItem: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
-    paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: C.border,
-  },
-  notifItemUnread: { backgroundColor: C.accent + '10' },
-  notifItemIcon: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  notifItemTitle: { color: C.text, fontSize: 14, fontWeight: '700' },
-  notifItemSub: { color: C.textMuted, fontSize: 13, marginTop: 2 },
-  notifItemEmail: { color: C.accent, fontSize: 12, marginTop: 2 },
-  notifItemTime: { color: C.textMuted, fontSize: 11, marginTop: 4 },
-  notifEmpty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, gap: 12 },
-  notifEmptyIcon: { fontSize: 48 },
-  notifEmptyText: { color: C.text, fontSize: 16, fontWeight: '700' },
-  notifEmptyHint: { color: C.textMuted, fontSize: 13, textAlign: 'center' },
+    // Notification modal
+    notifSafe: { flex: 1, backgroundColor: C.bg },
+    notifHeader: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 20, paddingVertical: 16,
+      borderBottomWidth: 1, borderBottomColor: C.border,
+    },
+    notifTitle: { color: C.text, fontSize: 18, fontWeight: '800' },
+    notifConnected: { color: '#22c55e', fontSize: 11, marginTop: 2 },
+    notifDisconnected: { color: C.textMuted, fontSize: 11, marginTop: 2 },
+    notifPermBanner: {
+      backgroundColor: '#FDBD0020',
+      borderWidth: 1,
+      borderColor: '#FDBD00',
+      borderRadius: 10,
+      marginHorizontal: 16,
+      marginBottom: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+    },
+    notifPermBannerText: { color: C.text, fontSize: 13, lineHeight: 18 },
+    notifHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    notifClearBtn: { paddingHorizontal: 10, paddingVertical: 6 },
+    notifClearText: { color: C.textMuted, fontSize: 13 },
+    notifCloseBtn: {
+      width: 32, height: 32, borderRadius: 8,
+      backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    notifCloseText: { color: C.text, fontSize: 14, fontWeight: '700' },
+    notifList: { flex: 1 },
+    notifItem: {
+      flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+      paddingHorizontal: 20, paddingVertical: 14,
+      borderBottomWidth: 1, borderBottomColor: C.border,
+    },
+    notifItemUnread: { backgroundColor: C.accent + '10' },
+    notifItemIcon: {
+      width: 40, height: 40, borderRadius: 20,
+      backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    notifItemTitle: { color: C.text, fontSize: 14, fontWeight: '700' },
+    notifItemSub: { color: C.textMuted, fontSize: 13, marginTop: 2 },
+    notifItemEmail: { color: C.accent, fontSize: 12, marginTop: 2 },
+    notifItemTime: { color: C.textMuted, fontSize: 11, marginTop: 4 },
+    notifEmpty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, gap: 12 },
+    notifEmptyIcon: { fontSize: 48 },
+    notifEmptyText: { color: C.text, fontSize: 16, fontWeight: '700' },
+    notifEmptyHint: { color: C.textMuted, fontSize: 13, textAlign: 'center' },
 
-  // Seguimiento urgente
-  urgentBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFF3F0',
-    borderWidth: 1,
-    borderColor: '#FF5722',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-  },
-  urgentBtnText: { color: '#FF5722', fontSize: 13, fontWeight: '700' },
-  noVistaBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#3B82F6',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-  },
-  noVistaBtnText: { color: '#3B82F6', fontSize: 13, fontWeight: '700' },
-  emailFollowupBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1,
-    borderColor: '#22C55E',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-  },
-  emailFollowupBtnText: { color: '#16A34A', fontSize: 13, fontWeight: '700' },
-  seguimientoArrow: { color: '#AAAAAA', fontSize: 16, fontWeight: '400' },
-  seguimientoBtn: {
-    marginTop: 16,
-    borderRadius: 12,
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  seguimientoBtnText: { fontSize: 16, fontWeight: '700' },
-  paginationInfo: {
-    alignItems: 'center', paddingVertical: 6, marginBottom: 4,
-  },
-  paginationInfoText: { color: C.textMuted, fontSize: 12 },
-  loadMoreBtn: {
-    marginHorizontal: 16, marginVertical: 12,
-    paddingVertical: 14, borderRadius: 12,
-    borderWidth: 1, borderColor: C.accent,
-    alignItems: 'center', backgroundColor: C.accent + '10',
-  },
-  loadMoreText: { color: C.accent, fontWeight: '700', fontSize: 14 },
-  quickFilterBar: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    backgroundColor: C.bg,
-  },
-  quickFilterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    backgroundColor: C.card,
-  },
-  quickFilterChipActive: {
-    borderColor: C.accent,
-    backgroundColor: C.accent,
-  },
-  quickFilterChipText: {
-    color: C.textMuted,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  quickFilterChipTextActive: {
-    color: '#fff',
-    fontWeight: '700',
-  },
+    // Seguimiento urgente
+    urgentBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: '#FFF3F0',
+      borderWidth: 1,
+      borderColor: '#FF5722',
+      borderRadius: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+    },
+    urgentBtnText: { color: '#FF5722', fontSize: 13, fontWeight: '700' },
+    noVistaBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: '#EFF6FF',
+      borderWidth: 1,
+      borderColor: '#3B82F6',
+      borderRadius: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+    },
+    noVistaBtnText: { color: '#3B82F6', fontSize: 13, fontWeight: '700' },
+    emailFollowupBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: '#F0FDF4',
+      borderWidth: 1,
+      borderColor: '#22C55E',
+      borderRadius: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+    },
+    emailFollowupBtnText: { color: '#16A34A', fontSize: 13, fontWeight: '700' },
+    seguimientoArrow: { color: '#AAAAAA', fontSize: 16, fontWeight: '400' },
+    seguimientoBtn: {
+      marginTop: 16,
+      borderRadius: 12,
+      paddingVertical: 15,
+      alignItems: 'center',
+    },
+    seguimientoBtnText: { fontSize: 16, fontWeight: '700' },
+    paginationInfo: {
+      alignItems: 'center', paddingVertical: 6, marginBottom: 4,
+    },
+    paginationInfoText: { color: C.textMuted, fontSize: 12 },
+    loadMoreBtn: {
+      marginHorizontal: 16, marginVertical: 12,
+      paddingVertical: 14, borderRadius: 12,
+      borderWidth: 1, borderColor: C.accent,
+      alignItems: 'center', backgroundColor: C.accent + '10',
+    },
+    loadMoreText: { color: C.accent, fontWeight: '700', fontSize: 14 },
+    quickFilterBar: {
+      flexDirection: 'row',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      gap: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: C.border,
+      backgroundColor: C.bg,
+    },
+    quickFilterChip: {
+      paddingHorizontal: 16,
+      paddingVertical: 7,
+      borderRadius: 20,
+      borderWidth: 1.5,
+      borderColor: C.border,
+      backgroundColor: C.card,
+    },
+    quickFilterChipActive: {
+      borderColor: C.accent,
+      backgroundColor: C.accent,
+    },
+    quickFilterChipText: {
+      color: C.textMuted,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    quickFilterChipTextActive: {
+      color: '#fff',
+      fontWeight: '700',
+    },
   });
 }

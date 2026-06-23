@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Platform } from 'react-native';
 import { io } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -84,7 +84,7 @@ export function useNotifications(token, auth) {
             // Registrar en el backend (silencioso si el endpoint no existe)
             const userId = auth?.userId || auth?.user?.id || auth?.user?._id || null;
             if (token && pushToken) {
-              registerPushToken(pushToken, token, userId).catch(() => {});
+              registerPushToken(pushToken, token, userId).catch(() => { });
             }
           } catch (e) {
             // push tokens no disponibles en Expo Go SDK 53+ — ignorar
@@ -105,7 +105,7 @@ export function useNotifications(token, auth) {
         const list = JSON.parse(raw);
         setNotifications(list);
         setUnread(list.filter((n) => !n.read).length);
-      } catch {}
+      } catch { }
     });
   }, []);
 
@@ -279,17 +279,20 @@ export function useNotifications(token, auth) {
           ...(Platform.OS === 'android' && { channelId: 'prolibu' }),
         },
         trigger: null,
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, []);
 
   // Última vista por proposalId, calculada desde el historial de notificaciones
-  const lastViewed = {};
-  for (const n of notifications) {
-    if (n.type === 'view' && n.proposalId && !lastViewed[n.proposalId]) {
-      lastViewed[n.proposalId] = { timestamp: n.timestamp, leadName: n.leadName };
+  const lastViewed = useMemo(() => {
+    const map = {};
+    for (const n of notifications) {
+      if (n.type === 'view' && n.proposalId && !map[n.proposalId]) {
+        map[n.proposalId] = { timestamp: n.timestamp, leadName: n.leadName };
+      }
     }
-  }
+    return map;
+  }, [notifications]);
 
   return { notifications, unread, connected, liveViewing, lastViewed, markAllRead, clearAll, notifPermission, expoPushToken, addStatusChangeNotification };
 }

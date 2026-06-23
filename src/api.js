@@ -22,7 +22,10 @@ async function request(path, options = {}) {
     throw new Error(`Respuesta no válida (HTTP ${res.status})`);
   }
   if (!res.ok) {
-    throw new Error(json?.message || json?.error || `HTTP ${res.status}`);
+    const err = new Error(json?.message || json?.error || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.data = json;
+    throw err;
   }
   return json;
 }
@@ -159,6 +162,127 @@ export function getCurrencies(token) {
   });
 }
 
+// GET /v1/config/getGroup/system — configuración global de la plataforma
+export function getSystemConfig(token) {
+  return request('/config/getGroup/system', {
+    headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
+  });
+}
+
+// GET /v1/config/getGroup/<group> — detecta si una integración está activa para esta cuenta
+// Ej: getIntegrationConfig(token, 'hubspot'), getIntegrationConfig(token, 'zoho')
+export function getIntegrationConfig(token, group) {
+  return request(`/config/getGroup/${encodeURIComponent(group)}`, {
+    headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
+  });
+}
+
+// ─── HubSpot Direct API ──────────────────────────────────────────────────────
+// Crea un deal directamente en HubSpot usando el token privado de la cuenta.
+// Retorna el objeto deal creado ({ id, properties, ... })
+export async function createHubspotDeal({ dealName, pipeline, dealstage, amount, currencyCode, ownerId, hsToken }) {
+  const properties = {
+    dealname: dealName,
+    pipeline: pipeline || 'default',
+    dealstage: dealstage || 'qualifiedtobuy',
+    amount: String(amount || 0),
+    deal_currency_code: currencyCode || 'USD',
+  };
+  if (ownerId) properties.hubspot_owner_id = String(ownerId);
+  const res = await fetch('https://api.hubapi.com/crm/v3/objects/deals', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${hsToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ properties }),
+  });
+  const text = await res.text();
+  let json;
+  try { json = JSON.parse(text); } catch { throw new Error(`HubSpot: respuesta no válida (HTTP ${res.status})`); }
+  if (!res.ok) throw new Error(json?.message || json?.errors?.[0]?.message || `HubSpot HTTP ${res.status}`);
+  return json;
+}
+
+// Busca un contacto en HubSpot por email. Retorna el objeto o null si no existe.
+export async function findHubspotContact(email, hsToken) {
+  const res = await fetch(`https://api.hubapi.com/crm/v3/objects/contacts/${encodeURIComponent(email)}?idProperty=email&properties=hubspot_owner_id,email,firstname,lastname`, {
+    headers: { Authorization: `Bearer ${hsToken}` },
+  });
+  if (res.status === 404) return null;
+  const text = await res.text();
+  let json;
+  try { json = JSON.parse(text); } catch { return null; }
+  if (!res.ok) return null;
+  return json;
+}
+
+// Crea un contacto en HubSpot. Retorna el objeto creado.
+export async function createHubspotContact({ email, firstName, lastName, phone, ownerId, hsToken }) {
+  const properties = {
+    email,
+    firstname: firstName || '',
+    lastname: lastName || '',
+    phone: phone || '',
+  };
+  if (ownerId) properties.hubspot_owner_id = String(ownerId);
+  const res = await fetch('https://api.hubapi.com/crm/v3/objects/contacts', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${hsToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ properties }),
+  });
+  const text = await res.text();
+  let json;
+  try { json = JSON.parse(text); } catch { throw new Error(`HubSpot: respuesta no válida (HTTP ${res.status})`); }
+  if (!res.ok) throw new Error(json?.message || json?.errors?.[0]?.message || `HubSpot HTTP ${res.status}`);
+  return json;
+}
+
+// Actualiza el owner de un contacto existente en HubSpot.
+export async function updateHubspotContactOwner(contactId, ownerId, hsToken) {
+  const res = await fetch(`https://api.hubapi.com/crm/v3/objects/contacts/${contactId}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${hsToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ properties: { hubspot_owner_id: String(ownerId) } }),
+  });
+  return res.ok;
+}
+
+// Asocia un contacto a un deal en HubSpot.
+export async function associateHubspotDealContact(dealId, contactId, hsToken) {
+  const res = await fetch(`https://api.hubapi.com/crm/v3/objects/deals/${dealId}/associations/contacts/${contactId}/deal_to_contact`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${hsToken}` },
+  });
+  return res.ok;
+}
+
+// Busca un owner (usuario/agente) en HubSpot por email. Retorna { id } o null.
+export async function findHubspotOwner(email, hsToken) {
+  const res = await fetch(`https://api.hubapi.com/crm/v3/owners?email=${encodeURIComponent(email)}&limit=1`, {
+    headers: { Authorization: `Bearer ${hsToken}` },
+  });
+  if (!res.ok) return null;
+  const json = await res.json();
+  return json.results?.[0] || null;
+}
+
+// Obtiene un owner aleatorio de HubSpot. Retorna { id } o null.
+export async function getRandomHubspotOwner(hsToken) {
+  const res = await fetch('https://api.hubapi.com/crm/v3/owners?limit=100', {
+    headers: { Authorization: `Bearer ${hsToken}` },
+  });
+  if (!res.ok) return null;
+  const json = await res.json();
+  const owners = json.results || [];
+  if (owners.length === 0) return null;
+  return owners[Math.floor(Math.random() * owners.length)];
+}
+
+// GET /v1/tax?sort=updatedAt DESC — lista de impuestos disponibles
+export function getTaxes(token) {
+  return request('/tax?sort=updatedAt%20DESC&limit=100', {
+    headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
+  });
+}
+
 // GET /v1/currency/search
 export function searchCurrencies(criteria, token) {
   const params = new URLSearchParams({
@@ -194,15 +318,25 @@ export function createProduct(data, token) {
   });
 }
 
-// GET /v1/lead/exist?key=email&val={email}
-export function checkLeadByEmail(email, token) {
+// GET /v1/lead/exist?key=email&val={email} — check custom que puede bypasear AC
+export async function checkLeadByEmail(email, token) {
   const params = new URLSearchParams({ key: 'email', val: email });
-  return request(`/lead/exist?${params}`, {
+  const res = await fetch(`${BASE}/lead/exist?${params}`, {
     headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
   });
+  const text = await res.text();
+  console.log('[api] /lead/exist status:', res.status, 'body:', text.substring(0, 300));
+  let json;
+  try { json = JSON.parse(text); } catch { return null; }
+  // Si el backend devuelve 404 o no-ok pero tiene data, intentar extraer el lead
+  if (json && (json.id || json._id)) return json;
+  if (json?.data && (json.data.id || json.data._id)) return json.data;
+  if (Array.isArray(json) && json.length > 0) return json[0];
+  if (Array.isArray(json?.data) && json.data.length > 0) return json.data[0];
+  return null;
 }
 
-// GET /v1/lead?email={email}  (búsqueda por email en el listado)
+// GET /v1/lead?email={email}  (búsqueda por email en el listado — sujeta a AC)
 export function searchLeadByEmail(email, token) {
   const params = new URLSearchParams({ email, limit: '1' });
   return request(`/lead?${params}`, {
@@ -210,9 +344,34 @@ export function searchLeadByEmail(email, token) {
   });
 }
 
-// POST /v1/lead
-export function createLead(data, token) {
-  return request('/lead', {
+// POST /v1/lead — crear lead. Si falla por duplicado, intenta devolver el lead existente.
+export async function createLead(data, token) {
+  const res = await fetch(`${BASE}/lead`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+  const text = await res.text();
+  let json;
+  try { json = JSON.parse(text); } catch { throw new Error(`Respuesta no válida (HTTP ${res.status})`); }
+  if (!res.ok) {
+    console.log('[api] createLead error:', res.status, text.substring(0, 300));
+    const err = new Error(json?.message || json?.error || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.data = json;
+    throw err;
+  }
+  return json;
+}
+
+
+// POST /v1/proposal
+export function createProposal(data, token) {
+  return request('/proposal', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -223,10 +382,10 @@ export function createLead(data, token) {
   });
 }
 
-// POST /v1/proposal
-export function createProposal(data, token) {
-  return request('/proposal', {
-    method: 'POST',
+// PUT /v1/proposal — actualizar metadata de una propuesta (ej: guardar hubspotDealId)
+export function updateProposal(id, data, token) {
+  return request(`/proposal/${id}`, {
+    method: 'PUT',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',

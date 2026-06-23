@@ -16,12 +16,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../ThemeContext';
-import { getProposal, saveProposal, changeProposalStatus, saveDenialReason, getProducts, getPackages, getCurrencies, searchCurrencies, getApiBase, createProduct } from '../api';
+import { getProposal, saveProposal, changeProposalStatus, saveDenialReason, getProducts, getPackages, getCurrencies, searchCurrencies, getApiBase, createProduct, getTaxes } from '../api';
 import { ProlibuSpinner } from '../components/ProlibuLoader';
-import { ArrowLeft, ArrowRight, CheckCircle, X, Check } from 'phosphor-react-native';
+import { ArrowLeft, ArrowRight, CheckCircle, X, Check, Copy, ShareNetwork } from 'phosphor-react-native';
 import { useTranslation } from '../i18n';
 
 const STATUSES = ['Draft', 'Ready', 'Approved', 'Denied'];
+
+function genProductSku() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const rand = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `PRD-${rand}`;
+}
 const STATUS_LABEL = { Draft: 'Borrador', Ready: 'Lista', Approved: 'Aprobada', Denied: 'Negada' };
 const STATUS_COLOR = {
   Draft: '#FDBD00',
@@ -67,42 +73,90 @@ function Header({ title, number, onBack }) {
 function SuccessScreen({ propUrl, proposal, status, onBack }) {
   const { colors: COLORS } = useTheme();
   const styles = makeStyles(COLORS);
-  return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <ScrollView contentContainerStyle={styles.successScroll}>
-        <View style={styles.successIconWrap}>
-          <CheckCircle size={64} color="#39B54A" weight="fill" />
-        </View>
-        <Text style={styles.successTitle}>¡Propuesta guardada!</Text>
-        <Text style={styles.successSubtitle}>
-          {proposal?.proposalNumber ? `N° ${proposal.proposalNumber} · ` : ''}
-          Estado: {status}
-        </Text>
+  const [copied, setCopied] = React.useState(false);
 
+  const statusColor = { Draft: '#FDBD00', Ready: '#4285F4', Approved: '#39B54A', Denied: '#D4145A' }[status] || COLORS.accent;
+
+  function copyUrl() {
+    // Clipboard no disponible en Expo Go sin módulo nativo; mostramos feedback visual igual
+    try { Share.share({ message: propUrl }); } catch { }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  }
+
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: COLORS.bg }]} edges={['top', 'bottom']}>
+      <ScrollView contentContainerStyle={styles.successScroll} showsVerticalScrollIndicator={false}>
+
+        {/* Icono central */}
+        <View style={styles.successIconWrap}>
+          <CheckCircle size={72} color="#39B54A" weight="fill" />
+        </View>
+
+        <Text style={styles.successTitle}>¡Propuesta guardada!</Text>
+
+        {/* Chips: número + estado */}
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 28, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {proposal?.proposalNumber ? (
+            <View style={[styles.successChip, { backgroundColor: COLORS.card, borderColor: COLORS.border }]}>
+              <Text style={[styles.successChipText, { color: COLORS.text }]}>N° {proposal.proposalNumber}</Text>
+            </View>
+          ) : null}
+          <View style={[styles.successChip, { backgroundColor: statusColor + '20', borderColor: statusColor + '60' }]}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusColor, marginRight: 5 }} />
+            <Text style={[styles.successChipText, { color: statusColor }]}>{status}</Text>
+          </View>
+        </View>
+
+        {/* URL box */}
         <View style={styles.urlBox}>
           <Text style={styles.urlLabel}>URL de la propuesta</Text>
-          <Text style={styles.urlText} selectable>{propUrl}</Text>
+          <Text style={styles.urlText} selectable numberOfLines={3}>{propUrl}</Text>
         </View>
 
+        {/* Botón principal */}
         <TouchableOpacity
           style={styles.openBtn}
           onPress={() => Linking.openURL(propUrl).catch(() => Alert.alert('Error', 'No se pudo abrir el enlace.'))}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
         >
-          <Text style={styles.openBtnText}>Abrir propuesta </Text><ArrowRight size={16} color="#fff" />
+          <Text style={styles.openBtnText}>Abrir propuesta</Text>
+          <ArrowRight size={18} color="#fff" weight="bold" style={{ marginLeft: 6 }} />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.shareBtn}
-          onPress={() => Share.share({ message: propUrl, url: propUrl, title: 'Propuesta Prolibu V1' })}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.shareBtnText}>Compartir enlace</Text>
+        {/* Fila secundaria */}
+        <View style={{ flexDirection: 'row', gap: 10, width: '100%', marginBottom: 28 }}>
+          <TouchableOpacity
+            style={[styles.secondaryBtn, { flex: 1 }]}
+            onPress={() => Share.share({ message: propUrl, url: propUrl, title: proposal?.title || 'Propuesta' })}
+            activeOpacity={0.8}
+          >
+            <ShareNetwork size={17} color={COLORS.accent} />
+            <Text style={[styles.secondaryBtnText, { color: COLORS.accent }]}>Compartir</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.secondaryBtn, { flex: 1, borderColor: copied ? '#39B54A' : COLORS.border }]}
+            onPress={copyUrl}
+            activeOpacity={0.8}
+          >
+            {copied
+              ? <Check size={17} color="#39B54A" weight="bold" />
+              : <Copy size={17} color={COLORS.textMuted} />}
+            <Text style={[styles.secondaryBtnText, { color: copied ? '#39B54A' : COLORS.textMuted }]}>
+              {copied ? 'Copiado' : 'Copiar URL'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Divider */}
+        <View style={{ width: '100%', height: 1, backgroundColor: COLORS.border, marginBottom: 20 }} />
+
+        {/* Volver */}
+        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 8 }} onPress={onBack} activeOpacity={0.7}>
+          <ArrowLeft size={15} color={COLORS.accent} />
+          <Text style={[styles.backLinkText, { marginLeft: 4 }]}>Volver a propuestas</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.backLinkBtn} onPress={onBack}>
-          <ArrowLeft size={14} color={COLORS.accent} /><Text style={styles.backLinkText}> Volver a propuestas</Text>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -116,7 +170,7 @@ export default function EditorScreen({ navigation, route }) {
   const proposalId = propSummary.id || propSummary._id;
 
   const [proposal, setProposal] = useState(null);
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(propSummary.status || '');
   const [products, setProducts] = useState([]);
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -140,12 +194,23 @@ export default function EditorScreen({ navigation, route }) {
   // Create product modal state
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState('');
-  const [createSku, setCreateSku] = useState('');
+  const [createSku, setCreateSku] = useState(() => genProductSku());
   const [createPrice, setCreatePrice] = useState('');
   const [createQty, setCreateQty] = useState('1');
   const [creatingProduct, setCreatingProduct] = useState(false);
+  const [taxes, setTaxes] = useState([]);
+  const [selectedTax, setSelectedTax] = useState(null);
+  const [createCurrency, setCreateCurrency] = useState('');
+  const [createView, setCreateView] = useState('form'); // 'form' | 'currency'
+  const [createCurrencySearch, setCreateCurrencySearch] = useState('');
+  const [createCurrencyResults, setCreateCurrencyResults] = useState([]);
+  const [createCurrencySearching, setCreateCurrencySearching] = useState(false);
 
   useEffect(() => {
+    getTaxes(auth.token).then((res) => {
+      const raw = Array.isArray(res) ? res : (res.data || res.docs || res.records || []);
+      if (Array.isArray(raw)) setTaxes(raw);
+    }).catch(() => { });
     Promise.all([loadProposal(), loadCatalog(), loadCurrencies(), loadPackages()])
       .then(([, catalogResult]) => {
         if (catalogResult && catalogResult.length > 0) {
@@ -185,7 +250,7 @@ export default function EditorScreen({ navigation, route }) {
       const raw = Array.isArray(res) ? res : (res.data || res.docs || res.records || []);
       const list = Array.isArray(raw) ? raw.filter((c) => c && c.code) : [];
       if (list.length > 0) setCurrencies(list);
-    } catch {}
+    } catch { }
   }
 
   async function loadCatalog() {
@@ -206,7 +271,7 @@ export default function EditorScreen({ navigation, route }) {
       const res = await getPackages(auth.token);
       const raw = Array.isArray(res) ? res : (res.docs || res.data || res.records || []);
       setPackages(Array.isArray(raw) ? raw : []);
-    } catch {}
+    } catch { }
   }
 
   function setQty(index, qty) {
@@ -260,23 +325,41 @@ export default function EditorScreen({ navigation, route }) {
       return;
     }
     if (!sku) {
-      Alert.alert('SKU requerido', 'Ingresa el SKU del producto.');
+      Alert.alert('SKU requerido', 'El SKU no puede estar vacío.');
       return;
     }
     const price = Math.max(0, parseFloat(createPrice) || 0);
     const qty = Math.max(1, parseInt(createQty) || 1);
+    const taxRate = selectedTax?.value != null ? parseFloat(selectedTax.value) : 0;
     setCreatingProduct(true);
     try {
-      const res = await createProduct({ name, sku, price, disabled: false }, auth.token);
+      const payload = {
+        name,
+        sku,
+        price,
+        description: null,
+        minimunPrice: 0,
+        minimumOrderQuantity: 0,
+        maximumOrderQuantity: 0,
+        currency: createCurrency || null,
+        tax: selectedTax != null ? String(selectedTax.value ?? selectedTax.taxRate ?? selectedTax.percentage ?? selectedTax.rate ?? '') : null,
+        unit: 'Each',
+        disabled: false,
+        hidePrice: false,
+        color: 0,
+      };
+      console.log('[Editor createProduct] payload.currency: null (fixed)');
+      const res = await createProduct(payload, auth.token);
       const created = res.data || res;
-      const newProduct = { ...(created || {}), name, sku, price };
+      const newProduct = { ...(created || {}), name, sku, price, taxRate };
       const productId = newProduct.sku || newProduct.id || newProduct._id;
       setProducts((prev) => [...prev, { id: productId, name, price, quantity: qty, product: newProduct }]);
       setCatalog((prev) => [...prev, newProduct]);
       setCreateName('');
-      setCreateSku('');
+      setCreateSku(genProductSku());
       setCreatePrice('');
       setCreateQty('1');
+      setSelectedTax(null);
       setShowCreate(false);
     } catch (e) {
       Alert.alert('Error al crear producto', e.message || 'No se pudo crear el producto en el catálogo.');
@@ -672,7 +755,7 @@ export default function EditorScreen({ navigation, route }) {
         <View style={styles.addBtnRow}>
           <TouchableOpacity
             style={[styles.addBtn, styles.addBtnFlex]}
-            onPress={() => { setCreateName(''); setCreateSku(''); setCreatePrice(''); setCreateQty('1'); setShowCreate(true); }}
+            onPress={() => { setCreateName(''); setCreateSku(genProductSku()); setCreatePrice(''); setCreateQty('1'); setSelectedTax(null); setCreateCurrency(currency); setCreateView('form'); setShowCreate(true); }}
             activeOpacity={0.7}
           >
             <Text style={styles.addBtnText}>+ Crear producto</Text>
@@ -706,67 +789,173 @@ export default function EditorScreen({ navigation, route }) {
         visible={showCreate}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowCreate(false)}
+        onRequestClose={() => { if (createView === 'currency') { setCreateView('form'); } else { setShowCreate(false); } }}
       >
         <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{t('newProduct')}</Text>
-            <TouchableOpacity onPress={() => setShowCreate(false)} style={styles.modalCloseBtn}>
-              <X size={20} color={COLORS.textMuted} />
-            </TouchableOpacity>
+            {createView === 'currency' ? (
+              <TouchableOpacity onPress={() => setCreateView('form')} style={styles.modalCloseBtn}>
+                <ArrowLeft size={20} color={COLORS.accent} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={() => setShowCreate(false)} style={styles.modalCloseBtn}>
+                <X size={20} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            )}
+            <Text style={styles.modalTitle}>{createView === 'currency' ? 'Seleccionar moneda' : 'Crear producto'}</Text>
+            <View style={{ width: 32 }} />
           </View>
-          <View style={styles.createForm}>
-            <Text style={styles.createLabel}>Nombre del producto</Text>
-            <TextInput
-              style={styles.createInput}
-              placeholder="Ej: Pintura acrílica blanca"
-              placeholderTextColor={COLORS.textMuted}
-              value={createName}
-              onChangeText={setCreateName}
-              autoFocus
-              returnKeyType="next"
-            />
-            <Text style={styles.createLabel}>SKU</Text>
-            <TextInput
-              style={styles.createInput}
-              placeholder="Ej: PROD-001"
-              placeholderTextColor={COLORS.textMuted}
-              value={createSku}
-              onChangeText={setCreateSku}
-              autoCapitalize="characters"
-              returnKeyType="next"
-            />
-            <Text style={styles.createLabel}>Precio unitario</Text>
-            <TextInput
-              style={styles.createInput}
-              placeholder="0"
-              placeholderTextColor={COLORS.textMuted}
-              value={createPrice}
-              onChangeText={setCreatePrice}
-              keyboardType="decimal-pad"
-              returnKeyType="next"
-            />
-            <Text style={styles.createLabel}>Cantidad</Text>
-            <TextInput
-              style={styles.createInput}
-              placeholder="1"
-              placeholderTextColor={COLORS.textMuted}
-              value={createQty}
-              onChangeText={setCreateQty}
-              keyboardType="number-pad"
-              returnKeyType="done"
-            />
-            <TouchableOpacity
-              style={[styles.modalAddBtn, { marginTop: 24 }, creatingProduct && { opacity: 0.6 }]}
-              onPress={addCustomProduct}
-              disabled={creatingProduct}
-              activeOpacity={0.8}
-            >
-              {creatingProduct
-                ? <ProlibuSpinner />
-                : <Text style={styles.modalAddBtnText}>{t('addProduct')}</Text>}
-            </TouchableOpacity>
-          </View>
+
+          {createView === 'form' ? (
+            <ScrollView contentContainerStyle={styles.createForm} keyboardShouldPersistTaps="handled">
+              <Text style={styles.createLabel}>Nombre del producto *</Text>
+              <TextInput
+                style={styles.createInput}
+                placeholder="Ej: Pintura acrílica blanca"
+                placeholderTextColor={COLORS.textMuted}
+                value={createName}
+                onChangeText={setCreateName}
+                returnKeyType="next"
+              />
+              <Text style={styles.createLabel}>SKU (auto-generado)</Text>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <TextInput
+                  style={[styles.createInput, { flex: 1 }]}
+                  placeholderTextColor={COLORS.textMuted}
+                  value={createSku}
+                  onChangeText={setCreateSku}
+                  autoCapitalize="characters"
+                  returnKeyType="next"
+                />
+                <TouchableOpacity
+                  style={styles.skuRegenBtn}
+                  onPress={() => setCreateSku(genProductSku())}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.skuRegenBtnText}>↻</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.createLabel}>Precio unitario</Text>
+              <TextInput
+                style={styles.createInput}
+                placeholder="0"
+                placeholderTextColor={COLORS.textMuted}
+                value={createPrice}
+                onChangeText={setCreatePrice}
+                keyboardType="decimal-pad"
+                returnKeyType="next"
+              />
+              <Text style={styles.createLabel}>Moneda</Text>
+              <TouchableOpacity
+                style={styles.currencyPickerBtn}
+                onPress={() => { setCreateCurrencySearch(''); setCreateCurrencyResults(currencies); setCreateView('currency'); }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.currencyPickerBtnText}>{createCurrency || 'Seleccionar moneda'}</Text>
+                <Text style={styles.currencyPickerArrow}>▾</Text>
+              </TouchableOpacity>
+              <Text style={styles.createLabel}>Impuesto</Text>
+              {taxes.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                  <TouchableOpacity
+                    style={[styles.taxChip, !selectedTax && styles.taxChipActive]}
+                    onPress={() => setSelectedTax(null)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.taxChipText, !selectedTax && styles.taxChipTextActive]}>Sin impuesto</Text>
+                  </TouchableOpacity>
+                  {taxes.map((tax) => {
+                    const taxId = tax.id || tax._id;
+                    const active = (selectedTax?.id || selectedTax?._id) === taxId;
+                    return (
+                      <TouchableOpacity
+                        key={String(taxId)}
+                        style={[styles.taxChip, active && styles.taxChipActive]}
+                        onPress={() => setSelectedTax(tax)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.taxChipText, active && styles.taxChipTextActive]}>
+                          {tax.taxName || tax.name || tax.description || `${tax.value}%`}
+                          {tax.value != null ? ` (${tax.value}%)` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              ) : (
+                <Text style={{ color: COLORS.textMuted, fontSize: 13, marginBottom: 8 }}>No hay impuestos disponibles</Text>
+              )}
+              <Text style={styles.createLabel}>Cantidad</Text>
+              <TextInput
+                style={styles.createInput}
+                placeholder="1"
+                placeholderTextColor={COLORS.textMuted}
+                value={createQty}
+                onChangeText={setCreateQty}
+                keyboardType="number-pad"
+                returnKeyType="done"
+              />
+              <TouchableOpacity
+                style={[styles.modalAddBtn, { marginTop: 28 }, (!createName.trim() || creatingProduct) && { opacity: 0.5 }]}
+                onPress={addCustomProduct}
+                disabled={!createName.trim() || creatingProduct}
+                activeOpacity={0.8}
+              >
+                {creatingProduct
+                  ? <ProlibuSpinner />
+                  : <Text style={styles.modalAddBtnText}>Crear producto</Text>}
+              </TouchableOpacity>
+            </ScrollView>
+          ) : (
+            <>
+              <TextInput
+                style={styles.modalSearch}
+                placeholder="Buscar por código o nombre (COP, USD...)"
+                placeholderTextColor={COLORS.textMuted}
+                value={createCurrencySearch}
+                autoCapitalize="characters"
+                onChangeText={async (text) => {
+                  setCreateCurrencySearch(text);
+                  if (!text.trim()) { setCreateCurrencyResults(currencies); return; }
+                  setCreateCurrencySearching(true);
+                  try {
+                    const res = await searchCurrencies(text.trim(), auth.token);
+                    const raw = Array.isArray(res) ? res : (res.data || res.docs || res.records || []);
+                    setCreateCurrencyResults(Array.isArray(raw) ? raw.filter((c) => c && c.code) : []);
+                  } catch { setCreateCurrencyResults([]); }
+                  finally { setCreateCurrencySearching(false); }
+                }}
+              />
+              {createCurrencySearching && <ActivityIndicator size="small" color={COLORS.accent} style={{ marginVertical: 8 }} />}
+              <FlatList
+                data={createCurrencyResults}
+                keyExtractor={(c) => c.code}
+                renderItem={({ item }) => {
+                  const active = item.code === createCurrency;
+                  return (
+                    <TouchableOpacity
+                      style={[styles.catalogItem, active && styles.catalogItemActive]}
+                      onPress={() => { setCreateCurrency(item.code); setCreateView('form'); }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.catalogItemInfo}>
+                        <Text style={[styles.catalogItemName, active && { color: COLORS.accent }]}>{item.code}</Text>
+                        {item.name ? <Text style={styles.catalogItemSku}>{item.name}</Text> : null}
+                      </View>
+                      {active && <Check size={18} color={COLORS.accent} weight="bold" />}
+                    </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={
+                  !createCurrencySearching ? (
+                    <Text style={styles.catalogEmpty}>
+                      {createCurrencySearch ? 'Sin resultados' : 'Escribe para buscar una moneda'}
+                    </Text>
+                  ) : null
+                }
+              />
+            </>
+          )}
         </SafeAreaView>
       </Modal>
 
@@ -853,7 +1042,7 @@ export default function EditorScreen({ navigation, route }) {
           />
 
           {/* Add footer */}
-          {selectedItem && (
+          {selectedItem ? (
             <View style={styles.modalFooter}>
               <Text style={styles.modalSelectedText} numberOfLines={1}>
                 {selectedItem.name}
@@ -876,9 +1065,29 @@ export default function EditorScreen({ navigation, route }) {
                 </TouchableOpacity>
               </View>
             </View>
+          ) : (
+            <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: COLORS.border }}>
+              <TouchableOpacity
+                style={{ borderWidth: 1, borderColor: COLORS.accent, borderStyle: 'dashed', borderRadius: 10, padding: 14, alignItems: 'center' }}
+                onPress={() => {
+                  setShowCatalog(false);
+                  setCreateName('');
+                  setCreateSku(genProductSku());
+                  setCreatePrice('');
+                  setCreateQty('1');
+                  setSelectedTax(null);
+                  setCreateCurrency(currency);
+                  setShowCreate(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={{ color: COLORS.accent, fontWeight: '600', fontSize: 14 }}>+ Crear producto nuevo</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </SafeAreaView>
       </Modal>
+
     </SafeAreaView>
   );
 }
@@ -1215,6 +1424,25 @@ function makeStyles(C) {
       padding: 14,
       fontSize: 15,
     },
+    skuRegenBtn: {
+      width: 48, height: 52, borderRadius: 10, borderWidth: 1, borderColor: C.border,
+      backgroundColor: C.card, justifyContent: 'center', alignItems: 'center',
+    },
+    skuRegenBtnText: { color: C.accent, fontSize: 22, fontWeight: '700' },
+    currencyPickerBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
+      borderRadius: 10, paddingHorizontal: 14, paddingVertical: 14,
+    },
+    currencyPickerBtnText: { color: C.text, fontSize: 15, fontWeight: '600' },
+    currencyPickerArrow: { color: C.textMuted, fontSize: 16 },
+    taxChip: {
+      paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
+      borderWidth: 1, borderColor: C.border, backgroundColor: C.card,
+    },
+    taxChipActive: { backgroundColor: C.accent, borderColor: C.accent },
+    taxChipText: { color: C.textMuted, fontWeight: '600', fontSize: 13 },
+    taxChipTextActive: { color: '#fff', fontWeight: '700' },
 
     // Save button
     saveBtn: {
@@ -1231,42 +1459,41 @@ function makeStyles(C) {
     successScroll: {
       flexGrow: 1,
       justifyContent: 'center',
-      padding: 28,
+      paddingHorizontal: 24,
+      paddingVertical: 40,
       alignItems: 'center',
     },
     successIconWrap: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
-      backgroundColor: C.success + '25',
-      borderWidth: 2,
-      borderColor: C.success,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 20,
+      marginBottom: 16,
     },
-    successIconText: { color: C.success, fontSize: 32, fontWeight: '900' },
     successTitle: {
       color: C.text,
-      fontSize: 24,
+      fontSize: 26,
       fontWeight: '800',
       textAlign: 'center',
-      marginBottom: 8,
+      marginBottom: 12,
+      letterSpacing: -0.5,
     },
-    successSubtitle: {
-      color: C.textMuted,
-      fontSize: 14,
-      textAlign: 'center',
-      marginBottom: 28,
+    successChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+      borderRadius: 20,
+      borderWidth: 1,
+    },
+    successChipText: {
+      fontSize: 13,
+      fontWeight: '600',
     },
     urlBox: {
       width: '100%',
       backgroundColor: C.card,
-      borderRadius: 10,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: C.border,
-      padding: 14,
-      marginBottom: 20,
+      padding: 16,
+      marginBottom: 14,
     },
     urlLabel: {
       color: C.textMuted,
@@ -1279,23 +1506,29 @@ function makeStyles(C) {
     urlText: { color: C.text, fontSize: 13, lineHeight: 20 },
     openBtn: {
       backgroundColor: C.accent,
-      borderRadius: 10,
-      padding: 16,
+      borderRadius: 12,
+      paddingVertical: 16,
+      paddingHorizontal: 24,
+      flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
       width: '100%',
       marginBottom: 10,
     },
-    openBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-    shareBtn: {
+    openBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+    secondaryBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
       borderWidth: 1,
       borderColor: C.border,
-      borderRadius: 10,
-      padding: 14,
-      alignItems: 'center',
-      width: '100%',
-      marginBottom: 24,
+      borderRadius: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      backgroundColor: C.card,
     },
-    shareBtnText: { color: C.text, fontWeight: '600', fontSize: 14 },
+    secondaryBtnText: { fontSize: 14, fontWeight: '600' },
     backLinkBtn: { padding: 8 },
     backLinkText: { color: C.accent, fontWeight: '600', fontSize: 14 },
 

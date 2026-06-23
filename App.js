@@ -19,11 +19,13 @@ import { COLORS } from './src/theme';
 import { setApiDomain, getProposal } from './src/api';
 import { ThemeProvider } from './src/ThemeContext';
 import { LanguageProvider } from './src/i18n';
+import FloatingHelpButton from './src/components/FloatingHelpButton';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
   const [initialRoute, setInitialRoute] = useState(null);
+  const [domainForHelp, setDomainForHelp] = useState(null);
   const navigationRef = useRef(null);
   const notificationListener = useRef(null);
   const responseListener = useRef(null);
@@ -36,6 +38,7 @@ export default function App() {
         return;
       }
       setApiDomain(domain);
+      setDomainForHelp(domain);
       const auth = await AsyncStorage.getItem('auth');
       setInitialRoute(auth ? 'Proposals' : 'Login');
     }
@@ -96,6 +99,7 @@ export default function App() {
             <Stack.Screen name="Reports" component={ReportsScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
           </Stack.Navigator>
+          <FloatingHelpButton domainProp={domainForHelp} />
         </NavigationContainer>
       </SafeAreaProvider>
     </ThemeProvider>

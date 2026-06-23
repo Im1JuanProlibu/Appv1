@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,29 +14,36 @@ import {
   TouchableWithoutFeedback,
   ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../ThemeContext';
-import { checkLeadByEmail, searchLeadByEmail, createLead, createProposal, getProducts, getPackages, getCurrencies, searchCurrencies, getNextNumber } from '../api';
+import { checkLeadByEmail, searchLeadByEmail, createLead, createProposal, updateProposal, changeProposalStatus, getProducts, getPackages, getCurrencies, searchCurrencies, getNextNumber, getSystemConfig, getTaxes, createProduct, createHubspotDeal, findHubspotContact, createHubspotContact, associateHubspotDealContact, findHubspotOwner, getRandomHubspotOwner, updateHubspotContactOwner } from '../api';
 import { ProlibuSpinner } from '../components/ProlibuLoader';
 import { ArrowLeft, ArrowRight, Check, X } from 'phosphor-react-native';
 import { useTranslation } from '../i18n';
 
 const COUNTRY_CODES = [
-  { code: '+57',  flag: '🇨🇴', name: 'CO' },
-  { code: '+1',   flag: '🇺🇸', name: 'US' },
-  { code: '+52',  flag: '🇲🇽', name: 'MX' },
-  { code: '+54',  flag: '🇦🇷', name: 'AR' },
-  { code: '+56',  flag: '🇨🇱', name: 'CL' },
-  { code: '+51',  flag: '🇵🇪', name: 'PE' },
-  { code: '+55',  flag: '🇧🇷', name: 'BR' },
-  { code: '+58',  flag: '🇻🇪', name: 'VE' },
+  { code: '+57', flag: '🇨🇴', name: 'CO' },
+  { code: '+1', flag: '🇺🇸', name: 'US' },
+  { code: '+52', flag: '🇲🇽', name: 'MX' },
+  { code: '+54', flag: '🇦🇷', name: 'AR' },
+  { code: '+56', flag: '🇨🇱', name: 'CL' },
+  { code: '+51', flag: '🇵🇪', name: 'PE' },
+  { code: '+55', flag: '🇧🇷', name: 'BR' },
+  { code: '+58', flag: '🇻🇪', name: 'VE' },
   { code: '+593', flag: '🇪🇨', name: 'EC' },
-  { code: '+34',  flag: '🇪🇸', name: 'ES' },
+  { code: '+34', flag: '🇪🇸', name: 'ES' },
 ];
 
 function genProposalNumber() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+function genProductSku() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const rand = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `PRD-${rand}`;
 }
 
 export default function CreateProposalScreen({ navigation, route }) {
@@ -46,7 +53,13 @@ export default function CreateProposalScreen({ navigation, route }) {
 
   const [proposalNumber, setProposalNumber] = useState(() => genProposalNumber());
   const [title, setTitle] = useState('');
-  const [currency, setCurrency] = useState('COP');
+  const [proposalStatus, setProposalStatus] = useState('Draft');
+  // Integraciones activas: Map de group → config completa (para leer pipeline, dealstage, etc.)
+  const [activeIntegrations, setActiveIntegrations] = useState(new Map());
+  // HubSpot: lista de pipelines [{label, pipeline, dealstage, deal_currency_code}]
+  const [hsPipelines, setHsPipelines] = useState([]);
+  const [selectedHsPipeline, setSelectedHsPipeline] = useState(0); // índice del pipeline seleccionado
+  const [currency, setCurrency] = useState('');
   const [currencies, setCurrencies] = useState([]);
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [currencySearch, setCurrencySearch] = useState('');
@@ -76,15 +89,31 @@ export default function CreateProposalScreen({ navigation, route }) {
 
   const [creating, setCreating] = useState(false);
 
+  // Nuevo producto (efímero)
+  const [showNewProduct, setShowNewProduct] = useState(false);
+  const [newProdName, setNewProdName] = useState('');
+  const [newProdSku, setNewProdSku] = useState(() => genProductSku());
+  const [newProdPrice, setNewProdPrice] = useState('');
+  const [newProdQty, setNewProdQty] = useState('1');
+  const [taxes, setTaxes] = useState([]);
+  const [selectedTax, setSelectedTax] = useState(null);
+  const [newProdCurrency, setNewProdCurrency] = useState('');
+  const [newProdView, setNewProdView] = useState('form'); // 'form' | 'currency'
+  const [newProdCurrencySearch, setNewProdCurrencySearch] = useState('');
+  const [newProdCurrencyResults, setNewProdCurrencyResults] = useState([]);
+  const [newProdCurrencySearching, setNewProdCurrencySearching] = useState(false);
+  const [currencyPickTarget, setCurrencyPickTarget] = useState('proposal');
+  const [creatingProduct, setCreatingProduct] = useState(false);
+
   // Modo avanzado
   const [advMode, setAdvMode] = useState(false);
   const [useConsecutive, setUseConsecutive] = useState(false);
   const [loadingNextNumber, setLoadingNextNumber] = useState(false);
   const [specialObservations, setSpecialObservations] = useState('');
-  const [expirationDate, setExpirationDate]       = useState('');
+  const [expirationDate, setExpirationDate] = useState('');
   const [expectedCloseDate, setExpectedCloseDate] = useState('');
-  const [numberOfPayments, setNumberOfPayments]   = useState('');
-  const [referenceNumber, setReferenceNumber]     = useState('');
+  const [numberOfPayments, setNumberOfPayments] = useState('');
+  const [referenceNumber, setReferenceNumber] = useState('');
 
   useEffect(() => {
     setCatalogLoading(true);
@@ -93,16 +122,48 @@ export default function CreateProposalScreen({ navigation, route }) {
         const raw = Array.isArray(res) ? res : (res.docs || res.data || res.records || []);
         const all = Array.isArray(raw) ? raw : [];
         setCatalog(all.filter((p) => !p.disabled));
-      }).catch(() => {}),
+      }).catch(() => { }),
       getPackages(auth.token).then((res) => {
         const raw = Array.isArray(res) ? res : (res.docs || res.data || res.records || []);
         setPackages(Array.isArray(raw) ? raw : []);
-      }).catch(() => {}),
+      }).catch(() => { }),
       getCurrencies(auth.token).then((res) => {
         const raw = Array.isArray(res) ? res : (res.data || res.docs || res.records || []);
         const list = Array.isArray(raw) ? raw.filter((c) => c && c.code) : [];
         if (list.length > 0) setCurrencies(list);
-      }).catch(() => {}),
+      }).catch(() => { }),
+      getSystemConfig(auth.token).then((res) => {
+        // La API devuelve un objeto plano: { defaultCurrency: "USD", ... }
+        const obj = (res && typeof res === 'object' && !Array.isArray(res)) ? res : null;
+        const val = obj?.defaultCurrency || obj?.currency || obj?.Currency;
+        if (val) setCurrency(String(val).toUpperCase());
+      }).catch(() => { }),
+      // Leer integraciones + config HubSpot en una sola llamada
+      AsyncStorage.multiGet(['account_integrations', 'hubspot_settings']).then(([[, intRaw], [, hsRaw]]) => {
+        if (intRaw) {
+          const parsed = JSON.parse(intRaw);
+          const map = new Map(
+            Object.entries(parsed)
+              .filter(([, info]) => info?.active)
+              .map(([group, info]) => [group, info?.config || {}])
+          );
+          setActiveIntegrations(map);
+          console.log('[integrations] activas desde cache:', [...map.keys()]);
+        }
+        if (hsRaw) {
+          const parsed = JSON.parse(hsRaw);
+          const list = Array.isArray(parsed) ? parsed : (parsed.pipeline || parsed.dealstage) ? [{ label: 'Default', ...parsed }] : [];
+          setHsPipelines(list);
+          console.log('[integrations] hubspot pipelines:', JSON.stringify(list));
+        }
+      }).catch((e) => { console.log('[integrations] error leyendo cache:', e?.message); }),
+      getTaxes(auth.token).then((res) => {
+        const raw = Array.isArray(res) ? res : (res.data || res.docs || res.records || []);
+        if (Array.isArray(raw)) {
+          console.log('[taxes] count:', raw.length, 'first item:', JSON.stringify(raw[0]));
+          setTaxes(raw);
+        }
+      }).catch(() => { }),
     ]).finally(() => setCatalogLoading(false));
   }, []);
 
@@ -114,19 +175,37 @@ export default function CreateProposalScreen({ navigation, route }) {
     setLeadNotFound(false);
     try {
       let lead = null;
-      try {
-        const res = await checkLeadByEmail(trimmed, auth.token);
-        const raw = Array.isArray(res) ? res[0] : (Array.isArray(res?.data) ? res.data[0] : (res?.data || res));
-        if (raw && (raw.id || raw._id)) lead = raw;
-      } catch {}
-      if (!lead) {
-        const res2 = await searchLeadByEmail(trimmed, auth.token);
-        const list = Array.isArray(res2) ? res2 : (Array.isArray(res2?.data) ? res2.data : []);
-        const match = list.find((l) => (l.email || '').toLowerCase() === trimmed.toLowerCase()) || list[0];
-        if (match && (match.id || match._id)) lead = match;
+      // 1. /lead/exist — endpoint custom que puede bypasear AC
+      console.log('[search] buscando lead vía /lead/exist:', trimmed);
+      const existResult = await checkLeadByEmail(trimmed, auth.token);
+      if (existResult && (existResult.id || existResult._id)) {
+        lead = existResult;
+        console.log('[search] ✅ lead encontrado vía /lead/exist:', lead.id || lead._id);
       }
-      lead ? setLeadFound(lead) : setLeadNotFound(true);
-    } catch {
+      // 2. /lead?email= — búsqueda estándar (sujeta a AC)
+      if (!lead) {
+        console.log('[search] no encontrado en /lead/exist, intentando /lead?email=');
+        try {
+          const res2 = await searchLeadByEmail(trimmed, auth.token);
+          const list = Array.isArray(res2) ? res2 : (Array.isArray(res2?.data) ? res2.data : []);
+          const match = list.find((l) => (l.email || '').toLowerCase() === trimmed.toLowerCase()) || list[0];
+          if (match && (match.id || match._id)) {
+            lead = match;
+            console.log('[search] ✅ lead encontrado vía /lead:', lead.id || lead._id);
+          }
+        } catch (e2) {
+          console.log('[search] /lead?email= falló:', e2?.message);
+        }
+      }
+      if (lead) {
+        console.log('[search] lead final:', lead.id || lead._id, lead.firstName, lead.lastName, lead.email);
+        setLeadFound(lead);
+      } else {
+        console.log('[search] lead no encontrado por ningún método');
+        setLeadNotFound(true);
+      }
+    } catch (err) {
+      console.log('[search] error general:', err?.message);
       setLeadNotFound(true);
     } finally {
       setSearching(false);
@@ -145,6 +224,9 @@ export default function CreateProposalScreen({ navigation, route }) {
     if (!selectedItem) return;
     const itemId = selectedItem.sku || selectedItem.id || selectedItem._id;
     const qty = Math.max(1, parseInt(addQty) || 1);
+    // Si la propuesta aún no tiene moneda definida y el producto tiene una, usarla
+    const prodCurrency = selectedItem.currency;
+    if (!currency && prodCurrency) setCurrency(String(prodCurrency).toUpperCase());
     setProducts((prev) => {
       const idx = prev.findIndex((p) => (p.sku || p.id) === itemId);
       if (idx >= 0) {
@@ -185,24 +267,52 @@ export default function CreateProposalScreen({ navigation, route }) {
       return;
     }
     setCreating(true);
+    console.log('[create] ▶ handleCreate iniciado');
     try {
       let leadId;
       if (leadFound) {
         leadId = leadFound.id || leadFound._id;
+        console.log('[create] leadId existente:', leadId);
       } else {
-        if (!firstName.trim()) {
-          Alert.alert('Nombre requerido', 'Ingresa el nombre del cliente.');
-          setCreating(false);
-          return;
-        }
+        // Lead no encontrado (puede existir pero AC lo oculta) → intentar crear
         const cleanPhone = phone.trim().replace(/\D/g, '');
-        const leadData = { firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim() };
+        const leadData = { firstName: (firstName.trim() || email.trim().split('@')[0]), lastName: lastName.trim(), email: email.trim() };
         if (cleanPhone) leadData.phone = countryCode + cleanPhone;
-        const newLead = await createLead(leadData, auth.token);
-        const created = newLead.data || newLead;
-        leadId = created.id || created._id;
+        console.log('[create] creando nuevo lead...');
+        try {
+          const newLead = await createLead(leadData, auth.token);
+          const created = newLead.data || newLead;
+          leadId = created.id || created._id;
+          console.log('[create] nuevo leadId:', leadId);
+        } catch (leadErr) {
+          // Si falla (ej: lead ya existe por AC), intentar obtener el id
+          console.log('[create] ⚠️ error creando lead:', leadErr?.message);
+          // 1. Intentar extraer el id de la respuesta del error
+          const errData = leadErr?.data || leadErr?.response?.data;
+          const existingId = errData?.id || errData?._id || errData?.data?.id || errData?.data?._id;
+          if (existingId) {
+            leadId = existingId;
+            console.log('[create] lead ya existía, usando id del error:', leadId);
+          }
+          // 2. Intentar con /lead/exist (puede no estar filtrado por AC)
+          if (!leadId) {
+            try {
+              const retry = await checkLeadByEmail(email.trim(), auth.token);
+              const raw = Array.isArray(retry) ? retry[0] : (Array.isArray(retry?.data) ? retry.data[0] : (retry?.data || retry));
+              if (raw && (raw.id || raw._id)) {
+                leadId = raw.id || raw._id;
+                console.log('[create] lead encontrado vía /lead/exist:', leadId);
+              }
+            } catch { }
+          }
+          // 3. Si no se pudo obtener el id, no se puede crear la propuesta
+          if (!leadId) {
+            Alert.alert('Error', 'No se pudo asociar el cliente. Intenta de nuevo.');
+            setCreating(false);
+            return;
+          }
+        }
       }
-      if (!leadId) throw new Error('No se pudo obtener el ID del cliente.');
 
       const productList = products.map((p) => {
         const entry = {
@@ -220,30 +330,149 @@ export default function CreateProposalScreen({ navigation, route }) {
         proposalNumber: proposalNumber.trim().toUpperCase(),
         title: title.trim(),
         relatedLead: leadId,
-        numberOfPayments: advMode && numberOfPayments ? parseInt(numberOfPayments) || 1 : 1,
+        status: proposalStatus,
+        numberOfPayments: String(advMode && numberOfPayments ? parseInt(numberOfPayments) || 1 : 1),
         currency,
         products: productList,
       };
+      // Si la cuenta tiene alguna integración activa que escucha eventos de propuesta,
+      // incluir metadata para que el backend dispare los webhooks correspondientes.
+      console.log('[create] integraciones activas:', [...activeIntegrations.keys()]);
+      if (activeIntegrations.size > 0) {
+        const hsConfig = activeIntegrations.get('hubspot');
+        // Pipeline seleccionado por el usuario en Settings (o el primero si solo hay uno)
+        const hsPipe = hsPipelines[selectedHsPipeline] || hsPipelines[0] || {};
+        payload.metadata = {
+          webhook: true,
+          agentEmail: auth.email || auth.user?.email || null,
+          // HubSpot: prioridad → pipeline seleccionado (Settings) > config del backend > default
+          ...(hsConfig && {
+            pipeline: hsPipe.pipeline || hsConfig.pipeline || hsConfig.pipelineId || 'default',
+            dealstage: hsPipe.dealstage || hsConfig.dealstage || hsConfig.dealstageId || 'qualifiedtobuy',
+            customNameDealHubspot: `${title.trim()} - ${(leadFound?.firstName || firstName.trim())} ${(leadFound?.lastName || lastName.trim())}`.trim(),
+            deal_currency_code: hsPipe.deal_currency_code || currency || 'COP',
+          }),
+        };
+        console.log('[create] metadata inyectado:', JSON.stringify(payload.metadata));
+      } else {
+        console.log('[create] sin metadata — ninguna integración activa');
+      }
       if (advMode) {
         if (specialObservations.trim()) payload.specialObservations = specialObservations.trim();
-        if (referenceNumber.trim())     payload.referenceNumber     = referenceNumber.trim();
+        if (referenceNumber.trim()) payload.referenceNumber = referenceNumber.trim();
         // Fechas: convertir DD/MM/AAAA → YYYY-MM-DD
         const parseDate = (str) => {
           if (!str) return null;
           if (str.includes('/')) {
             const [d, m, y] = str.split('/').map(Number);
-            if (y > 2000 && m >= 1 && m <= 12 && d >= 1 && d <= 31) return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            if (y > 2000 && m >= 1 && m <= 12 && d >= 1 && d <= 31) return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
           }
           return null;
         };
-        const exp  = parseDate(expirationDate);
-        const ecd  = parseDate(expectedCloseDate);
-        if (exp) payload.expirationDate    = exp;
+        const exp = parseDate(expirationDate);
+        const ecd = parseDate(expectedCloseDate);
+        if (exp) payload.expirationDate = exp;
         if (ecd) payload.expectedCloseDate = ecd;
       }
+      console.log('[create] llamando createProposal...');
       const res = await createProposal(payload, auth.token);
-      const proposal = res.data || res;
-      navigation.replace('Editor', { proposal, auth });
+      console.log('[create] propuesta creada OK');
+      const created = res.data || res;
+      const createdId = created.id || created._id;
+      console.log('[create] proposalId:', createdId);
+      // Si HubSpot está activo, crear deal directamente en HubSpot usando su API.
+      // El token viene de la config de integración (getIntegrationConfig → hubspot → token)
+      const hsConfig = activeIntegrations.get('hubspot');
+      const hsToken = hsConfig?.token;
+      if (hsToken && createdId) {
+        const hsPipe = hsPipelines[selectedHsPipeline] || hsPipelines[0] || {};
+        const lead = leadFound || { email: email.trim(), firstName: firstName.trim(), lastName: lastName.trim(), mobile: phone.trim() ? (countryCode + phone.trim().replace(/\D/g, '')) : '' };
+        // Calcular monto total de la propuesta
+        const totalAmount = productList.reduce((sum, p) => {
+          const orig = products.find((pr) => (pr.id || pr._id) === p.id);
+          const price = parseFloat(orig?.product?.price ?? orig?.price ?? p.price ?? 0) || 0;
+          return sum + (price * (p.quantity || 1));
+        }, 0);
+
+        const dealName = (payload.metadata?.customNameDealHubspot) || `${title.trim()} - ${lead.firstName} ${lead.lastName}`.trim();
+
+        console.log('[hubspot] creando deal directo en HubSpot...');
+        // Buscar al agente (usuario actual) como owner en HubSpot
+        const agentEmail = auth.email || auth.user?.email || '';
+        findHubspotOwner(agentEmail, hsToken).then(async (owner) => {
+          let ownerId = owner?.id || null;
+          if (ownerId) {
+            console.log('[hubspot] owner encontrado:', ownerId, owner?.email);
+          } else {
+            console.log('[hubspot] owner no encontrado para:', agentEmail, '— asignando al azar');
+            const randomOwner = await getRandomHubspotOwner(hsToken);
+            ownerId = randomOwner?.id || null;
+            if (ownerId) console.log('[hubspot] owner aleatorio:', ownerId, randomOwner?.email);
+          }
+
+          return createHubspotDeal({
+            dealName,
+            pipeline: hsPipe.pipeline || hsConfig.pipeline || 'default',
+            dealstage: hsPipe.dealstage || hsConfig.dealstage || 'qualifiedtobuy',
+            amount: totalAmount,
+            currencyCode: hsPipe.deal_currency_code || currency || 'COP',
+            ownerId,
+            hsToken,
+          }).then((deal) => ({ deal, ownerId }));
+        })
+          .then(async ({ deal, ownerId }) => {
+            console.log('[hubspot] ✅ deal creado:', deal.id, deal.properties?.dealname, '| owner:', ownerId);
+            // Guardar hubspotDealId en la propuesta para vincular deal ↔ propuesta
+            try {
+              await updateProposal(createdId, { metadata: { ...payload.metadata, hubspotDealId: deal.id } }, auth.token);
+              console.log('[hubspot] ✅ hubspotDealId guardado en propuesta:', deal.id);
+            } catch (upErr) {
+              console.log('[hubspot] ⚠️ no se pudo guardar hubspotDealId:', upErr?.message);
+            }
+            // Contacto: si es nuevo → asignar al mismo owner del deal.
+            // Si ya existe → NO cambiar su owner (puede pertenecer a otro agente).
+            try {
+              let contact = await findHubspotContact(lead.email, hsToken);
+              if (!contact) {
+                // Lead nuevo → contacto nuevo → mismo owner que el deal
+                contact = await createHubspotContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, phone: lead.mobile || '', ownerId, hsToken });
+                console.log('[hubspot] ✅ contacto creado:', contact.id, '| owner:', ownerId);
+              } else {
+                // Lead ya existía → contacto existente → respetar su owner actual
+                console.log('[hubspot] contacto existente:', contact.id, '| owner:', contact.properties?.hubspot_owner_id, '(no se modifica)');
+              }
+              await associateHubspotDealContact(deal.id, contact.id, hsToken);
+              console.log('[hubspot] ✅ contacto', contact.id, 'asociado al deal', deal.id);
+            } catch (ce) {
+              console.log('[hubspot] ⚠️ error con contacto:', ce?.message);
+            }
+          })
+          .catch((hsErr) => console.log('[hubspot] ⚠️ error creando deal:', hsErr?.message || hsErr));
+      }
+      // La API siempre crea en Draft; si se eligió otro estado, lo cambiamos explícitamente
+      if (proposalStatus !== 'Draft' && createdId) {
+        try {
+          await changeProposalStatus(createdId, proposalStatus, auth.token);
+          console.log('[create] estado cambiado a:', proposalStatus);
+        } catch (statusErr) {
+          // Si changeStatus falla (ej: AC bloquea el lead), intentar con updateProposal
+          console.log('[create] ⚠️ changeStatus falló:', statusErr?.message, '— intentando vía updateProposal...');
+          try {
+            await updateProposal(createdId, { status: proposalStatus }, auth.token);
+            console.log('[create] ✅ estado cambiado vía updateProposal a:', proposalStatus);
+          } catch (upErr) {
+            console.log('[create] ⚠️ updateProposal también falló:', upErr?.message);
+          }
+        }
+      }
+      const proposal = { ...created, status: proposalStatus };
+      // Si se creó como Ready o estado final, volver a la lista (como el bot).
+      // Si es Draft, abrir el editor para seguir editando.
+      if (proposalStatus !== 'Draft') {
+        navigation.goBack();
+      } else {
+        navigation.replace('Editor', { proposal, auth });
+      }
     } catch (e) {
       Alert.alert('Error', e.message || 'No se pudo crear la propuesta.');
     } finally {
@@ -251,8 +480,8 @@ export default function CreateProposalScreen({ navigation, route }) {
     }
   }
 
-  // Resumen
-  const summary = products.reduce((acc, p) => {
+  // Resumen (memoizado — solo recalcula cuando cambia products)
+  const summary = useMemo(() => products.reduce((acc, p) => {
     const price = parseFloat(p.product?.price ?? p.product?.value ?? p.product?.unitPrice ?? p.price ?? 0) || 0;
     const qty = p.quantity || 1;
     const taxRate = parseFloat(p.product?.taxRate ?? p.product?.tax ?? 0) || 0;
@@ -266,13 +495,13 @@ export default function CreateProposalScreen({ navigation, route }) {
       tax: acc.tax + taxAmt,
       total: acc.total + lineNet + taxAmt,
     };
-  }, { subtotal: 0, discount: 0, tax: 0, total: 0 });
+  }, { subtotal: 0, discount: 0, tax: 0, total: 0 }), [products]);
 
   const activeCatalog = catalogTab === 'packages' ? packages : catalog;
-  const filteredCatalog = activeCatalog.filter((p) =>
+  const filteredCatalog = useMemo(() => activeCatalog.filter((p) =>
     (p.name || '').toLowerCase().includes(catalogSearch.toLowerCase()) ||
     (p.sku || '').toLowerCase().includes(catalogSearch.toLowerCase())
-  );
+  ), [activeCatalog, catalogSearch]);
 
   const canCreate =
     proposalNumber.trim().length > 0 &&
@@ -322,17 +551,6 @@ export default function CreateProposalScreen({ navigation, route }) {
           onChangeText={setTitle}
           returnKeyType="next"
         />
-
-        {/* Moneda */}
-        <Text style={styles.label}>Moneda</Text>
-        <TouchableOpacity
-          style={styles.currencyPickerBtn}
-          onPress={() => { setCurrencySearch(''); setCurrencyResults(currencies); setShowCurrencyModal(true); }}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.currencyPickerBtnText}>{currency || 'Seleccionar moneda'}</Text>
-          <Text style={styles.currencyPickerArrow}>▾</Text>
-        </TouchableOpacity>
 
         {/* Cliente */}
         <Text style={styles.label}>{t('fieldClient')}</Text>
@@ -536,6 +754,17 @@ export default function CreateProposalScreen({ navigation, route }) {
           <View style={styles.advBlock}>
             <Text style={styles.advTitle}>Campos adicionales</Text>
 
+            {/* Moneda */}
+            <Text style={styles.label}>Moneda</Text>
+            <TouchableOpacity
+              style={styles.currencyPickerBtn}
+              onPress={() => { setCurrencyPickTarget('proposal'); setCurrencySearch(''); setCurrencyResults(currencies); setShowCurrencyModal(true); }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.currencyPickerBtnText}>{currency || 'Seleccionar moneda'}</Text>
+              <Text style={styles.currencyPickerArrow}>▾</Text>
+            </TouchableOpacity>
+
             {/* Número de propuesta */}
             <Text style={styles.label}>Número de propuesta</Text>
             <View style={styles.consecutiveRow}>
@@ -558,7 +787,7 @@ export default function CreateProposalScreen({ navigation, route }) {
                     const res = await getNextNumber(auth.token);
                     const num = res?.number ?? res?.proposalNumber ?? res?.nextNumber ?? res?.data ?? res;
                     if (num && typeof num === 'string') setProposalNumber(num);
-                  } catch {}
+                  } catch { }
                   finally { setLoadingNextNumber(false); }
                 }}
                 activeOpacity={0.7}
@@ -636,6 +865,35 @@ export default function CreateProposalScreen({ navigation, route }) {
           </View>
         )}
 
+        {/* Pipeline HubSpot selector — solo si HubSpot activa y hay 2+ pipelines */}
+        {activeIntegrations.has('hubspot') && hsPipelines.length > 1 && (
+          <View style={{ marginBottom: 16 }}>
+            <Text style={[styles.label, { marginBottom: 6 }]}>Pipeline HubSpot</Text>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              {hsPipelines.map((pipe, idx) => {
+                const active = idx === selectedHsPipeline;
+                return (
+                  <TouchableOpacity
+                    key={idx}
+                    onPress={() => setSelectedHsPipeline(idx)}
+                    activeOpacity={0.7}
+                    style={{
+                      paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+                      borderWidth: 1.5,
+                      borderColor: active ? COLORS.accent : COLORS.border,
+                      backgroundColor: active ? COLORS.accent : COLORS.card,
+                    }}
+                  >
+                    <Text style={{ color: active ? '#fff' : COLORS.text, fontWeight: '700', fontSize: 13 }}>
+                      {pipe.label || `Pipeline ${idx + 1}`}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         <TouchableOpacity
           style={[styles.createBtn, (!canCreate || creating) && { opacity: 0.4 }]}
           onPress={handleCreate}
@@ -656,7 +914,7 @@ export default function CreateProposalScreen({ navigation, route }) {
         <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Seleccionar moneda</Text>
-            <TouchableOpacity onPress={() => setShowCurrencyModal(false)} style={styles.modalCloseBtn}>
+            <TouchableOpacity onPress={() => { setShowCurrencyModal(false); }} style={styles.modalCloseBtn}>
               <X size={20} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>
@@ -689,7 +947,10 @@ export default function CreateProposalScreen({ navigation, route }) {
               return (
                 <TouchableOpacity
                   style={[styles.catalogItem, active && styles.catalogItemActive]}
-                  onPress={() => { setCurrency(item.code); setShowCurrencyModal(false); }}
+                  onPress={() => {
+                    setCurrency(item.code);
+                    setShowCurrencyModal(false);
+                  }}
                   activeOpacity={0.7}
                 >
                   <View style={styles.catalogItemInfo}>
@@ -795,6 +1056,237 @@ export default function CreateProposalScreen({ navigation, route }) {
                 </TouchableOpacity>
               </View>
             </View>
+          )}
+          {!selectedItem && (
+            <View style={styles.catalogCreateRow}>
+              <TouchableOpacity
+                style={styles.catalogCreateBtn}
+                onPress={() => {
+                  setShowCatalog(false);
+                  setNewProdName('');
+                  setNewProdSku(genProductSku());
+                  setNewProdPrice('');
+                  setNewProdQty('1');
+                  setSelectedTax(null);
+                  setNewProdCurrency(currency);
+                  setNewProdView('form');
+                  setShowNewProduct(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.catalogCreateBtnText}>+ Crear producto nuevo</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </SafeAreaView>
+      </Modal>
+
+      {/* New Product Modal */}
+      <Modal visible={showNewProduct} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { if (newProdView === 'currency') { setNewProdView('form'); } else { setShowNewProduct(false); } }}>
+        <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
+          <View style={styles.modalHeader}>
+            {newProdView === 'currency' ? (
+              <TouchableOpacity onPress={() => setNewProdView('form')} style={styles.modalCloseBtn}>
+                <ArrowLeft size={20} color={COLORS.accent} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={() => setShowNewProduct(false)} style={styles.modalCloseBtn}>
+                <X size={20} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            )}
+            <Text style={styles.modalTitle}>{newProdView === 'currency' ? 'Seleccionar moneda' : 'Crear producto'}</Text>
+            <View style={{ width: 32 }} />
+          </View>
+
+          {newProdView === 'form' ? (
+            <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
+              <Text style={styles.createLabel}>Nombre del producto *</Text>
+              <TextInput
+                style={styles.createInput}
+                placeholder="Ej: Servicio de instalación"
+                placeholderTextColor={COLORS.textMuted}
+                value={newProdName}
+                onChangeText={setNewProdName}
+                returnKeyType="next"
+              />
+              <Text style={styles.createLabel}>SKU (auto-generado)</Text>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <TextInput
+                  style={[styles.createInput, { flex: 1 }]}
+                  placeholderTextColor={COLORS.textMuted}
+                  value={newProdSku}
+                  onChangeText={setNewProdSku}
+                  autoCapitalize="characters"
+                  returnKeyType="next"
+                />
+                <TouchableOpacity
+                  style={styles.skuRegenBtn}
+                  onPress={() => setNewProdSku(genProductSku())}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.skuRegenBtnText}>↻</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.createLabel}>Precio unitario</Text>
+              <TextInput
+                style={styles.createInput}
+                placeholder="0"
+                placeholderTextColor={COLORS.textMuted}
+                value={newProdPrice}
+                onChangeText={setNewProdPrice}
+                keyboardType="decimal-pad"
+                returnKeyType="next"
+              />
+              <Text style={styles.createLabel}>Moneda</Text>
+              <TouchableOpacity
+                style={styles.currencyPickerBtn}
+                onPress={() => { setNewProdCurrencySearch(''); setNewProdCurrencyResults(currencies); setNewProdView('currency'); }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.currencyPickerBtnText}>{newProdCurrency || 'Seleccionar moneda'}</Text>
+                <Text style={styles.currencyPickerArrow}>▾</Text>
+              </TouchableOpacity>
+              <Text style={styles.createLabel}>Impuesto</Text>
+              {taxes.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                  <TouchableOpacity
+                    style={[styles.taxChip, !selectedTax && styles.taxChipActive]}
+                    onPress={() => setSelectedTax(null)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.taxChipText, !selectedTax && styles.taxChipTextActive]}>Sin impuesto</Text>
+                  </TouchableOpacity>
+                  {taxes.map((tax) => {
+                    const taxId = tax.id || tax._id;
+                    const active = (selectedTax?.id || selectedTax?._id) === taxId;
+                    return (
+                      <TouchableOpacity
+                        key={taxId}
+                        style={[styles.taxChip, active && styles.taxChipActive]}
+                        onPress={() => setSelectedTax(tax)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.taxChipText, active && styles.taxChipTextActive]}>
+                          {tax.taxName || tax.name || tax.description || `${tax.value}%`}
+                          {tax.value != null ? ` (${tax.value}%)` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              ) : (
+                <Text style={{ color: COLORS.textMuted, fontSize: 13, marginBottom: 8 }}>No hay impuestos disponibles</Text>
+              )}
+              <Text style={[styles.createLabel, { marginTop: 16 }]}>Cantidad</Text>
+              <TextInput
+                style={styles.createInput}
+                placeholder="1"
+                placeholderTextColor={COLORS.textMuted}
+                value={newProdQty}
+                onChangeText={setNewProdQty}
+                keyboardType="number-pad"
+                returnKeyType="done"
+              />
+              <TouchableOpacity
+                style={[styles.modalAddBtn, { marginTop: 28 }, (!newProdName.trim() || creatingProduct) && { opacity: 0.5 }]}
+                onPress={async () => {
+                  const name = newProdName.trim();
+                  const sku = newProdSku.trim();
+                  if (!name) { Alert.alert('Nombre requerido', 'Ingresa el nombre del producto.'); return; }
+                  if (!sku) { Alert.alert('SKU requerido', 'El SKU no puede estar vacío.'); return; }
+                  const price = Math.max(0, parseFloat(newProdPrice) || 0);
+                  const qty = Math.max(1, parseInt(newProdQty) || 1);
+                  const taxRate = selectedTax?.value != null ? parseFloat(selectedTax.value) : 0;
+                  setCreatingProduct(true);
+                  try {
+                    const taxField = selectedTax != null ? String(selectedTax.value ?? selectedTax.taxRate ?? selectedTax.percentage ?? selectedTax.rate ?? selectedTax.tax ?? '') : null;
+                    const payload = {
+                      name,
+                      sku,
+                      price,
+                      description: null,
+                      minimunPrice: 0,
+                      minimumOrderQuantity: 0,
+                      maximumOrderQuantity: 0,
+                      currency: newProdCurrency || null,
+                      tax: taxField || null,
+                      unit: 'Each',
+                      disabled: false,
+                      hidePrice: false,
+                      color: 0,
+                    };
+                    const res = await createProduct(payload, auth.token);
+                    const created = res.data || res;
+                    const newProduct = { ...(created || {}), name, sku, price, taxRate };
+                    const productId = newProduct.sku || newProduct.id || newProduct._id;
+                    // Si la propuesta aún no tiene moneda y el producto tiene una, usarla
+                    if (!currency && newProdCurrency) setCurrency(newProdCurrency.toUpperCase());
+                    setProducts((prev) => [...prev, { id: productId, name, price, quantity: qty, product: newProduct }]);
+                    setCatalog((prev) => [...prev, newProduct]);
+                    setShowNewProduct(false);
+                  } catch (e) {
+                    Alert.alert('Error al crear producto', e.message || 'No se pudo crear el producto.');
+                  } finally {
+                    setCreatingProduct(false);
+                  }
+                }}
+                disabled={!newProdName.trim() || creatingProduct}
+                activeOpacity={0.8}
+              >
+                {creatingProduct
+                  ? <ProlibuSpinner />
+                  : <Text style={styles.modalAddBtnText}>Crear producto</Text>}
+              </TouchableOpacity>
+            </ScrollView>
+          ) : (
+            <>
+              <TextInput
+                style={styles.modalSearch}
+                placeholder="Buscar por código o nombre (COP, USD...)"
+                placeholderTextColor={COLORS.textMuted}
+                value={newProdCurrencySearch}
+                autoCapitalize="characters"
+                onChangeText={async (text) => {
+                  setNewProdCurrencySearch(text);
+                  if (!text.trim()) { setNewProdCurrencyResults(currencies); return; }
+                  setNewProdCurrencySearching(true);
+                  try {
+                    const res = await searchCurrencies(text.trim(), auth.token);
+                    const raw = Array.isArray(res) ? res : (res.data || res.docs || res.records || []);
+                    setNewProdCurrencyResults(Array.isArray(raw) ? raw.filter((c) => c && c.code) : []);
+                  } catch { setNewProdCurrencyResults([]); }
+                  finally { setNewProdCurrencySearching(false); }
+                }}
+              />
+              {newProdCurrencySearching && <ActivityIndicator size="small" color={COLORS.accent} style={{ marginVertical: 8 }} />}
+              <FlatList
+                data={newProdCurrencyResults}
+                keyExtractor={(c) => c.code}
+                renderItem={({ item }) => {
+                  const active = item.code === newProdCurrency;
+                  return (
+                    <TouchableOpacity
+                      style={[styles.catalogItem, active && styles.catalogItemActive]}
+                      onPress={() => { setNewProdCurrency(item.code); setNewProdView('form'); }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.catalogItemInfo}>
+                        <Text style={[styles.catalogItemName, active && { color: COLORS.accent }]}>{item.code}</Text>
+                        {item.name ? <Text style={styles.catalogItemSku}>{item.name}</Text> : null}
+                      </View>
+                      {active && <Check size={18} color={COLORS.accent} weight="bold" />}
+                    </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={
+                  !newProdCurrencySearching ? (
+                    <Text style={styles.catalogEmpty}>
+                      {newProdCurrencySearch ? 'Sin resultados' : 'Escribe para buscar una moneda'}
+                    </Text>
+                  ) : null
+                }
+              />
+            </>
           )}
         </SafeAreaView>
       </Modal>
@@ -996,7 +1488,7 @@ function makeStyles(C) {
       shadowRadius: 4,
       elevation: 3,
     },
-    modeChipText:       { color: C.textMuted, fontWeight: '600', fontSize: 14 },
+    modeChipText: { color: C.textMuted, fontWeight: '600', fontSize: 14 },
     modeChipTextActive: { color: '#fff', fontWeight: '700' },
 
     // Tabs catálogo
@@ -1056,5 +1548,51 @@ function makeStyles(C) {
     consecutiveChipTextActive: {
       color: '#fff',
     },
+
+    // Estado inicial de la propuesta
+    statusRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+    statusChip: {
+      paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+      borderWidth: 1, borderColor: C.border, backgroundColor: C.card,
+    },
+    statusChipActive: { backgroundColor: C.accent, borderColor: C.accent },
+    statusChipText: { color: C.textMuted, fontWeight: '600', fontSize: 13 },
+    statusChipTextActive: { color: '#fff', fontWeight: '700' },
+
+    // Botón crear producto nuevo en catálogo
+    catalogCreateRow: {
+      padding: 16, borderTopWidth: 1, borderTopColor: C.border,
+    },
+    catalogCreateBtn: {
+      borderWidth: 1, borderColor: C.accent, borderStyle: 'dashed',
+      borderRadius: 10, padding: 14, alignItems: 'center',
+    },
+    catalogCreateBtnText: { color: C.accent, fontWeight: '600', fontSize: 14 },
+
+    // Formulario crear producto
+    createLabel: {
+      color: C.textMuted, fontSize: 11, fontWeight: '700',
+      textTransform: 'uppercase', letterSpacing: 1,
+      marginTop: 16, marginBottom: 6,
+    },
+    createInput: {
+      backgroundColor: C.card, color: C.text,
+      borderWidth: 1, borderColor: C.border,
+      borderRadius: 10, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15,
+    },
+    skuRegenBtn: {
+      width: 48, height: 52, borderRadius: 10, borderWidth: 1, borderColor: C.border,
+      backgroundColor: C.card, justifyContent: 'center', alignItems: 'center',
+    },
+    skuRegenBtnText: { color: C.accent, fontSize: 22, fontWeight: '700' },
+
+    // Tax chips
+    taxChip: {
+      paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
+      borderWidth: 1, borderColor: C.border, backgroundColor: C.card,
+    },
+    taxChipActive: { backgroundColor: C.accent, borderColor: C.accent },
+    taxChipText: { color: C.textMuted, fontWeight: '600', fontSize: 13 },
+    taxChipTextActive: { color: '#fff', fontWeight: '700' },
   });
 }

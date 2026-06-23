@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../ThemeContext';
-import { login, getApiBase } from '../api';
+import { login, getApiBase, getIntegrationConfig } from '../api';
 import { ProlibuLogoVertical } from '../components/ProlibuLogo';
 import { ProlibuSpinner } from '../components/ProlibuLoader';
 import { Eye, EyeSlash } from 'phosphor-react-native';
@@ -79,6 +79,24 @@ export default function LoginScreen({ navigation }) {
 
       const authData = { token, user, userId };
       await AsyncStorage.setItem('auth', JSON.stringify(authData));
+
+      // Detectar integraciones activas en segundo plano (no bloquea navegación)
+      const intGroups = ['hubspot', 'zoho', 'zapsign', 'smarthome', 'alegra', 'salesforce', 'biopas', 'spiga'];
+      Promise.allSettled(
+        intGroups.map((g) => getIntegrationConfig(token, g)
+          .then((r) => {
+            const o = (r && typeof r === 'object' && !Array.isArray(r)) ? r : null;
+            return [g, { active: !!(o?.active && o.active !== 'false'), config: o }];
+          })
+          .catch(() => [g, { active: false, config: null }])
+        )
+      ).then((results) => {
+        const obj = {};
+        results.forEach((r) => { if (r.status === 'fulfilled') { obj[r.value[0]] = r.value[1]; } });
+        AsyncStorage.setItem('account_integrations', JSON.stringify(obj));
+        console.log('[login] integraciones detectadas:', Object.keys(obj).filter(k => obj[k].active));
+      });
+
       navigation.replace('Proposals');
     } catch (e) {
       Alert.alert(t('loginErrorTitle'), e.message || t('loginErrorMsg'));

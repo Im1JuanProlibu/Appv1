@@ -5,12 +5,13 @@
 const { spawn } = require('child_process');
 const qrcode = require('qrcode-terminal');
 
-const PORT = 8081;
+const PORT = 8081;           // Metro local port
+const EXTERNAL_PORT = 80;    // Cloudflare serves on port 80 externally
 
 console.log('\n🚀 Iniciando servidor de desarrollo...\n');
 
-// 1. Iniciar Cloudflare Tunnel
-const cf = spawn('npx', ['cloudflared', 'tunnel', '--url', `http://localhost:${PORT}`], {
+// 1. Iniciar Cloudflare Tunnel (apunta al puerto 80 local donde Metro escucha)
+const cf = spawn('npx', ['cloudflared', 'tunnel', '--url', `http://localhost:${EXTERNAL_PORT}`], {
   shell: true,
   stdio: ['ignore', 'pipe', 'pipe'],
 });
@@ -27,15 +28,21 @@ function onTunnelUrl(url) {
   console.log(`\n✅ Tunnel activo: ${url}\n`);
 
   // 2. Iniciar Metro con el host del tunnel
-  const metro = spawn('npx', ['expo', 'start', '--port', String(PORT)], {
+  // Expo anuncia exp://host:PORT, pero Cloudflare sirve en puerto 80.
+  // Usamos REACT_NATIVE_PACKAGER_HOSTNAME + port 80 para que coincida.
+  const metro = spawn('npx', ['expo', 'start', '--port', String(EXTERNAL_PORT), '--go'], {
     shell: true,
     stdio: 'inherit',
-    env: { ...process.env, REACT_NATIVE_PACKAGER_HOSTNAME: host },
+    env: {
+      ...process.env,
+      REACT_NATIVE_PACKAGER_HOSTNAME: host,
+      EXPO_NO_REDIRECT_PAGE: '1',
+    },
   });
 
   // 3. Mostrar QR después de 5 segundos
   setTimeout(() => {
-    const expUrl = `exp://${host}`;
+    const expUrl = `exp://${host}:${EXTERNAL_PORT}`;
     console.log('\n\n========================================');
     console.log('     ESCANEA CON EXPO GO');
     console.log('========================================\n');
@@ -43,7 +50,7 @@ function onTunnelUrl(url) {
     console.log(`\nURL: ${expUrl}`);
     console.log('\nO en Expo Go → "Enter URL manually" → pega la URL de arriba');
     console.log('========================================\n');
-  }, 5000);
+  }, 8000);
 
   metro.on('exit', (code) => {
     cf.kill();

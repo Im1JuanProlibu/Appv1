@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { COLORS } from '../theme';
+import { useTheme } from '../ThemeContext';
 import { getAgents } from '../api';
 import { Check, ArrowRight } from 'phosphor-react-native';
 import { useTranslation } from '../i18n';
 
 export default function AgentsScreen({ navigation }) {
+  const { COLORS } = useTheme();
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
   const { t } = useTranslation();
   const [agents, setAgents] = useState([]);
   const [filtered, setFiltered] = useState([]);
@@ -184,7 +186,7 @@ export default function AgentsScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (COLORS) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.bg },
   header: {
     flexDirection: 'row',
@@ -229,7 +231,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 8,
   },
-  itemSelected: { borderColor: COLORS.accent, backgroundColor: '#1a0e08' },
+  itemSelected: { borderColor: COLORS.accent, backgroundColor: COLORS.accent + '15' },
   avatar: {
     width: 44,
     height: 44,

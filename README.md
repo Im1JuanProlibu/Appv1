@@ -13,8 +13,29 @@ Construida con **React Native + Expo SDK 54**.
 - **Dashboard de KPIs**: conversión, pérdida, pipeline, temperatura de leads
 - **Reportes**: métricas por período con múltiples agrupaciones
 - **CTA inteligente**: sugiere llamar o enviar correo/WhatsApp según comportamiento del lead
+- **Integración HubSpot directa**: crea deals, contactos, asociaciones y asigna owners automáticamente usando la API de HubSpot
+- **Multi-pipeline HubSpot**: configura múltiples pipelines en Settings, selector visual al crear propuestas
+- **Control de acceso resiliente**: maneja restricciones AC del backend sin bloquear al agente
 - **Multi-empresa**: cada empresa tiene su propio subdominio Prolibu (`empresa.prolibu.com`)
+- **Centro de ayuda integrado**: botón flotante draggable que abre chat de soporte en Tawk.to (muestra cuenta activa)
 - **Modo claro/oscuro** con paleta de marca Prolibu
+
+---
+
+## Estado del Proyecto
+
+| Hito | Estado | Detalles |
+|---|---|---|
+| **v1.0.4 Estable** | ✅ Lanzado | Todos los features core completados y testeados |
+| **HubSpot Directo** | ✅ Integrado | Deals, contactos, asociaciones y owners automáticos |
+| **Multi-Pipeline** | ✅ Funcional | Selector visual, persistencia, múltiples configuraciones |
+| **Notificaciones** | ✅ Socket.IO activo | App abierta (banner en tiempo real) |
+| **Centro de Ayuda** | ✅ Implementado | Botón flotante draggable + Tawk.to chat + información de cuenta |
+| **Push Remoto** | ⚠️ Parcial | Socket.IO funciona; push remoto requiere APK nativo (Expo Go no soporta) |
+| **Android APK** | ✅ Build completado | [Descargar preview v1.0.4](https://expo.dev/artifacts/eas/4QMUfgR2UVFQhCfiCMYUEH.apk) |
+| **iOS TestFlight** | ✅ Subido | [App Store Connect - TestFlight](https://appstoreconnect.apple.com/apps/6762252870/testflight/ios) |
+| **Performance** | ✅ Optimizado | DevDependencies separadas, useMemo en críticos, sin duplicaciones |
+| **Expo Go Compat** | ✅ Funcional | SDK 54 confirmado, Tunnel disponible |
 
 ---
 
@@ -121,8 +142,8 @@ eas build --platform ios --profile preview
 |---|---|
 | Proyecto EAS | `@prolibujuan/prolibu-v1` |
 | Package Android | `com.prolibu.v1` |
-| Bundle ID iOS | `com.prolibu.v1` |
-| Versión | `1.0.1` |
+| Bundle ID iOS | `com.prolibu.v1.app` |
+| Versión | `1.0.4` |
 | Proyecto ID EAS | `8485e9de-7a20-4641-8a90-f37185fc5389` |
 
 > Para iOS sin cuenta de pago: usar **Expo Go** en desarrollo, o Sideloadly con Apple ID gratuito (el IPA caduca cada 7 días).
@@ -205,10 +226,13 @@ Abrir app
 - Modo **Básico** (por defecto) y **Avanzado** (observaciones, fechas, pagos, referencia)
 - Número de propuesta: 6 caracteres aleatorios `[A-Z0-9]`, editable
 - Búsqueda de lead por email — lo crea automáticamente si no existe
+- Manejo de Access Control: si el lead existe pero AC lo oculta, la app intenta asociarlo sin bloquear
 - Selector de país con código telefónico (+57, +1, +52, etc.)
 - Catálogo con tabs **Productos / Paquetes**, búsqueda en tiempo real
 - Descuento por producto (%) y nota por producto (campo `comment`)
 - Resumen financiero antes de confirmar (subtotal, descuento, impuestos, total)
+- **Integración HubSpot**: al crear propuesta, crea deal + contacto + asociación en HubSpot
+- Selector de pipeline HubSpot (chips) cuando hay 2+ configurados
 
 ### EditorScreen
 - Carga completa de propuesta (`populate=all`)
@@ -252,6 +276,7 @@ Abrir app
 
 - Variables disponibles: `{nombre}`, `{propuesta}`, `{url}`
 - Botón restaurar predeterminados
+- **Configuración HubSpot**: gestión de múltiples pipelines (pipeline ID, deal stage ID, moneda)
 - Cerrar sesión / Cambiar servidor
 
 ---
@@ -260,11 +285,39 @@ Abrir app
 
 | Componente | Archivo | Descripción |
 |---|---|---|
+| `FloatingHelpButton` | `components/FloatingHelpButton.js` | FAB draggable (56x56) que abre chat Tawk.to embebido en WebView con identificación automática del usuario |
 | `ProlibuLogoVertical` | `components/ProlibuLogo.js` | Logo PNG vertical — cambia según tema |
 | `ProlibuLogoHorizontal` | `components/ProlibuLogo.js` | Logo PNG horizontal — cambia según tema |
 | `ProlibuSpinner` | `components/ProlibuLoader.js` | 3 pelotas animadas (azul, amarillo, rojo) — inline |
 | `ProlibuLoader` | `components/ProlibuLoader.js` | Overlay `absoluteFillObject` con ProlibuSpinner — zIndex 999 |
 | `BottomTabBar` | `components/BottomTabBar.js` | Tab bar personalizado con 4 tabs y punto indicador |
+
+---
+
+## Centro de Ayuda (Tawk.to Integration)
+
+**Botón flotante (FAB):**
+- Posicionado en esquina inferior derecha (`bottom: 100` para no tapar tab bar)
+- **Draggable** con `PanResponder` + `Animated` (umbral 5px para distinguir tap de drag)
+- Ícono `ChatCenteredDots` (Phosphor) en azul Prolibu (#08a0f7), 56x56px
+
+**Chat embebido (WebView):**
+- Modal fullscreen con `react-native-webview` cargando `https://tawk.to/chat/{propertyId}/{widgetId}`
+- Barra fina de cierre (32px) arriba del header de Tawk, sin bloquear sus controles
+- Respeta `SafeAreaInsets` (notch, Dynamic Island, home bar)
+- WebView se remonta fresco en cada apertura (nuevo `key` por sesión)
+
+**Identificación del usuario en soporte:**
+- Inyecta `Tawk_API.setAttributes()` via `injectedJavaScript` con:
+  - **Nombre**: `{dominio} / {nombre del usuario}`
+  - **Email**: email del usuario logueado
+  - **Dominio**: cuenta Prolibu activa
+- Reintenta cada 1s hasta que Tawk cargue (timeout 15s)
+
+**Configuración:**
+- Default: `propertyId=68eff26471d65e194c0d787d`, `widgetId=1j7kklmfg` (Prolibu platform)
+- Si la cuenta tiene Tawk propio (`GET /config/getGroup/tawk` con `active: true` y `siteId`), lo usa
+- Se integra en `App.js` fuera del Navigator (visible en todas las pantallas)
 
 ---
 
@@ -329,18 +382,22 @@ El hook `useNotifications(token, auth)` en `src/useNotifications.js`:
 - Cuando un cliente abre una propuesta, el backend envía push via [Expo Push API](https://exp.host/--/api/v2/push/send) (sin Firebase Admin SDK directo — Expo lo enruta internamente a FCM/APNs)
 - Limpieza automática de tokens expirados (`DeviceNotRegistered`)
 
-### Estado de builds
+### Estado de builds (v1.0.4)
 
-| Build | Estado | Notas |
-|---|---|---|
-| Android APK (preview) | ✅ Generado | Requiere instalar APK nativo para tokens reales |
-| iOS IPA (preview/store) | ✅ Generado | Subido a TestFlight via `eas submit` |
+| Build | Estado | Enlace | Detalles |
+|---|---|---|---|
+| Android APK (preview) | ✅ Completado | [APK Download](https://expo.dev/artifacts/eas/4QMUfgR2UVFQhCfiCMYUEH.apk) | Instalable directamente en cualquier Android |
+| iOS IPA (preview) | ✅ Completado | [EAS Build](https://expo.dev/accounts/prolibujuan/projects/prolibu-v1/builds/4e057222-854e-4049-9228-7311e17570f2) | Build disponible |
+| iOS TestFlight | ✅ Subido | [App Store Connect](https://appstoreconnect.apple.com/apps/6762252870/testflight/ios) | Procesándose por Apple (5-10 min) |
 
-### Pendiente
+> **Nota sobre push remoto:** En Expo Go (desarrollo) los push remotos no funcionan desde SDK 53. El socket.io (notificaciones en app abierta) funciona perfectamente. Para pruebas completas de push remoto, instalar el APK nativo en Android o el IPA en dispositivo físico iOS.
 
-- [ ] **Backend**: corregir validación de `expoPushToken` — rechaza formato válido `ExponentPushToken[...]`. Cambiar regex a `/^ExponentPushToken\[.+\]$/`
-- [ ] Instalar APK nativo en Android para verificar token real (Expo Go no soporta push tokens desde SDK 53)
-- [ ] Verificar recepción de push con app cerrada en dispositivo físico
+### Pendiente (optimizaciones menores)
+
+- [ ] **Backend**: Corregir validación de `expoPushToken` — el regex debe aceptar `ExponentPushToken[...]`. Cambiar a `/^ExponentPushToken\[.+\]$/`
+- [ ] **Android**: Instalar APK nativo v1.0.4 en dispositivo físico para confirmar token push real y recepción remota
+- [ ] **iOS**: Confirmar push remoto en TestFlight una vez Apple complete el procesamiento
+- [ ] **Optimización**: Algunas pantallas (DomainScreen, DashboardScreen, EditorScreen, etc.) ejecutan `makeStyles()` en cada render — puede extraerse a nivel de componente con `useMemo` para máxima eficiencia
 
 ### Comandos de build
 
@@ -413,7 +470,15 @@ Todas las peticiones (excepto login) llevan header `Authorization: Bearer {token
 | `checkLeadByEmail` | GET | `/lead/exist?key=email&val={email}` |
 | `searchLeadByEmail` | GET | `/lead?email={email}` |
 | `createLead` | POST | `/lead` |
+| `updateProposal` | PUT | `/proposal/:id` |
 | `generateShortUrl` | POST | `/urlShort/generate` |
+| `getIntegrationConfig` | GET | `/config/getGroup/{group}` |
+| `createHubspotDeal` | POST | `api.hubapi.com/crm/v3/objects/deals` |
+| `findHubspotContact` | GET | `api.hubapi.com/crm/v3/objects/contacts/{email}` |
+| `createHubspotContact` | POST | `api.hubapi.com/crm/v3/objects/contacts` |
+| `associateHubspotDealContact` | PUT | `api.hubapi.com/.../associations/...` |
+| `findHubspotOwner` | GET | `api.hubapi.com/crm/v3/owners?email=` |
+| `getRandomHubspotOwner` | GET | `api.hubapi.com/crm/v3/owners?limit=100` |
 | `getReports` | GET | `/report?limit=50` |
 | `runReport` | GET | `/report/:id/run` |
 | `downloadReport` | GET | `/report/:id/download` |
@@ -429,6 +494,8 @@ Todas las peticiones (excepto login) llevan header `Authorization: Bearer {token
 | `dark_mode` | Preferencia de tema (`"true"` / `"false"`) |
 | `prolibu_notifications` | Historial de notificaciones (JSON, máx 50) |
 | `message_templates` | Plantillas de mensajes personalizadas (JSON) |
+| `account_integrations` | Cache de integraciones activas (HubSpot, etc.) |
+| `hubspot_settings` | Array de pipelines HubSpot configurados (JSON) |
 
 ---
 
@@ -459,6 +526,7 @@ Appv1/
     ├── components/
     │   ├── ProlibuLogo.js          # Logos PNG dinámicos según tema (vertical + horizontal)
     │   ├── ProlibuLoader.js        # Spinner 3 pelotas de marca + overlay fullscreen
+    │   ├── FloatingHelpButton.js    # FAB draggable + chat Tawk.to (WebView) con identificación
     │   └── BottomTabBar.js         # Tab bar personalizado con 4 tabs y punto indicador
     └── screens/
         ├── DomainScreen.js         # Configurar servidor (subdominio Prolibu)
@@ -498,6 +566,7 @@ Pesos usados: `regular` (inactivo), `fill` (activo/énfasis), `bold` (confirmaci
 | `@react-native-async-storage/async-storage` | `2.2.0` | Persistencia local |
 | `react-native-safe-area-context` | `~5.6.0` | Áreas seguras (notch, home bar) |
 | `react-native-screens` | `~4.16.0` | Optimización de navegación |
+| `react-native-webview` | `13.15.0` | WebView para chat Tawk.to embebido |
 | `expo-notifications` | `~0.32.16` | Banners locales iOS/Android |
 | `expo-asset` | `~12.0.12` | Assets estáticos (imágenes) |
 | `expo-constants` | `~18.0.13` | Constantes de entorno |
@@ -505,9 +574,11 @@ Pesos usados: `regular` (inactivo), `fill` (activo/énfasis), `bold` (confirmaci
 | `socket.io-client` | `^4.5.4` | Tiempo real (alertas de vista) |
 | `phosphor-react-native` | `^3.0.3` | Iconografía SVG (800+ iconos) |
 | `react-native-svg` | `15.12.1` | Dependencia de Phosphor |
-| `@expo/ngrok` | `^4.1.3` | Tunnel Expo (parcheado para ngrok v3) |
-| `ngrok` | `^4.3.3` | Cliente ngrok v3 |
-| `qrcode-terminal` | `^0.12.0` | QR en consola para scripts de tunnel |
+| `@expo/ngrok` | `^4.1.3` | Tunnel Expo (dev only) |
+| `ngrok` | `^4.3.3` | Cliente ngrok v3 (dev only) |
+| `qrcode-terminal` | `^0.12.0` | QR en consola (dev only) |
+
+> `@expo/ngrok`, `ngrok` y `qrcode-terminal` están en `devDependencies` — no se incluyen en el build de producción.
 
 **DevDependencies:**
 
@@ -521,8 +592,60 @@ Pesos usados: `regular` (inactivo), `fill` (activo/énfasis), `bold` (confirmaci
 
 ## Notas de desarrollo
 
+**Versión estable actual:** `1.0.4` (buildNumber iOS: 7)
+
 - El ícono debe llamarse `icon.png` (minúsculas) — los servidores EAS de Linux son case-sensitive
 - El archivo `sas` está en `.gitignore` — contiene datos de clientes reales
 - `patch-ngrok.js` se ejecuta automáticamente en cada `npm install` vía `postinstall`
 - El socket usa `transports: ['websocket', 'polling']` — websocket primero para mejor rendimiento
 - En Android 13+ el permiso de notificaciones debe ser concedido explícitamente en el primer launch
+- Archivos de logo (4 variantes: blanco vertical/horizontal, negro vertical/horizontal) en `assets/` — se cargan dinámicamente según tema
+
+---
+
+## Resumen de estado actual (Jun 2026)
+
+### ✅ Completado
+
+- **Core app estable** — 9 pantallas funcionales, integración HubSpot, dashboard KPIs, reportes
+- **Chat de soporte integrado** — FAB draggable + Tawk.to embebido en WebView con identificación automática del usuario
+- **Expo Go compatible** — SDK 54 confirmado, scripts de tunnel disponibles (Expo, Cloudflare, ngrok)
+- **Builds generados** — APK v1.0.4 listo, iOS TestFlight procesándose
+- **Notificaciones** — Socket.IO tiempo real ✅, registrabilidad de push tokens ✅, Expo Push Service configurado ✅
+
+### ⚠️ Parcialmente completado
+
+- **Push remoto** — token registrado en backend, pero validación de regex rechaza `ExponentPushToken[...]` (backend requiere fix)
+- **Testing de push** — Socket.IO probado ✅; push remoto requiere APK nativo en dispositivo físico (Expo Go no soporta desde SDK 53)
+
+### ⏳ Pendiente para próximas versiones
+
+- [ ] Validación de push token en backend: cambiar regex a `/^ExponentPushToken\[.+\]$/`
+- [ ] Testing en dispositivo físico Android (APK nativo)
+- [ ] Confirmación push remoto en iOS TestFlight
+- [ ] Optimización de `makeStyles()` en pantallas (extraer a nivel de componente con useMemo)
+- [ ] Opcional: proxy backend para Tawk start-session API (no crítico)
+
+### Flujo de development
+
+1. **Local (Expo Go):**
+   ```bash
+   npm run tunnel  # o npm run tunnel:cf
+   # Escanear QR desde Expo Go
+   # Socket.IO notificaciones en tiempo real ✅
+   ```
+
+2. **APK Android:**
+   ```bash
+   eas build --platform android --profile preview
+   # Instalar en dispositivo físico
+   # Probar push remoto + socket.io
+   ```
+
+3. **IPA iOS:**
+   ```bash
+   eas build --platform ios --profile preview
+   eas submit --platform ios --latest  # a TestFlight
+   # Descargar de TestFlight
+   # Probar push remoto + socket.io
+   ```
