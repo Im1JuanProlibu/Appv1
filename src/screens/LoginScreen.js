@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -105,7 +105,7 @@ export default function LoginScreen({ navigation }) {
     }
   }
 
-  const styles = makeStyles(COLORS);
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>

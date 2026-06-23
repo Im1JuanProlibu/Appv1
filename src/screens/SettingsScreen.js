@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, StatusBar, ScrollView, Alert,
@@ -243,7 +243,7 @@ export default function SettingsScreen({ navigation }) {
     ? `${user.firstName} ${user.lastName || ''}`.trim()
     : (user.name || user.email || '');
 
-  const styles = makeStyles(COLORS);
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -238,7 +238,7 @@ export default function DashboardScreen({ navigation }) {
     if (viewMode === 'agent' && selectedAgent) load(selectedAgent.id, token, 200);
   }
 
-  const styles = makeStyles(COLORS);
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
 
   // Etiqueta del modo actual
   const viewLabel = viewMode === 'mine' ? `${t('myData')} · ${userName}`

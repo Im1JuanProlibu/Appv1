@@ -508,7 +508,7 @@ export default function CreateProposalScreen({ navigation, route }) {
     title.trim().length > 0 &&
     (leadFound != null || (leadNotFound && firstName.trim().length > 0));
 
-  const styles = makeStyles(COLORS);
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>

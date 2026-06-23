@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -53,7 +53,7 @@ function parseProducts(raw) {
 // ─── Header ─────────────────────────────────────────────────────────────────
 function Header({ title, number, onBack }) {
   const { colors: COLORS } = useTheme();
-  const styles = makeStyles(COLORS);
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
   return (
     <View style={styles.header}>
       <TouchableOpacity onPress={onBack} style={styles.backBtn}>
@@ -72,7 +72,7 @@ function Header({ title, number, onBack }) {
 // ─── Success screen ──────────────────────────────────────────────────────────
 function SuccessScreen({ propUrl, proposal, status, onBack }) {
   const { colors: COLORS } = useTheme();
-  const styles = makeStyles(COLORS);
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
   const [copied, setCopied] = React.useState(false);
 
   const statusColor = { Draft: '#FDBD00', Ready: '#4285F4', Approved: '#39B54A', Denied: '#D4145A' }[status] || COLORS.accent;
@@ -491,7 +491,7 @@ export default function EditorScreen({ navigation, route }) {
   );
   const grandTotal = summary.total;
 
-  const styles = makeStyles(COLORS);
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {

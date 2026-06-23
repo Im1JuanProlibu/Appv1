@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -440,7 +440,7 @@ export default function ReportsScreen({ navigation }) {
     return <Text style={styles.emptyHint}>{t('noDataHint2')}</Text>;
   }
 
-  const styles = makeStyles(COLORS);
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

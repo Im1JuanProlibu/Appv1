@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -40,7 +40,7 @@ export default function DomainScreen({ navigation }) {
     });
   }
 
-  const styles = makeStyles(COLORS);
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>

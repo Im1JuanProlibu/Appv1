@@ -623,8 +623,8 @@ Pesos usados: `regular` (inactivo), `fill` (activo/énfasis), `bold` (confirmaci
 - [ ] Validación de push token en backend: cambiar regex a `/^ExponentPushToken\[.+\]$/`
 - [ ] Testing en dispositivo físico Android (APK nativo)
 - [ ] Confirmación push remoto en iOS TestFlight
-- [ ] Optimización de `makeStyles()` en pantallas (extraer a nivel de componente con useMemo)
-- [ ] Opcional: proxy backend para Tawk start-session API (no crítico)
+- [x] ~~Optimización de `makeStyles()` en pantallas~~ — todas las pantallas usan `useMemo(() => makeStyles(COLORS), [COLORS])`
+- [x] ~~Tawk.to chat de soporte~~ — embebido via WebView con identificación de usuario
 
 ### Flujo de development
 

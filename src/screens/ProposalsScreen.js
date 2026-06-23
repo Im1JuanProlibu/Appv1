@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -786,7 +786,7 @@ export default function ProposalsScreen({ navigation, route }) {
   const totalCount = allProposals.length;
   const visibleCount = sections.reduce((acc, s) => acc + s.data.length, 0);
 
-  const styles = makeStyles(COLORS);
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -1567,7 +1567,7 @@ function FilterPanel({ visible, onClose, initialValues, leads, agents, isAdmin, 
     );
   }
 
-  const styles = makeStyles(COLORS);
+  const styles = useMemo(() => makeStyles(COLORS), [COLORS]);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
